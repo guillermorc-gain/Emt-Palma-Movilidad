@@ -189,6 +189,8 @@
         .app-header-num:empty,.app-header-lugar:empty{display:none;}
         .ops-btn{display:flex;align-items:center;gap:8px;width:100%;padding:13px 0;background:none;border:none;
                  border-top:1px solid var(--bord);font-size:14px;font-weight:700;cursor:pointer;text-align:left;}
+        .ops-btn.azul{color:#3b82f6;}
+        body.dark .ops-btn.azul{color:#6699ff;}
         .ops-btn-v{margin-left:auto;color:var(--c1);font-weight:800;font-size:13px;}
         .ops-btn-f{color:var(--txt2);font-size:18px;}
         /* Ajustes: apartados que se abren y se cierran, como en la de conductores */
@@ -506,9 +508,8 @@
             <div class="ops-section">
                 <button class="ops-title" onclick="app.toggleSection(this)">🔑 Cuenta <span class="ops-chevron">›</span></button>
                 <div class="ops-body">
-                    <div class="ops-btns" style="border-top:none;">
-                        <button class="btn peli chico" onclick="app.confirmarCerrarSesion()">🚪 Cerrar sesión</button>
-                    </div>
+                    <button class="ops-btn azul" style="border-top:none;" onclick="app.confirmarCerrarSesion()">🚪 Cerrar Sesión <span class="ops-btn-f" style="margin-left:auto;">›</span></button>
+                    <button class="ops-btn" onclick="app.confirmarBorrarCuenta()">🗑️ Borrar datos y cerrar sesión <span class="ops-btn-f" style="margin-left:auto;">›</span></button>
                 </div>
             </div>
 

@@ -6754,6 +6754,12 @@ const app = {
         } catch (_) { /* con lo cacheado vale; si no hay, sale la inicial */ }
     },
 
+    // Las fichas dicen por qué apps ha entrado cada uno. Las de antes de eso
+    // no lo dicen, y esas solo podían venir de la app de conductores.
+    _sinAppTrabajador(u) {
+        return !u?.ficticio && Array.isArray(u?.apps) && u.apps.length > 0 && !u.apps.includes('trabajador');
+    },
+
     _renderConductores() {
         const cont = document.getElementById('condList');
         const fecha = this._fechaOffset(this._puestosOffset);
@@ -6854,14 +6860,18 @@ const app = {
                     <span class="cond-chev">▾</span>
                 </div>
                 <div class="cond-cuerpo">
-                    <div class="cond-stats">
+                    ${
+                    // Quien solo entra por Control de acceso no registra sus
+                    // horas en la app de conductores: sin ella esos cuatro
+                    // números serían ceros que no dicen nada.
+                    this._sinAppTrabajador(u) ? '' : `<div class="cond-stats">
                         <div class="cond-stat"><div class="cond-stat-v">${t.mes.toFixed(1)}</div><div class="cond-stat-l">este mes</div></div>
                         <div class="cond-stat"><div class="cond-stat-v">${t.extras.toFixed(1)}</div><div class="cond-stat-l">horas extras</div></div>
                         <div class="cond-stat"><div class="cond-stat-v">${t.realizadas.toFixed(1)}</div><div class="cond-stat-l">realizadas</div></div>
                         <div class="cond-stat"><div class="cond-stat-v">${t.restantes.toFixed(1)}</div><div class="cond-stat-l">restantes</div></div>
-                    </div>
+                    </div>`}
                     ${t.diasBaja ? `<div class="cond-baja">BE: ${t.diasBaja} día${t.diasBaja === 1 ? '' : 's'} · objetivo ${t.objetivo}h en vez de ${u.horasAnuales || 777}h</div>` : ''}
-                    <div class="cond-ver">${ver} · actualizado ${u.actualizado
+                    <div class="cond-ver">${this._sinAppTrabajador(u) ? '🛡️ Solo Control de acceso' : ver} · actualizado ${u.actualizado
                         ? new Date(u.actualizado).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
                         : 'nunca'}</div>
                 </div>
