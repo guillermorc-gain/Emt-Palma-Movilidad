@@ -18,6 +18,12 @@
     <style>
         :root{--c1:#1E8449;--c2:#186A3B;--card:#fff;--txt:#1b2a33;--txt2:#6b7a85;--bord:#e4e8eb;--fondo:#f5f7f8;}
         body.rol-gc{--c1:#943126;--c2:#7B241C;}
+        /* El color que se elija en Opciones → Apariencia, igual que en las otras */
+        body.theme-azul {--c1:#1565C0;--c2:#003A99;}
+        body.theme-verde{--c1:#00897B;--c2:#004D40;}
+        body.theme-fuego{--c1:#F4511E;--c2:#BF360C;}
+        body.theme-acero{--c1:#546E7A;--c2:#263238;}
+        body.theme-rojo {--c1:#E53935;--c2:#B71C1C;}
         body.dark{--card:#1b2430;--txt:#e6eaee;--txt2:#93a1ad;--bord:#2b3644;--fondo:#121a24;}
 
         *{margin:0;padding:0;box-sizing:border-box;}
@@ -159,6 +165,31 @@
                       border-radius:50%;transition:0.2s;}
         .sw input:checked+i{background:var(--c1);}
         .sw input:checked+i::before{transform:translateX(20px);}
+        .ops-field{padding:12px 0;border-top:1px solid var(--bord);display:flex;flex-direction:column;gap:7px;}
+        .ops-field>b{font-size:13.5px;font-weight:700;}
+        .ops-btns{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--bord);}
+        .tema-dots{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+        .tema-dot{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;flex:none;}
+        .tema-dot.active{border-color:rgba(0,0,0,0.45);}
+        body.dark .tema-dot.active{border-color:rgba(255,255,255,0.7);}
+        .freq-row{display:flex;gap:6px;flex-wrap:wrap;}
+        .freq-opt{flex:1;min-width:92px;}
+        .freq-opt input{display:none;}
+        .freq-opt span{display:block;text-align:center;padding:9px 6px;border:1.5px solid var(--bord);border-radius:10px;
+                       font-size:12.5px;font-weight:700;cursor:pointer;}
+        .freq-opt input:checked+span{border-color:var(--c1);color:var(--c1);
+                                     background:color-mix(in srgb,var(--c1) 10%,transparent);}
+
+        /* ── La foto de perfil, arriba a la derecha como en la de conductores ── */
+        .profile-btn{margin-left:auto;width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,0.45);
+                     background:rgba(255,255,255,0.2);color:#fff;font-weight:800;font-size:16px;cursor:pointer;flex:none;
+                     display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0;}
+        .profile-btn img,.avatar-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+        .avatar-preview{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+                        font-size:26px;color:#fff;font-weight:800;flex:none;overflow:hidden;}
+        .avatar-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+        .avatar-option{width:100%;aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;font-size:22px;
+                       display:flex;align-items:center;justify-content:center;}
 
         /* ── Cuadros ── */
         .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:900;
@@ -236,7 +267,7 @@
                 <div class="app-header-tit" id="cabeceraTitulo">🛡️ Control de acceso</div>
                 <div class="app-header-sub" id="cabeceraSub"></div>
             </div>
-            <button class="app-header-btn" onclick="app.mostrarOpciones()" title="Opciones">⚙️</button>
+            <button class="profile-btn" id="profileBtn" onclick="app.mostrarOpciones()" title="Opciones"></button>
         </div>
 
         <div class="contenido" id="contenido">
@@ -336,10 +367,80 @@
         </div>
         <div class="contenido">
             <div class="card">
+                <h2>👤 Perfil</h2>
+                <div class="ops-row" style="gap:14px;">
+                    <div id="profileAvatarPreview" class="avatar-preview"></div>
+                    <button class="btn sec chico" style="width:auto;padding:9px 13px;" onclick="app.mostrarAvatarPicker()">Cambiar avatar</button>
+                </div>
+                <!-- El número de conductor solo en la de la garita: sale solo
+                     en cada parte nuevo, como el de trabajador en la suya. -->
+                <div class="ops-field" id="opsConductor" hidden>
+                    <b>🚌 Número de conductor</b>
+                    <input type="text" inputmode="numeric" id="numConductor" placeholder="Tu número" onchange="app.guardarNumConductor(this.value)">
+                    <span class="sub">Se pone solo en cada parte nuevo.</span>
+                </div>
+                <div class="ops-field">
+                    <b>Cuenta Google</b>
+                    <div id="perfilNombre" style="font-size:14px;font-weight:600;"></div>
+                    <div id="perfilEmail" class="sub"></div>
+                    <button class="btn peli chico" onclick="app.confirmarCerrarSesion()">🚪 Cerrar sesión de Google</button>
+                </div>
+            </div>
+            <div class="card">
                 <h2>🎨 Apariencia</h2>
                 <div class="ops-row">
                     <div class="ops-row-t"><b>Modo oscuro</b><span>Más cómodo en el turno de noche</span></div>
                     <label class="sw"><input type="checkbox" id="darkModeToggle" onchange="app.toggleDarkMode()"><i></i></label>
+                </div>
+                <div class="ops-field">
+                    <b>🎨 Color de la app</b>
+                    <div class="tema-dots">
+                        <div class="tema-dot" id="dot-propio" onclick="app.seleccionarTema('')" title="El de esta aplicación"></div>
+                        <div class="tema-dot" id="dot-azul"  style="background:linear-gradient(135deg,#1565C0,#003A99);" onclick="app.seleccionarTema('azul')"  title="Azul"></div>
+                        <div class="tema-dot" id="dot-verde" style="background:linear-gradient(135deg,#00897B,#004D40);" onclick="app.seleccionarTema('verde')" title="Verde"></div>
+                        <div class="tema-dot" id="dot-fuego" style="background:linear-gradient(135deg,#F4511E,#BF360C);" onclick="app.seleccionarTema('fuego')" title="Naranja"></div>
+                        <div class="tema-dot" id="dot-acero" style="background:linear-gradient(135deg,#546E7A,#263238);" onclick="app.seleccionarTema('acero')" title="Acero"></div>
+                        <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>🔔 Notificaciones</h2>
+                <div class="ops-field" style="border-top:none;padding-top:0;">
+                    <b>🔊 Sonido de notificación</b>
+                    <select id="notifSoundSelect" onchange="app.guardarSonidoNotif(this.value)">
+                        <option value="default">Predeterminado</option>
+                        <option value="notif_ding">Ding</option>
+                        <option value="notif_campana">Campana</option>
+                        <option value="notif_alerta">Alerta</option>
+                        <option value="notif_silbido">Silbido</option>
+                        <option value="notif_doble">Doble pitido</option>
+                        <option value="notif_fanfare">Fanfare</option>
+                        <option value="notif_suave">Suave</option>
+                    </select>
+                    <span class="sub">Solo en Android. Los cambios aplican desde la próxima notificación.</span>
+                </div>
+                <div class="ops-btns">
+                    <button class="btn sec chico" onclick="app.probarNotificacion()">🔔 Probar notificación</button>
+                </div>
+            </div>
+            <div class="card">
+                <h2>☁️ Copia de seguridad</h2>
+                <div id="lastBackupInfo" class="sub" style="margin-bottom:10px;">Todavía no se ha hecho ninguna copia.</div>
+                <div class="ops-field">
+                    <b>🔄 Copia automática</b>
+                    <div class="freq-row">
+                        <label class="freq-opt"><input type="radio" name="backupFreq" value="hora"   onchange="app.guardarFrecuenciaCopia('hora')"><span>Cada hora</span></label>
+                        <label class="freq-opt"><input type="radio" name="backupFreq" value="dia"    onchange="app.guardarFrecuenciaCopia('dia')"><span>Cada día</span></label>
+                        <label class="freq-opt"><input type="radio" name="backupFreq" value="cerrar" onchange="app.guardarFrecuenciaCopia('cerrar')"><span>Al cerrar la app</span></label>
+                    </div>
+                    <span class="sub" id="backupQue">Se guardan en tu Google Drive, en <b>Movilidad Emt</b>, tus partes y tus ajustes.</span>
+                </div>
+                <div class="ops-btns">
+                    <button class="btn sec chico" onclick="app.hacerCopiaEnDrive()">☁️ Guardar copia en Google Drive</button>
+                    <button class="btn sec chico" onclick="app.restaurarDesdeDrive()">⬇️ Restaurar desde Google Drive</button>
+                    <button class="btn sec chico" onclick="app.exportarDatos()">⬆️ Exportar datos JSON</button>
+                    <button class="btn sec chico" onclick="app.importarDatos()">⬇️ Importar archivo JSON</button>
                 </div>
             </div>
             <div class="card">
@@ -353,7 +454,6 @@
                     <button class="btn sec chico" style="width:auto;padding:9px 13px;" onclick="app.instalarApp()">Descargar</button>
                 </div>
             </div>
-            <button class="btn peli" onclick="app.confirmarCerrarSesion()">Cerrar sesión</button>
         </div>
     </div>
 
@@ -390,6 +490,22 @@
         <div class="modal-pie">
             <button class="btn sec chico" onclick="app.cerrarModal()">Cancelar</button>
             <button class="btn chico" onclick="app.confirmarModal()">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Elegir avatar -->
+<div class="modal" id="avatarPickerModal">
+    <div class="modal-card" style="max-width:380px;">
+        <div class="modal-head"><h3>Elige tu avatar</h3>
+            <button class="modal-x" onclick="app.cerrarAvatarPicker()">×</button></div>
+        <div class="modal-body">
+            <div class="avatar-grid" id="avatarGrid"></div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <button class="btn chico" id="googlePhotoBtn" onclick="app.usarFotoGoogle()">🖼️ Usar foto de Google</button>
+                <button class="btn chico" onclick="app.subirFotoPerfil()">📷 Subir foto</button>
+                <button class="btn sec chico" onclick="app.cerrarAvatarPicker()">Cancelar</button>
+            </div>
         </div>
     </div>
 </div>
