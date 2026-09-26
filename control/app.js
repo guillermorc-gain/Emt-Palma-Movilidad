@@ -151,6 +151,8 @@ const app = {
             const modoLogo = document.getElementById('modoLogo');
             if (modoLogo) modoLogo.src = 'icons/icon-gc-192.png';
             poner('modoTit', NOMBRE_APP);
+            const ex = document.getElementById('paExportar');
+            if (ex) ex.hidden = false;
         }
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta && ES_GC) meta.content = '#7B241C';
@@ -1283,6 +1285,7 @@ const app = {
         const f = document.getElementById('rFecha');
         if (f) f.value = this._aISO(this._dia);
         this._pintarDiaLargo();
+        this._prepararSugerencias();
         this._limpiarFormulario();
         try {
             const c = JSON.parse(localStorage.getItem('registrosCache') || '[]');
@@ -1348,21 +1351,74 @@ const app = {
         const mapa = {};
         lista.forEach(v => { const k = this._claveMatricula(v?.matricula); if (k) mapa[k] = v; });
         this._visitantes = mapa;
-        const opciones = (id, valores) => {
-            const dl = document.getElementById(id);
-            if (!dl) return;
-            dl.innerHTML = [...new Set(valores.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
-                .map(x => `<option value="${esc(x)}"></option>`).join('');
-        };
-        // En la lista de matrículas se ve también de quién es, para reconocerla
-        const dm = document.getElementById('dlMatriculas');
-        if (dm) dm.innerHTML = Object.values(mapa)
-            .sort((a, b) => (a.matricula || '').localeCompare(b.matricula || ''))
-            .map(v => `<option value="${esc(v.matricula)}">${esc([v.nombre, v.empresa].filter(Boolean).join(' · '))}</option>`).join('');
-        opciones('dlEmpresas', Object.values(mapa).map(v => v.empresa));
-        opciones('dlVehiculos', Object.values(mapa).map(v => v.vehiculo));
-        opciones('dlDepartamentos', ['Taller', 'Obra', 'Paquetería taller',
-            ...Object.values(mapa).map(v => v.departamento).filter(d => d && d !== '-')]);
+    },
+
+    // ── Sugerencias al escribir ──────────────────────────────────────────────
+    //
+    // Debajo del campo, lo que ya se conoce y encaja con lo escrito. En la
+    // matrícula basta con ir poniendo números: salen las que los llevan, las
+    // que empiezan por ellos primero, con de quién son.
+
+    _opcionesDe(campo, q) {
+        const vs = Object.values(this._visitantes);
+        if (campo === 'matricula') {
+            const k = this._claveMatricula(q);
+            if (!k) return [];
+            return vs.filter(v => this._claveMatricula(v.matricula).includes(k))
+                .sort((a, b) => (this._claveMatricula(b.matricula).startsWith(k) - this._claveMatricula(a.matricula).startsWith(k))
+                                || (a.matricula || '').localeCompare(b.matricula || ''))
+                .map(v => ({ valor: v.matricula, texto: v.matricula,
+                             sub: [v.nombre, v.empresa].filter(Boolean).join(' · ') }));
+        }
+        const t = String(q || '').trim().toLowerCase();
+        const base = campo === 'departamento' ? ['Taller', 'Obra', 'Paquetería taller'] : [];
+        const valores = [...new Set([...base, ...vs.map(v => v[campo])].filter(x => x && x !== '-'))];
+        return valores.filter(x => !t || x.toLowerCase().includes(t))
+            .filter(x => x.toLowerCase() !== t)
+            .sort((a, b) => (b.toLowerCase().startsWith(t) - a.toLowerCase().startsWith(t)) || a.localeCompare(b, 'es'))
+            .map(x => ({ valor: x, texto: x }));
+    },
+
+    _prepararSugerencias() {
+        const campos = { rMatricula: 'matricula', rEmpresa: 'empresa', rVehiculo: 'vehiculo', rDepartamento: 'departamento',
+                         eMatricula: 'matricula', eEmpresa: 'empresa', eVehiculo: 'vehiculo', eDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, campo]) => {
+            const input = document.getElementById(id);
+            if (!input || input._sug) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'sug-wrap';
+            wrap.style.marginBottom = input.style.marginBottom;
+            input.style.marginBottom = '0';
+            input.parentNode.insertBefore(wrap, input);
+            wrap.appendChild(input);
+            const caja = document.createElement('div');
+            caja.className = 'sug';
+            caja.hidden = true;
+            wrap.appendChild(caja);
+            input._sug = caja;
+            const pintar = () => {
+                const ops = this._opcionesDe(campo, input.value).slice(0, 8);
+                caja.innerHTML = ops.map((o, i) => `<div class="sug-op" data-i="${i}"><b>${esc(o.texto)}</b>${
+                    o.sub ? `<span>${esc(o.sub)}</span>` : ''}</div>`).join('');
+                caja.hidden = !ops.length || document.activeElement !== input;
+                caja._ops = ops;
+            };
+            input.addEventListener('input', pintar);
+            input.addEventListener('focus', pintar);
+            input.addEventListener('blur', () => setTimeout(() => { caja.hidden = true; }, 150));
+            // mousedown y no click: con click el campo pierde el foco antes y la
+            // lista se cierra sin haber elegido
+            caja.addEventListener('mousedown', e => e.preventDefault());
+            caja.addEventListener('click', e => {
+                const op = caja._ops?.[+e.target.closest('.sug-op')?.dataset.i];
+                if (!op) return;
+                input.value = op.valor;
+                caja.hidden = true;
+                input.dispatchEvent(new Event('input'));
+                caja.hidden = true;
+                if (id === 'rMatricula') this.buscarMatricula();
+            });
+        });
     },
 
     async cargarVisitantes() {
@@ -1399,7 +1455,10 @@ const app = {
         });
         if (v) el.value = v.matricula || el.value;
         const clave = this._claveMatricula(el.value);
-        this._pintarPista(!clave ? '' : v ? `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`
+        // "Nueva" solo si no hay ninguna que la contenga: a medio escribir aún
+        // puede ser una conocida, y para eso están las sugerencias
+        const aMedias = !v && Object.keys(this._visitantes).some(k => k.includes(clave));
+        this._pintarPista(!clave || aMedias ? '' : v ? `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`
             : '🆕 Matrícula nueva: se recordará al registrarla');
     },
 
@@ -1478,6 +1537,36 @@ const app = {
         } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
     },
 
+    // La hora de salida escrita a mano, por si no se apuntó en el momento
+    ponerHoraSalida(id) {
+        const r = this._porId[id];
+        if (!r) return;
+        this._salidaDe = id;
+        const t = document.getElementById('hsTitulo');
+        if (t) t.textContent = [r.matricula, r.nombre].filter(Boolean).join(' · ') + ` · entró a las ${r.entrada}`;
+        const h = document.getElementById('hsHora');
+        if (h) h.value = r.fecha === this._aClave(this._hoyISO()) ? this._horaAhora() : '';
+        document.getElementById('horaSalidaModal').classList.add('show');
+        setTimeout(() => h?.focus(), 50);
+    },
+
+    cerrarHoraSalida() { document.getElementById('horaSalidaModal').classList.remove('show'); this._salidaDe = null; },
+
+    async guardarHoraSalida() {
+        const r = this._porId[this._salidaDe];
+        const hora = document.getElementById('hsHora')?.value || '';
+        if (!r) return;
+        if (!/^\d{2}:\d{2}$/.test(hora)) { this._mostrarToast('❌ Pon la hora de salida', 3000); return; }
+        if (hora < r.entrada) { this._mostrarToast('❌ La salida no puede ser antes que la entrada', 3500); return; }
+        try {
+            const data = await this._enviarRegistro({ id: r.id, salida: hora });
+            this.cerrarHoraSalida();
+            this._renderDia();
+            this._renderHistorial();
+            this._mostrarToast(`🚪 Salida a las ${data.salida}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
     // ── Lo apuntado ──────────────────────────────────────────────────────────
 
     _tarjeta(r, conFecha) {
@@ -1494,7 +1583,9 @@ const app = {
             ${quien ? `<div class="re-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="re-que">${esc(que)}</div>` : ''}
             ${ES_GC && r.creadoPor ? `<div class="re-que">Apuntado por ${esc(r.creadoPor)}</div>` : ''}
-            ${abierto ? `<button class="btn chico re-salida" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
+            ${!r.salida ? `<div class="re-btns">${abierto
+                ? `<button class="btn chico" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
+                <button class="btn sec chico" onclick="event.stopPropagation();app.ponerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
         </div>`;
     },
 
@@ -1639,37 +1730,268 @@ const app = {
             });
     },
 
-    // ── Exportar ─────────────────────────────────────────────────────────────
+    // ── Exportar (solo en la del puesto) ─────────────────────────────────────
+    //
+    // Lo que se ve en el historial, con el mismo diseño que la hoja "Listado"
+    // que se llevaba a mano: el título arriba, la cabecera en azul claro, todo
+    // centrado y la fecha solo en la primera fila de cada día. Un mes, un
+    // fichero "Control de acceso - Agosto 2026"; varios, uno por año con una
+    // hoja por mes. En Google Sheets, Excel o CSV, como en la de conductores.
 
-    // Las mismas columnas que la hoja "Listado" que se llevaba a mano
+    MESES: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
+            'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     CABECERAS: ['Fecha', 'Nombre y apellidos', 'Matrícula', 'Marca y modelo', 'Empresa',
-                'H. Entrada', 'H. Salida', 'Departamento', 'Apuntado por'],
+                'H. Entrada', 'H. Salida', 'Departamento'],
+    ANCHOS: [13.7, 25.6, 13, 30, 22.6, 13.9, 13.9, 28.8],
+
+    // Los registros de lo que se está viendo, por meses, del más viejo al más nuevo
+    _mesesExport() {
+        const lista = this._enHistorial().slice().sort((a, b) =>
+            (a.fecha || '').localeCompare(b.fecha || '') || (a.entrada || '').localeCompare(b.entrada || ''));
+        const meses = [];
+        lista.forEach(r => {
+            const k = String(r.fecha).slice(0, 6);
+            let m = meses[meses.length - 1];
+            if (!m || m.clave !== k) meses.push(m = { clave: k, anio: k.slice(0, 4),
+                                                      nombre: this.MESES[+k.slice(4, 6) - 1], registros: [] });
+            m.registros.push(r);
+        });
+        const anios = [...new Set(meses.map(m => m.anio))];
+        meses.forEach(m => { m.hoja = anios.length > 1 ? `${m.nombre} ${m.anio}` : m.nombre;
+                             m.titulo = `Control de acceso · ${m.nombre} ${m.anio}`; });
+        const nombre = meses.length === 1 ? `Control de acceso - ${meses[0].nombre} ${meses[0].anio}`
+                     : `Control de acceso - ${anios.length > 1 ? anios[0] + '-' + anios[anios.length - 1] : anios[0]}`;
+        return { meses, nombre, total: lista.length };
+    },
 
     exportarRegistros() {
-        const lista = this._enHistorial().reverse();   // del más viejo al más nuevo
-        if (!lista.length) { this._mostrarToast('No hay registros que exportar', 3000); return; }
-        const filas = lista.map(r => [
-            (this._aISO(r.fecha) || '').split('-').reverse().join('/'),
-            r.nombre, r.matricula, r.vehiculo, r.empresa, r.entrada, r.salida, r.departamento, r.creadoPor,
-        ]);
-        // Punto y coma y BOM, que es lo que abre bien el Excel en español
-        const csv = '﻿' + [this.CABECERAS, ...filas]
-            .map(f => f.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
-        const nombre = `control-acceso-${this._hoyISO()}.csv`;
-        // En el móvil lo guarda el propio Android en Descargas; el navegador
-        // no puede hacerlo y se baja como cualquier otro archivo.
-        if (window.AndroidBridge?.saveFile) {
-            try {
-                window.AndroidBridge.saveFile(csv, nombre);
-                return;
-            } catch (_) { /* si el puente falla, se baja como en el navegador */ }
+        const { meses, nombre, total } = this._mesesExport();
+        if (!total) { this._mostrarToast('No hay registros que exportar', 3000); return; }
+        const res = document.getElementById('expResumen');
+        if (res) res.textContent = `${total} registros · ${meses.length === 1 ? meses[0].nombre + ' ' + meses[0].anio
+            : meses.length + ' meses, una hoja por mes'} · «${nombre}»`;
+        document.getElementById('expModal').classList.add('show');
+    },
+
+    cerrarExport() { document.getElementById('expModal').classList.remove('show'); },
+
+    _fechaCorta(f) { return `${f.slice(6, 8)}/${f.slice(4, 6)}/${f.slice(2, 4)}`; },
+
+    // Las filas de un mes: la fecha solo en la primera de cada día
+    _filasMes(m) {
+        let dia = '';
+        return m.registros.map(r => {
+            const f = r.fecha !== dia ? r.fecha : '';
+            dia = r.fecha;
+            return [f, r.nombre, r.matricula, r.vehiculo, r.empresa, r.entrada, r.salida, r.departamento];
+        });
+    },
+
+    // ── CSV: una hoja no cabe en otra, así que cada mes va en su bloque ─────
+
+    _csv() {
+        const esc = v => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+        const { meses } = this._mesesExport();
+        const bloques = meses.map(m => [
+            m.titulo, this.CABECERAS.join(';'),
+            ...this._filasMes(m).map(f => [f[0] ? this._fechaCorta(f[0]) : '', ...f.slice(1)].map(esc).join(';')),
+        ].join('\r\n'));
+        return '﻿' + bloques.join('\r\n\r\n') + '\r\n';
+    },
+
+    // ── Excel (.xlsx), hecho aquí mismo: un ZIP con unos cuantos XML ────────
+
+    _crc32(bytes) {
+        let tabla = this._crcTabla;
+        if (!tabla) {
+            tabla = this._crcTabla = new Int32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                tabla[n] = c;
+            }
         }
-        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        let crc = -1;
+        for (let i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ tabla[(crc ^ bytes[i]) & 0xFF];
+        return (crc ^ -1) >>> 0;
+    },
+
+    _zip(ficheros) {
+        const enc = new TextEncoder();
+        const partes = [], central = [];
+        let offset = 0;
+        const u16 = n => [n & 0xFF, (n >>> 8) & 0xFF];
+        const u32 = n => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
+        ficheros.forEach(({ nombre, texto }) => {
+            const datos = enc.encode(texto);
+            const nom = enc.encode(nombre);
+            const crc = this._crc32(datos);
+            const comun = [...u16(20), ...u16(0x800), ...u16(0), ...u16(0), ...u16(0x2100),
+                           ...u32(crc), ...u32(datos.length), ...u32(datos.length), ...u16(nom.length)];
+            partes.push(new Uint8Array([...u32(0x04034b50), ...comun, ...u16(0)]), nom, datos);
+            central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...comun,
+                ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), nom);
+            offset += 30 + nom.length + datos.length;
+        });
+        const tamCentral = central.reduce((n, p) => n + p.length, 0);
+        const fin = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0),
+            ...u16(ficheros.length), ...u16(ficheros.length), ...u32(tamCentral), ...u32(offset), ...u16(0)]);
+        const todo = [...partes, ...central, fin];
+        const salida = new Uint8Array(todo.reduce((n, p) => n + p.length, 0));
+        let i = 0;
+        todo.forEach(p => { salida.set(p, i); i += p.length; });
+        return salida;
+    },
+
+    _xlsx() {
+        const { meses } = this._mesesExport();
+        const esc = v => String(v ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]))
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        const col = n => String.fromCharCode(65 + n);
+        const texto = (ref, v, st) => v === '' || v == null ? `<c r="${ref}" s="${st}"/>`
+            : `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
+        const numero = (ref, v, st) => `<c r="${ref}" s="${st}"><v>${v}</v></c>`;
+        // Fechas y horas como las de Excel: días desde 1899-12-30 y fracción de día
+        const serial = f => (Date.UTC(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8)) - Date.UTC(1899, 11, 30)) / 86400000;
+        const hora = h => { const [a, b] = String(h).split(':').map(Number); return (a * 60 + b) / 1440; };
+        const ultima = col(this.CABECERAS.length - 1);
+
+        const hojas = meses.map(m => {
+            const filas = [
+                `<row r="1" ht="24" customHeight="1">${texto('A1', m.titulo, 5)}</row>`,
+                `<row r="2" ht="22.5" customHeight="1">${this.CABECERAS.map((h, i) => texto(col(i) + '2', h, 1)).join('')}</row>`,
+                ...this._filasMes(m).map((f, n) => {
+                    const r = n + 3;
+                    return `<row r="${r}" ht="21" customHeight="1">` + f.map((v, i) => {
+                        const ref = col(i) + r;
+                        if (i === 0) return v ? numero(ref, serial(v), 3) : `<c r="${ref}" s="2"/>`;
+                        if ((i === 5 || i === 6) && /^\d{2}:\d{2}$/.test(v || '')) return numero(ref, hora(v), 4);
+                        return texto(ref, v, 2);
+                    }).join('') + '</row>';
+                }),
+            ].join('');
+            const anchos = this.ANCHOS.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+                + `<cols>${anchos}</cols><sheetData>${filas}</sheetData>`
+                + `<mergeCells count="1"><mergeCell ref="A1:${ultima}1"/></mergeCells>`
+                + '<pageMargins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
+                + '<pageSetup paperSize="9" orientation="landscape" fitToHeight="0"/>'
+                // El título también en la cabecera de la página, al imprimir
+                + `<headerFooter><oddHeader>&amp;C&amp;B${esc(m.titulo)}</oddHeader><oddFooter>&amp;CPágina &amp;P de &amp;N</oddFooter></headerFooter>`
+                + '</worksheet>';
+        });
+
+        const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+        const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+        const REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
+        const DOC = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+        const fuente = 'Aptos Narrow';
+        return this._zip([
+            { nombre: '[Content_Types].xml', texto: X
+              + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+              + '<Default Extension="xml" ContentType="application/xml"/>'
+              + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+              + hojas.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+              + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+              + '</Types>' },
+            { nombre: '_rels/.rels', texto: X + `<Relationships xmlns="${REL}">`
+              + `<Relationship Id="rId1" Type="${DOC}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+            { nombre: 'xl/workbook.xml', texto: X + `<workbook xmlns="${NS}" xmlns:r="${DOC}"><sheets>`
+              + meses.map((m, i) => `<sheet name="${esc(m.hoja).slice(0, 31)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')
+              + '</sheets>'
+              + `<definedNames>${meses.map((m, i) => `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${esc(m.hoja).slice(0, 31)}'!$1:$2</definedName>`).join('')}</definedNames>`
+              + '</workbook>' },
+            { nombre: 'xl/_rels/workbook.xml.rels', texto: X + `<Relationships xmlns="${REL}">`
+              + hojas.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${DOC}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+              + `<Relationship Id="rId${hojas.length + 1}" Type="${DOC}/styles" Target="styles.xml"/></Relationships>` },
+            { nombre: 'xl/styles.xml', texto: X + `<styleSheet xmlns="${NS}">`
+              + '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yy"/><numFmt numFmtId="165" formatCode="h:mm"/></numFmts>'
+              + `<fonts count="3"><font><sz val="11"/><name val="${fuente}"/></font>`
+              + `<font><b/><sz val="11"/><name val="${fuente}"/></font>`
+              + `<font><b/><sz val="14"/><color rgb="FF156082"/><name val="${fuente}"/></font></fonts>`
+              + '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+              + '<fill><patternFill patternType="solid"><fgColor rgb="FFC0E4F5"/><bgColor indexed="64"/></patternFill></fill></fills>'
+              + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+              + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+              + '<cellXfs count="6">'
+              + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+              + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
+            ...hojas.map((texto, i) => ({ nombre: `xl/worksheets/sheet${i + 1}.xml`, texto })),
+        ]);
+    },
+
+    _guardarArchivo(bytes, nombre, tipo) {
+        if (window.AndroidBridge?.saveFileBase64) {
+            let bin = '';
+            for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+            window.AndroidBridge.saveFileBase64(btoa(bin), nombre);
+            return true;
+        }
+        if (window.AndroidBridge?.saveFile) return false;   // APK anterior, sin el puente binario
+        const url = URL.createObjectURL(new Blob([bytes], { type: tipo }));
         const a = document.createElement('a');
         a.href = url; a.download = nombre;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        this._mostrarToast('⬇️ ' + nombre, 3500);
+        return true;
+    },
+
+    exportarXLS() {
+        const { nombre, total } = this._mesesExport();
+        this.cerrarExport();
+        const ok = this._guardarArchivo(this._xlsx(), nombre + '.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (!ok) { this._mostrarToast('Actualiza la app para exportar a Excel; de momento usa CSV', 4500); return; }
+        this._mostrarToast(`📗 ${total} registros en Excel`, 3500);
+    },
+
+    exportarCSV() {
+        const { nombre, total } = this._mesesExport();
+        this.cerrarExport();
+        const csv = this._csv();
+        if (window.AndroidBridge?.saveFile) {
+            try { window.AndroidBridge.saveFile(csv, nombre + '.csv'); return; } catch (_) {}
+        }
+        this._guardarArchivo(new TextEncoder().encode(csv), nombre + '.csv', 'text/csv;charset=utf-8');
+        this._mostrarToast(`📊 ${total} registros en CSV`, 3500);
+    },
+
+    // Google Sheets: se sube el mismo Excel y Drive lo convierte, con sus
+    // hojas por mes y su formato
+    async exportarSheets() {
+        const { nombre, total } = this._mesesExport();
+        this.cerrarExport();
+        this._mostrarToast('☁️ Creando la hoja en tu Drive…', 3000);
+        try {
+            const frontera = 'emt' + Date.now();
+            const meta = JSON.stringify({ name: nombre, mimeType: 'application/vnd.google-apps.spreadsheet' });
+            const cuerpo = new Blob([
+                `--${frontera}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`
+                + `--${frontera}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n`,
+                this._xlsx(),
+                `\r\n--${frontera}--`,
+            ]);
+            const r = await this._drive('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+                method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + frontera }, body: cuerpo,
+            });
+            const out = await r.json();
+            this._mostrarToast(`✅ ${total} registros en Google Sheets`, 3500);
+            if (out.webViewLink) {
+                if (window.AndroidBridge?.openExternalUrl) window.AndroidBridge.openExternalUrl(out.webViewLink);
+                else window.open(out.webViewLink, '_blank');
+            }
+        } catch (e) {
+            if (e.sinPermiso) this._pedirPermisoDrive();
+            else this._mostrarToast('❌ No se ha podido crear la hoja: ' + e.message, 5000);
+        }
     },
 
     // ── Versión ──────────────────────────────────────────────────────────────

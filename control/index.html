@@ -126,6 +126,18 @@
         .an-vacio{font-size:12.5px;color:var(--txt2);padding:6px 0;}
 
         /* ── Registros de entrada y salida ── */
+        /* Sugerencias al escribir: una lista propia debajo del campo. La del
+           navegador (datalist) en el móvil tapaba media pantalla. */
+        .sug-wrap{position:relative;}
+        .sug{position:absolute;left:0;right:0;top:100%;z-index:50;background:var(--card);border:1.5px solid var(--c1);
+             border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 16px rgba(0,0,0,0.18);max-height:240px;overflow-y:auto;}
+        .sug-op{padding:9px 11px;border-top:1px solid var(--bord);cursor:pointer;}
+        .sug-op:first-child{border-top:none;}
+        .sug-op:active,.sug-op:hover{background:color-mix(in srgb,var(--c1) 10%,transparent);}
+        .sug-op b{font-size:14px;}
+        .sug-op span{display:block;font-size:11.5px;color:var(--txt2);}
+        .re-btns{display:flex;gap:8px;margin-top:8px;}
+        .re-btns .btn{margin:0;flex:1;padding:9px;font-size:13px;}
         .r-pista{font-size:12px;font-weight:700;color:var(--c1);margin:-4px 0 10px;}
         .re-card{background:var(--card);border:1.5px solid var(--bord);border-left:4px solid #95a5a6;border-radius:12px;
                  padding:10px 12px;margin-bottom:8px;cursor:pointer;}
@@ -354,7 +366,7 @@
                         </div>
                         <div>
                             <label class="lbl" for="rMatricula">Matrícula</label>
-                            <input type="text" id="rMatricula" list="dlMatriculas" autocomplete="off" autocapitalize="characters"
+                            <input type="text" id="rMatricula" autocomplete="off" autocapitalize="characters"
                                    maxlength="20" placeholder="1234-ABC" oninput="app.buscarMatricula()" onchange="app.buscarMatricula()">
                         </div>
                     </div>
@@ -362,11 +374,11 @@
                     <label class="lbl" for="rNombre">Nombre</label>
                     <input type="text" id="rNombre" maxlength="80" placeholder="Nombre y apellidos" autocomplete="off" style="margin-bottom:10px;">
                     <label class="lbl" for="rEmpresa">Empresa</label>
-                    <input type="text" id="rEmpresa" list="dlEmpresas" maxlength="80" autocomplete="off" style="margin-bottom:10px;">
+                    <input type="text" id="rEmpresa" maxlength="80" autocomplete="off" style="margin-bottom:10px;">
                     <label class="lbl" for="rVehiculo">Vehículo</label>
-                    <input type="text" id="rVehiculo" list="dlVehiculos" maxlength="80" placeholder="Marca, modelo, color… o «A pie»" autocomplete="off" style="margin-bottom:10px;">
+                    <input type="text" id="rVehiculo" maxlength="80" placeholder="Marca, modelo, color… o «A pie»" autocomplete="off" style="margin-bottom:10px;">
                     <label class="lbl" for="rDepartamento">Departamento</label>
-                    <input type="text" id="rDepartamento" list="dlDepartamentos" maxlength="60" placeholder="Taller, Obra…" autocomplete="off" style="margin-bottom:12px;">
+                    <input type="text" id="rDepartamento" maxlength="60" placeholder="Taller, Obra…" autocomplete="off" style="margin-bottom:12px;">
                     <button class="btn" id="rBtn" onclick="app.registrarEntrada()">✅ Registrar entrada</button>
                 </div>
 
@@ -393,7 +405,8 @@
                     <input type="text" id="paBuscar" placeholder="Matrícula, nombre, empresa…" style="margin-top:10px;" oninput="app._renderHistorial()">
                     <div class="fila2" style="margin-top:11px;">
                         <button class="btn sec chico" onclick="app.limpiarFiltros()">Últimos 30 días</button>
-                        <button class="btn sec chico" onclick="app.exportarRegistros()">⬇️ Exportar</button>
+                        <!-- Exportar es cosa de quien lleva el puesto -->
+                        <button class="btn sec chico" id="paExportar" hidden onclick="app.exportarRegistros()">⬇️ Exportar</button>
                     </div>
                 </div>
                 <div id="paLista"></div>
@@ -575,11 +588,38 @@
     </div>
 </div>
 
-<!-- Lo que se sabe de cada matrícula, para escribir menos -->
-<datalist id="dlMatriculas"></datalist>
-<datalist id="dlEmpresas"></datalist>
-<datalist id="dlVehiculos"></datalist>
-<datalist id="dlDepartamentos"></datalist>
+
+<!-- Exportar: los mismos formatos que en la de conductores -->
+<div class="modal" id="expModal">
+    <div class="modal-card" style="max-width:400px;">
+        <div class="modal-head"><h3>⬇️ Exportar</h3>
+            <button class="modal-x" onclick="app.cerrarExport()">×</button></div>
+        <div class="modal-body">
+            <p class="sub" id="expResumen" style="margin-bottom:12px;"></p>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <button class="btn sec" style="text-align:left;" onclick="app.exportarSheets()">🟩 Google Sheets<br><span class="sub">Crea la hoja en tu Drive y la abre</span></button>
+                <button class="btn sec" style="text-align:left;" onclick="app.exportarXLS()">📗 Excel (.xlsx)<br><span class="sub">Con el mismo diseño que el Listado</span></button>
+                <button class="btn sec" style="text-align:left;" onclick="app.exportarCSV()">📊 CSV<br><span class="sub">Lo abre cualquier programa</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Poner a mano la hora de salida -->
+<div class="modal" id="horaSalidaModal">
+    <div class="modal-card" style="max-width:360px;">
+        <div class="modal-head"><h3>🕒 Hora de salida</h3>
+            <button class="modal-x" onclick="app.cerrarHoraSalida()">×</button></div>
+        <div class="modal-body">
+            <p class="sub" id="hsTitulo" style="margin-bottom:10px;"></p>
+            <input type="time" id="hsHora">
+        </div>
+        <div class="modal-pie">
+            <button class="btn sec chico" onclick="app.cerrarHoraSalida()">Cancelar</button>
+            <button class="btn chico" onclick="app.guardarHoraSalida()">Guardar</button>
+        </div>
+    </div>
+</div>
 
 <!-- Corregir un registro -->
 <div class="modal" id="regModal">
@@ -597,15 +637,15 @@
                     <button class="btn sec chico" style="width:auto;padding:8px 10px;flex:none;" onclick="app.salidaAhoraEnCuadro()">Ahora</button></div></div>
             </div>
             <label class="lbl" for="eMatricula">Matrícula</label>
-            <input type="text" id="eMatricula" list="dlMatriculas" maxlength="20" autocapitalize="characters" style="margin-bottom:10px;">
+            <input type="text" id="eMatricula" maxlength="20" autocapitalize="characters" style="margin-bottom:10px;">
             <label class="lbl" for="eNombre">Nombre</label>
             <input type="text" id="eNombre" maxlength="80" style="margin-bottom:10px;">
             <label class="lbl" for="eEmpresa">Empresa</label>
-            <input type="text" id="eEmpresa" list="dlEmpresas" maxlength="80" style="margin-bottom:10px;">
+            <input type="text" id="eEmpresa" maxlength="80" style="margin-bottom:10px;">
             <label class="lbl" for="eVehiculo">Vehículo</label>
-            <input type="text" id="eVehiculo" list="dlVehiculos" maxlength="80" style="margin-bottom:10px;">
+            <input type="text" id="eVehiculo" maxlength="80" style="margin-bottom:10px;">
             <label class="lbl" for="eDepartamento">Departamento</label>
-            <input type="text" id="eDepartamento" list="dlDepartamentos" maxlength="60">
+            <input type="text" id="eDepartamento" maxlength="60">
             <p class="sub" id="eFirma" style="margin-top:10px;"></p>
         </div>
         <div class="modal-pie">
