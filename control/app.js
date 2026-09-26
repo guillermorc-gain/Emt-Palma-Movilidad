@@ -530,6 +530,35 @@ const app = {
         });
     },
 
+    // Como en la de conductores: borra la copia de seguridad de esta app en
+    // tu Drive y lo guardado en el móvil, y cierra la sesión. Los partes no
+    // son solo tuyos —son el registro del puesto— y se quedan en el servidor.
+    confirmarBorrarCuenta() {
+        this.mostrarModal('⚠️ Borrar datos',
+            'Se borrará tu copia de seguridad de Google Drive y todo lo guardado en este móvil, y se cerrará la sesión. '
+            + 'Los partes del puesto no se borran.',
+            () => this._borrarCuenta());
+    },
+
+    async _borrarCuenta() {
+        try {
+            const id = await this._ficheroCopia();
+            if (id) await this._drive(`https://www.googleapis.com/drive/v3/files/${id}`, { method: 'DELETE' });
+        } catch (e) {
+            if (!e.sinPermiso && !confirm('No se ha podido borrar la copia de Drive (' + e.message
+                    + '). ¿Cerrar la sesión y borrar lo del móvil de todas formas?')) return;
+        }
+        if (this.accessToken) {
+            this._fetchOriginal('https://oauth2.googleapis.com/revoke?token=' + this.accessToken,
+                { method: 'POST' }).catch(() => {});
+        }
+        this.usuarioActual = null;
+        this._olvidarSesion();
+        try { localStorage.clear(); } catch (_) {}
+        try { sessionStorage.clear(); } catch (_) {}
+        window.location.reload();
+    },
+
     // ── Pantallas ────────────────────────────────────────────────────────────
 
     _hideSplash() {
