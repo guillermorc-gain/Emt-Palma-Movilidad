@@ -186,12 +186,17 @@ const app = {
     // salía la pantalla de error y se quedaba sin poder entrar por ningún
     // lado. Quien la tenga instalada la abre desde su icono, que para eso está.
     elegirRol(rol) {
-        const web = rol === 'gestion'
-            ? 'https://emt-palma-movilidad.vercel.app/gestion/'
-            : 'https://emt-palma-movilidad.vercel.app/?app=trabajador';
-        if (rol === 'gestion') { window.location.href = web; return; }
-        const el = document.getElementById('rolScreen');
-        if (el) el.style.display = 'none';
+        const ver = (id, si) => { const el = document.getElementById(id); if (el) el.style.display = si ? 'flex' : 'none'; };
+        // Gestión son dos, y antes de entrar se pregunta cuál
+        if (rol === 'gestion') { ver('rolScreen', false); ver('gestionScreen', true); return; }
+        if (rol === 'volver')  { ver('gestionScreen', false); ver('rolScreen', true); return; }
+        const webs = {
+            'gestion-emt':     '/gestion/',
+            'control':         '/control/',
+            'gestion-control': '/control/?app=gestion-control',
+        };
+        if (webs[rol]) { window.location.href = webs[rol]; return; }
+        ver('rolScreen', false);
         try { history.replaceState(null, '', '/?app=trabajador'); } catch (_) {}
     },
 
@@ -232,6 +237,7 @@ const app = {
         if (code) {
             const pkgDestino = this._paqueteDestino(searchParams);
             if (this._rebotarAGestion(pkgDestino, searchParams)) return;
+            if (this._rebotarAControl(pkgDestino, searchParams)) return;
             history.replaceState(null, '', window.location.pathname);
             // PKCE: exchange code for tokens via Vercel endpoint
             if (!window.Capacitor && /Android/i.test(navigator.userAgent)
@@ -589,6 +595,18 @@ const app = {
         if (/Android/i.test(navigator.userAgent) && this._vieneDeLaApp(searchParams)) return false;
         if (window.location.pathname.startsWith('/gestion')) return false;
         window.location.replace('/gestion/?' + searchParams.toString());
+        return true;
+    },
+
+    // Lo mismo con las dos del puesto de control de acceso, que viven en
+    // /control/. Su almacenamiento va aparte, así que el código lo tiene que
+    // cambiar ella: aquí no está el verificador con que se pidió.
+    _rebotarAControl(pkgDestino, searchParams) {
+        if (!['com.guillermorc.controlemt','com.guillermorc.gcontrolemt'].includes(pkgDestino)) return false;
+        if (window.Capacitor?.isNativePlatform?.()) return false;
+        if (/Android/i.test(navigator.userAgent) && this._vieneDeLaApp(searchParams)) return false;
+        if (window.location.pathname.startsWith('/control')) return false;
+        window.location.replace('/control/?' + searchParams.toString());
         return true;
     },
 

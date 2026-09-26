@@ -301,6 +301,7 @@
         .rol-txt b{font-size:16px;font-weight:800;color:#1a2b3c;}
         .rol-txt span{font-size:12px;color:#7f8c8d;}
         .rol-pie{font-size:11.5px;line-height:1.5;opacity:0.8;margin:6px 2px 0;}
+        .rol-volver{background:none;border:none;color:#fff;opacity:0.85;font-size:13.5px;font-family:inherit;cursor:pointer;padding:8px;margin-top:2px;}
         .app-content{flex:1;min-height:0;padding:10px;overflow:hidden;display:flex;flex-direction:column;gap:8px;}
         .cambio-aviso{display:flex;align-items:center;gap:10px;margin:8px 10px 0;padding:10px 12px;background:#fff4e5;border:1px solid #e67e22;border-radius:12px;flex:none;}
         .cambio-txt{flex:1;display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:#7a4b10;line-height:1.35;}
@@ -825,11 +826,34 @@
                 <span class="rol-ico">🕐</span>
                 <span class="rol-txt"><b>Trabajador</b><span>Registrar mis jornadas</span></span>
             </button>
+            <button class="rol-btn" onclick="app.elegirRol('control')">
+                <span class="rol-ico">🛡️</span>
+                <span class="rol-txt"><b>Control de acceso</b><span>El parte del turno en la garita</span></span>
+            </button>
             <button class="rol-btn" onclick="app.elegirRol('gestion')">
                 <span class="rol-ico">🛠️</span>
-                <span class="rol-txt"><b>Gestión</b><span>Llevar la plantilla</span></span>
+                <span class="rol-txt"><b>Gestión</b><span>Llevar la plantilla o el puesto</span></span>
             </button>
             <p class="rol-pie">Se abre aquí mismo, en el navegador. Si tienes la aplicación instalada, ábrela desde su icono.</p>
+        </div>
+    </div>
+
+    <!-- Gestión son dos: la de la plantilla y la del puesto de control de
+         acceso. Se elige aquí, antes de entrar, porque cada una tiene su web. -->
+    <div class="rol-screen" id="gestionScreen" style="display:none;">
+        <div class="rol-card">
+            <div class="rol-logo">🛠️</div>
+            <h1 class="rol-t">Gestión</h1>
+            <p class="rol-s">¿Qué quieres gestionar?</p>
+            <button class="rol-btn" onclick="app.elegirRol('gestion-emt')">
+                <span class="rol-ico">✏️</span>
+                <span class="rol-txt"><b>Gestión EMT</b><span>Llevar la plantilla de conductores</span></span>
+            </button>
+            <button class="rol-btn" onclick="app.elegirRol('gestion-control')">
+                <span class="rol-ico">🗝️</span>
+                <span class="rol-txt"><b>EMT-Palma (Control de acceso)</b><span>Llevar el puesto: ver, corregir y exportar los partes</span></span>
+            </button>
+            <button class="rol-volver" onclick="app.elegirRol('volver')">‹ Volver</button>
         </div>
     </div>
 

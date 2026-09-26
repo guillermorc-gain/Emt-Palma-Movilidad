@@ -4,6 +4,23 @@
 // todos, los corrige y los borra. Lo único que las distingue es la etiqueta
 // app-rol del index, que el montaje del APK cambia.
 
+// En la web las dos son la misma dirección, y la del puesto se distingue por
+// ?app=gestion-control —o, al volver de Google, por el paquete que va en
+// state—. Tiene que ir lo primero: todo lo de abajo lee la etiqueta app-rol.
+(function rolEnLaWeb() {
+    try {
+        if (window.Capacitor?.isNativePlatform?.()) return;
+        const q = new URLSearchParams(window.location.search);
+        const gc = q.get('app') === 'gestion-control'
+            || /(^|:)com\.guillermorc\.gcontrolemt$/.test(q.get('state') || '');
+        if (!gc) return;
+        document.querySelector('meta[name="app-rol"]')?.setAttribute('content', 'gestion-control');
+        // Al instalarla desde el navegador tiene que abrir esta y no la de la garita
+        document.querySelector('link[rel="manifest"]')?.setAttribute('href', 'manifest-gc.json');
+        document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', 'icons/icon-gc-192.png');
+    } catch (_) {}
+})();
+
 // En la web las tres webs se sirven del mismo dominio, y localStorage va por
 // origen y no por ruta: sin esto se pisarían la sesión unas con otras. En el
 // móvil cada APK tiene su propio almacenamiento y no hace falta.
@@ -132,6 +149,13 @@ const app = {
 
     // ── Entrada con Google ───────────────────────────────────────────────────
 
+    // La dirección sin lo que ha dejado Google, pero con ?app= si es la del
+    // puesto: si no, al recargar se abriría la de la garita.
+    _direccionLimpia() {
+        const nativo = window.Capacitor?.isNativePlatform?.();
+        return window.location.pathname + (ES_GC && !nativo ? '?app=gestion-control' : '');
+    },
+
     _initGoogleAuth() {
         const hash   = window.location.hash.length > 1   ? new URLSearchParams(window.location.hash.slice(1)) : null;
         const query  = window.location.search.length > 1 ? new URLSearchParams(window.location.search.slice(1)) : null;
@@ -139,12 +163,12 @@ const app = {
         const error  = hash?.get('error') || query?.get('error');
 
         if (code) {
-            history.replaceState(null, '', window.location.pathname);
+            history.replaceState(null, '', this._direccionLimpia());
             this._exchangeCode(code);
             return;
         }
         if (error) {
-            history.replaceState(null, '', window.location.pathname);
+            history.replaceState(null, '', this._direccionLimpia());
             this.mostrarAuth();
             this.mostrarMensaje('Error de Google: ' + error, 'error');
             return;

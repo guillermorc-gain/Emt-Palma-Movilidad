@@ -3,7 +3,7 @@
   "name": "EMT - Movilidad",
   "short_name": "EMT - Movilidad",
   "description": "Control de horas de trabajo EMT",
-  "start_url": "/?app=trabajador",
+  "start_url": "/",
   "scope": "/",
   "display": "browser",
   "orientation": "portrait",

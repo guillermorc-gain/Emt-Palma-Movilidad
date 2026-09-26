@@ -1,4 +1,4 @@
-const CACHE_NAME = 'control-v1';
+const CACHE_NAME = 'control-v2';
 // La ruta base se saca de aquí para que valga igual servido de /control/ que
 // de cualquier otra carpeta.
 const BASE_PATH = self.location.pathname.replace('service-worker.js', '');
@@ -6,7 +6,7 @@ const BASE_PATH = self.location.pathname.replace('service-worker.js', '');
 // Esto se pide siempre a la red. El manifiesto está aquí porque de él depende
 // que el navegador pueda o no instalar la web como aplicación suya: servido de
 // la caché se quedaba con el de antes.
-const RED_PRIMERO = ['', 'index.html', 'app.js', 'manifest.json'];
+const RED_PRIMERO = ['', 'index.html', 'app.js', 'manifest.json', 'manifest-gc.json'];
 
 const guardar = [
   BASE_PATH + 'manifest.json',

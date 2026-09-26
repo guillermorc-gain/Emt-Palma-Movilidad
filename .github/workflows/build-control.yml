@@ -33,8 +33,8 @@ jobs:
           - rol: control
             appid: com.guillermorc.controlemt
             nombre: Control de acceso EMT - Movilidad
-            bg: "24,106,59"
-            color: "#186A3B"
+            bg: "21,101,192"
+            color: "#1565C0"
             icono: "icons/icon-192.png"
             iconoApk: "icons/icon-512.png"
             iconoFg: "icons/icon-fg-512.png"
@@ -44,8 +44,8 @@ jobs:
           - rol: gestion-control
             appid: com.guillermorc.gcontrolemt
             nombre: Gestión control de acceso EMT - Movilidad
-            bg: "123,36,28"
-            color: "#7B241C"
+            bg: "108,52,131"
+            color: "#6C3483"
             icono: "icons/icon-gc-192.png"
             iconoApk: "icons/icon-gc-512.png"
             iconoFg: "icons/icon-gc-fg-512.png"
