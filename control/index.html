@@ -208,6 +208,13 @@
         .ops-section.open .ops-chevron{transform:rotate(90deg);}
         .ops-body{display:none;border-top:1px solid var(--bord);padding:4px 14px 14px;}
         .ops-section.open .ops-body{display:block;}
+        /* La franja de abajo que se queda al decir "Más tarde", como en la de conductores */
+        .install-banner{display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
+                        z-index:9997;background:linear-gradient(135deg,#f39c12,#e67e22);color:#fff;padding:12px 15px;
+                        padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));align-items:center;gap:10px;
+                        box-shadow:0 -2px 10px rgba(0,0,0,0.3);}
+        @media (min-width:700px){.install-banner{max-width:660px;}}
+        @media (min-width:1000px){.install-banner{max-width:840px;}}
         .pie{text-align:center;font-size:11px;color:var(--txt2);padding:8px 0 2px;}
         .pie-btn{background:transparent;border:1px solid var(--bord);color:var(--txt2);border-radius:8px;
                  padding:6px 16px;font-size:11px;cursor:pointer;}
@@ -537,6 +544,16 @@
             <button id="updateProgressClose" class="btn sec chico" style="display:none;" onclick="document.getElementById('updateProgressOverlay').style.display='none'">Cerrar</button>
         </div>
     </div>
+</div>
+
+<!-- Versión nueva: se queda abajo hasta que se actualice o se cierre -->
+<div class="install-banner" id="updateBanner">
+    <div style="flex:1;">
+        <strong style="display:block;font-size:13px;margin-bottom:2px;">🔄 Nueva versión disponible</strong>
+        <span id="updateBannerMsg" style="font-size:11px;opacity:0.9;">Toca para actualizar</span>
+    </div>
+    <button onclick="app._descargarActualizacion()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">Actualizar</button>
+    <button onclick="document.getElementById('updateBanner').style.display='none'" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 6px;line-height:1;">×</button>
 </div>
 
 <!-- Cuadro de confirmar -->
