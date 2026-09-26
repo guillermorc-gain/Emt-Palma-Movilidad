@@ -992,6 +992,24 @@ const app = {
     async _writeDriveFile(data) {
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
         const payload = { ...data, preferencias: this._getPreferencias() };
+        // En la de desarrollador la copia lleva también lo del puesto de
+        // Control de acceso: los registros de entrada y salida y el directorio
+        // de visitantes, que son de gente real y no pueden depender de un solo
+        // sitio. Si no se pueden leer, se queda lo de la copia anterior.
+        if (ES_APP_DEV) {
+            try {
+                const [r1, r2] = await Promise.all([
+                    fetch(this.API_BASE + 'accesos', { cache: 'no-store' }),
+                    fetch(this.API_BASE + 'accesos?que=visitantes', { cache: 'no-store' }),
+                ]);
+                if (r1.ok && r2.ok) {
+                    const registros = await r1.json(), visitantes = await r2.json();
+                    if (Array.isArray(registros) && Array.isArray(visitantes)) {
+                        payload.controlAcceso = { fecha: new Date().toISOString(), registros, visitantes };
+                    }
+                }
+            } catch (_) { /* se queda la de la copia anterior */ }
+        }
         const json    = JSON.stringify(payload);
         const fileId  = await this._getDriveFileId();
 

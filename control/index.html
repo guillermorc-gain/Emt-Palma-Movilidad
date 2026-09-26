@@ -125,6 +125,21 @@
         .an-x{flex:none;background:none;border:none;color:#c0392b;font-size:17px;cursor:pointer;padding:8px 2px;}
         .an-vacio{font-size:12.5px;color:var(--txt2);padding:6px 0;}
 
+        /* ── Registros de entrada y salida ── */
+        .r-pista{font-size:12px;font-weight:700;color:var(--c1);margin:-4px 0 10px;}
+        .re-card{background:var(--card);border:1.5px solid var(--bord);border-left:4px solid #95a5a6;border-radius:12px;
+                 padding:10px 12px;margin-bottom:8px;cursor:pointer;}
+        .re-card.dentro{border-left-color:#27ae60;}
+        .re-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+        .re-horas{font-size:13.5px;font-weight:800;}
+        .re-horas b{color:#27ae60;}
+        .re-mat{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:800;
+                background:color-mix(in srgb,var(--c1) 12%,transparent);color:var(--c1);border-radius:6px;padding:2px 8px;}
+        .re-quien{font-size:13px;font-weight:700;margin-top:4px;}
+        .re-que{font-size:12px;color:var(--txt2);margin-top:2px;}
+        .re-salida{margin-top:8px;padding:9px;font-size:13px;}
+        .re-dia{font-size:12px;font-weight:800;color:var(--txt2);text-transform:uppercase;letter-spacing:0.4px;margin:14px 2px 6px;}
+
         /* ── Lista de partes ── */
         .pa-card{background:var(--card);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer;
                  box-shadow:0 1px 3px rgba(0,0,0,0.06);border-left:4px solid var(--c1);}
@@ -320,75 +335,68 @@
 
         <div class="contenido" id="contenido">
 
-            <!-- Pestaña: el parte del turno -->
+            <!-- Pestaña: el registro del día -->
             <div class="tab active" id="tab0">
                 <div class="card">
-                    <h2>🗓️ Turno</h2>
-                    <div class="fila2" style="margin-bottom:11px;">
-                        <div>
-                            <label class="lbl" for="pFecha">Día</label>
-                            <input type="date" id="pFecha" onchange="app.cambiarTurnoParte()">
-                        </div>
-                        <div id="pDuenoBox" style="display:none;">
-                            <label class="lbl" for="pDueno">Parte de</label>
-                            <input type="text" id="pDueno" placeholder="correo del trabajador" inputmode="email">
-                        </div>
-                    </div>
-                    <label class="lbl">Turno</label>
-                    <div class="turnos" id="pTurnos"></div>
-                </div>
-
-                <div class="card">
-                    <h2>🧍 Quién está en el puesto</h2>
+                    <h2>📅 <span id="rDiaLargo">Hoy</span></h2>
                     <div class="fila2">
-                        <div>
-                            <label class="lbl" for="pNombre">Nombre</label>
-                            <input type="text" id="pNombre" maxlength="80" placeholder="Nombre y apellido">
-                        </div>
-                        <div style="max-width:120px;">
-                            <label class="lbl" for="pConductor">Nº</label>
-                            <input type="text" id="pConductor" maxlength="20" inputmode="numeric" placeholder="1234">
-                        </div>
+                        <input type="date" id="rFecha" onchange="app.cambiarDia()">
+                        <button class="btn sec chico" id="rHoyBtn" hidden style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="app.irAHoy()">Hoy</button>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>📋 Anotaciones <span class="sub" id="pCuantas"></span></h2>
-                    <div id="pAnotaciones"></div>
-                    <button class="btn sec chico" style="margin-top:10px;" onclick="app.anadirAnotacion()">＋ Apuntar algo</button>
+                    <h2>➕ Registrar entrada</h2>
+                    <div class="fila2" style="margin-bottom:10px;">
+                        <div style="max-width:130px;">
+                            <label class="lbl" for="rEntrada">Hora</label>
+                            <input type="time" id="rEntrada">
+                        </div>
+                        <div>
+                            <label class="lbl" for="rMatricula">Matrícula</label>
+                            <input type="text" id="rMatricula" list="dlMatriculas" autocomplete="off" autocapitalize="characters"
+                                   maxlength="20" placeholder="1234-ABC" oninput="app.buscarMatricula()" onchange="app.buscarMatricula()">
+                        </div>
+                    </div>
+                    <div class="r-pista" id="rPista" hidden></div>
+                    <label class="lbl" for="rNombre">Nombre</label>
+                    <input type="text" id="rNombre" maxlength="80" placeholder="Nombre y apellidos" autocomplete="off" style="margin-bottom:10px;">
+                    <label class="lbl" for="rEmpresa">Empresa</label>
+                    <input type="text" id="rEmpresa" list="dlEmpresas" maxlength="80" autocomplete="off" style="margin-bottom:10px;">
+                    <label class="lbl" for="rVehiculo">Vehículo</label>
+                    <input type="text" id="rVehiculo" list="dlVehiculos" maxlength="80" placeholder="Marca, modelo, color… o «A pie»" autocomplete="off" style="margin-bottom:10px;">
+                    <label class="lbl" for="rDepartamento">Departamento</label>
+                    <input type="text" id="rDepartamento" list="dlDepartamentos" maxlength="60" placeholder="Taller, Obra…" autocomplete="off" style="margin-bottom:10px;">
+                    <label class="lbl" for="rObs">Observaciones</label>
+                    <input type="text" id="rObs" maxlength="300" placeholder="Opcional" autocomplete="off" style="margin-bottom:12px;">
+                    <button class="btn" id="rBtn" onclick="app.registrarEntrada()">✅ Registrar entrada</button>
                 </div>
 
                 <div class="card">
-                    <h2>📝 Observaciones del turno</h2>
-                    <textarea id="pNotas" maxlength="1000" placeholder="Lo que haya que dejar dicho al siguiente turno"></textarea>
+                    <h2>🚗 Este día <span class="sub" id="rCuantos"></span></h2>
+                    <div id="rLista"></div>
                 </div>
-
-                <button class="btn" onclick="app.guardarParte()">💾 Guardar el parte</button>
-                <p class="sub" id="pFirma" style="text-align:center;margin-top:9px;"></p>
             </div>
 
-            <!-- Pestaña: los partes -->
+            <!-- Pestaña: los registros de otros días -->
             <div class="tab" id="tab1">
-                <div class="card" id="paFiltros" style="display:none;">
+                <div class="card">
                     <h2>🔎 Buscar</h2>
                     <div class="fila2">
                         <div>
                             <label class="lbl" for="paDesde">Desde</label>
-                            <input type="date" id="paDesde" onchange="app.cargarPartes(true)">
+                            <input type="date" id="paDesde" onchange="app.cargarRegistros(true)">
                         </div>
                         <div>
                             <label class="lbl" for="paHasta">Hasta</label>
-                            <input type="date" id="paHasta" onchange="app.cargarPartes(true)">
+                            <input type="date" id="paHasta" onchange="app.cargarRegistros(true)">
                         </div>
                     </div>
+                    <input type="text" id="paBuscar" placeholder="Matrícula, nombre, empresa…" style="margin-top:10px;" oninput="app._renderHistorial()">
                     <div class="fila2" style="margin-top:11px;">
-                        <button class="btn sec chico" onclick="app.limpiarFiltros()">Todos</button>
-                        <button class="btn sec chico" onclick="app.exportarPartes()">⬇️ Exportar</button>
+                        <button class="btn sec chico" onclick="app.limpiarFiltros()">Últimos 30 días</button>
+                        <button class="btn sec chico" onclick="app.exportarRegistros()">⬇️ Exportar</button>
                     </div>
-                </div>
-                <div style="display:flex;gap:9px;margin-bottom:11px;">
-                    <button class="btn sec chico" onclick="app.cargarPartes(true)">🔄 Actualizar</button>
-                    <button class="btn chico" onclick="app.nuevoParte()">＋ Parte nuevo</button>
                 </div>
                 <div id="paLista"></div>
             </div>
@@ -396,10 +404,10 @@
 
         <div class="tab-bar" id="tabBar">
             <button class="tab-btn active" data-tab="0" onclick="app.irA(0)">
-                <span class="tab-ico">📋</span><span class="tab-lbl">Parte</span>
+                <span class="tab-ico">📋</span><span class="tab-lbl">Registro</span>
             </button>
             <button class="tab-btn" data-tab="1" onclick="app.irA(1)">
-                <span class="tab-ico">🗂️</span><span class="tab-lbl" id="tabLblPartes">Mis partes</span>
+                <span class="tab-ico">🗂️</span><span class="tab-lbl" id="tabLblPartes">Historial</span>
             </button>
         </div>
     </div>
@@ -486,7 +494,7 @@
                         <label class="freq-opt"><input type="radio" name="backupFreq" value="dia"    onchange="app.guardarFrecuenciaCopia('dia')"><span>Cada día</span></label>
                         <label class="freq-opt"><input type="radio" name="backupFreq" value="cerrar" onchange="app.guardarFrecuenciaCopia('cerrar')"><span>Al cerrar la app</span></label>
                     </div>
-                    <span class="sub" id="backupQue">Se guardan en tu Google Drive, en <b>Movilidad Emt</b>, tus partes y tus ajustes.</span>
+                    <span class="sub" id="backupQue">Se guardan en tu Google Drive, en <b>Movilidad Emt</b>, los registros del puesto, el directorio de visitantes y tus ajustes.</span>
                 </div>
                 <div class="ops-btns">
                     <button class="btn sec chico" onclick="app.hacerCopiaEnDrive()">☁️ Guardar copia en Google Drive</button>
@@ -565,6 +573,49 @@
         <div class="modal-pie">
             <button class="btn sec chico" onclick="app.cerrarModal()">Cancelar</button>
             <button class="btn chico" onclick="app.confirmarModal()">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Lo que se sabe de cada matrícula, para escribir menos -->
+<datalist id="dlMatriculas"></datalist>
+<datalist id="dlEmpresas"></datalist>
+<datalist id="dlVehiculos"></datalist>
+<datalist id="dlDepartamentos"></datalist>
+
+<!-- Corregir un registro -->
+<div class="modal" id="regModal">
+    <div class="modal-card">
+        <div class="modal-head"><h3>✏️ Registro</h3>
+            <button class="modal-x" onclick="app.cerrarRegistro()">×</button></div>
+        <div class="modal-body">
+            <div class="fila2" style="margin-bottom:10px;">
+                <div><label class="lbl" for="eFecha">Día</label><input type="date" id="eFecha"></div>
+            </div>
+            <div class="fila2" style="margin-bottom:10px;">
+                <div><label class="lbl" for="eEntrada">Entrada</label><input type="time" id="eEntrada"></div>
+                <div><label class="lbl" for="eSalida">Salida</label>
+                    <div style="display:flex;gap:6px;"><input type="time" id="eSalida">
+                    <button class="btn sec chico" style="width:auto;padding:8px 10px;flex:none;" onclick="app.salidaAhoraEnCuadro()">Ahora</button></div></div>
+            </div>
+            <label class="lbl" for="eMatricula">Matrícula</label>
+            <input type="text" id="eMatricula" list="dlMatriculas" maxlength="20" autocapitalize="characters" style="margin-bottom:10px;">
+            <label class="lbl" for="eNombre">Nombre</label>
+            <input type="text" id="eNombre" maxlength="80" style="margin-bottom:10px;">
+            <label class="lbl" for="eEmpresa">Empresa</label>
+            <input type="text" id="eEmpresa" list="dlEmpresas" maxlength="80" style="margin-bottom:10px;">
+            <label class="lbl" for="eVehiculo">Vehículo</label>
+            <input type="text" id="eVehiculo" list="dlVehiculos" maxlength="80" style="margin-bottom:10px;">
+            <label class="lbl" for="eDepartamento">Departamento</label>
+            <input type="text" id="eDepartamento" list="dlDepartamentos" maxlength="60" style="margin-bottom:10px;">
+            <label class="lbl" for="eObs">Observaciones</label>
+            <input type="text" id="eObs" maxlength="300">
+            <p class="sub" id="eFirma" style="margin-top:10px;"></p>
+        </div>
+        <div class="modal-pie">
+            <button class="btn peli chico" id="eBorrar" onclick="app.borrarRegistro()">🗑️</button>
+            <button class="btn sec chico" onclick="app.cerrarRegistro()">Cancelar</button>
+            <button class="btn chico" onclick="app.guardarRegistro()">Guardar</button>
         </div>
     </div>
 </div>

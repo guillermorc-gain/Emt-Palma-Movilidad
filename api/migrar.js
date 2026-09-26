@@ -9,10 +9,9 @@
 
 import { exigirAdmin } from './_auth.js';
 import { hayBaseDeDatos, leerUsuarios, leerNotas, guardarUsuario, guardarNota } from './_almacen.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
-const BRANCH       = 'datos';
 const ADMIN_EMAIL  = 'g.rioscorrea@gmail.com';
 
 const ghHeaders = () => ({
@@ -23,7 +22,7 @@ const ghHeaders = () => ({
 
 // En bruto, que no tiene el tope de 1 MB de la API de contenidos
 async function leerDelRepo(fichero) {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${fichero}?ref=${BRANCH}&t=${Date.now()}`,
     { headers: ghHeaders(), cache: 'no-store' }
   );

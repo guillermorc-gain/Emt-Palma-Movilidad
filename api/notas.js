@@ -1,11 +1,10 @@
 import { emailDelToken, tokenDe, esGestor } from './_auth.js';
 import { hayBaseDeDatos, leerNotas, leerNota, guardarNota, borrarNota } from './_almacen.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
 // Los datos viven fuera de main: cada escritura de las apps era un commit
 // que cancelaba el despliegue del código que fuera por medio.
-const BRANCH       = 'datos';
 const FILE_PATH    = 'notas.json';
 const MAX_TEXTO    = 500;
 const MAX_NOTAS    = 400;   // las más viejas se van cayendo
@@ -49,7 +48,7 @@ async function leerContenido(meta) {
 }
 
 async function getFile() {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}&t=${Date.now()}`,
     { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' }
   );
@@ -66,7 +65,7 @@ async function setFile(data, sha, mensaje) {
   const content = Buffer.from(JSON.stringify(data, null, 2) + '\n').toString('base64');
   const body = { message: mensaje, content, branch: BRANCH };
   if (sha) body.sha = sha;
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`,
     { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );

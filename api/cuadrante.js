@@ -1,10 +1,9 @@
 import { exigirGestor, emailDelToken, tokenDe } from './_auth.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
 // Los datos viven fuera de main: cada escritura de las apps era un commit
 // que cancelaba el despliegue del código que fuera por medio.
-const BRANCH       = 'datos';
 const FILE_PATH    = 'cuadrante.json';
 // El de gestión publica el de todos; cada trabajador puede además subir el
 // suyo propio (uno personal, que solo ve él).
@@ -23,7 +22,7 @@ const ghHeaders = () => ({
 });
 
 async function getFile() {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}&t=${Date.now()}`,
     { headers: ghHeaders(), cache: 'no-store' }
   );
@@ -40,7 +39,7 @@ async function save(payload, sha, mensaje) {
   const content = Buffer.from(JSON.stringify(payload) + '\n').toString('base64');
   const body = { message: mensaje, content, branch: BRANCH };
   if (sha) body.sha = sha;
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`,
     { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
