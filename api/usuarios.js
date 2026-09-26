@@ -248,6 +248,70 @@ async function mutarUsuario(clave, mutar, mensaje, devolverTodo) {
   return devolverTodo ? leerUsuarios() : nuevo;
 }
 
+// ── De qué aplicaciones es cada trabajador ─────────────────────────────────
+//
+// A la plantilla de gestión se entra por la app de conductores o por la de
+// Control de acceso. Cada ficha apunta por cuál ha entrado; las de antes de
+// esto solo podían venir de la de conductores.
+const APPS_DE_PLANTILLA = ['trabajador', 'control'];
+const appsDe = u => (Array.isArray(u?.apps) && u.apps.length ? u.apps : ['trabajador'])
+  .filter(a => APPS_DE_PLANTILLA.includes(a));
+
+// Lo que se quita de la plantilla no se pierde: antes de borrar la ficha se
+// guarda entera aquí, con cuándo y por qué se quitó.
+const FICHERO_QUITADOS = 'usuarios-quitados.json';
+async function archivarQuitado(email, datos, app) {
+  const { avatar, ...ficha } = datos || {};
+  for (let intento = 0; intento < 3; intento++) {
+    const r = await fetch(
+      `https://api.github.com/repos/${REPO}/contents/${FICHERO_QUITADOS}?ref=${BRANCH}&t=${Date.now()}`,
+      { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' });
+    let archivo = {}, sha = null;
+    if (r.ok) {
+      const meta = await r.json();
+      sha = meta.sha;
+      const texto = await leerContenido(meta);
+      if (texto.trim()) archivo = JSON.parse(texto);
+    } else if (r.status !== 404) {
+      throw new Error('GitHub ' + r.status + ' al leer ' + FICHERO_QUITADOS);
+    }
+    const lista = Array.isArray(archivo[email]) ? archivo[email] : [];
+    archivo[email] = [...lista, { quitado: new Date().toISOString(), sinAccesoA: app, ficha }].slice(-10);
+    const body = { message: `Guardar la ficha de ${email} antes de quitarlo`, branch: BRANCH,
+      content: Buffer.from(JSON.stringify(archivo, null, 2) + '\n').toString('base64') };
+    if (sha) body.sha = sha;
+    const w = await fetch(`https://api.github.com/repos/${REPO}/contents/${FICHERO_QUITADOS}`,
+      { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (w.ok) return;
+    if (w.status !== 409) throw new Error('GitHub ' + w.status + ' al guardar ' + FICHERO_QUITADOS);
+  }
+  throw new Error('No se pudo guardar la copia de la ficha');
+}
+
+// Al quitarle a alguien el acceso a una de las apps por las que se entra en
+// la plantilla, deja de ser de esa app. Si ya no le queda ninguna, sale de la
+// plantilla de gestión; su ficha se guarda antes, y lo que tenga en sus
+// copias de seguridad de Drive no se toca.
+export async function quitarDeApp(email, app) {
+  const clave = String(email || '').toLowerCase().trim();
+  if (!clave || !APPS_DE_PLANTILLA.includes(app)) return { quitado: false };
+  const u = hayBaseDeDatos() ? await leerUsuario(clave) : (await leerTodo())[clave];
+  if (!u || u.ficticio) return { quitado: false };
+  const quedan = appsDe(u).filter(a => a !== app);
+  if (quedan.length) {
+    await mutarUsuario(clave, data => {
+      if (data[clave]) data[clave] = { ...data[clave], apps: quedan };
+      return data;
+    }, `${clave} ya no entra en ${app}`);
+    return { quitado: false, quedan };
+  }
+  // Primero la copia: si no se puede guardar, no se borra nada
+  await archivarQuitado(clave, u, app);
+  await mutarUsuario(clave, data => { delete data[clave]; return data; },
+    `Quitar a ${clave} de la plantilla (sin acceso a ${app})`);
+  return { quitado: true };
+}
+
 async function leerTodo() {
   if (hayBaseDeDatos()) return leerUsuarios();
   const { data } = await getFile();
@@ -422,6 +486,33 @@ export default async function handler(req, res) {
       const b = req.body || {};
       if (typeof b.avatar === 'string' && b.avatar.length > MAX_AVATAR) b.avatar = null;
 
+      // Quien entra por la app de Control de acceso también es de la
+      // plantilla: se le da de alta con su nombre y su número, sin tocar nada
+      // de lo que ya tuviera si además usa la de conductores.
+      if (b.origen === 'control') {
+        const nuevo = await mutarUsuario(quien, data => {
+          const previo = data[quien];
+          if (previo?.ficticio) return data;
+          const base = previo || {
+            email: quien, horasMes: 0, horasTotales: 0, horasAnuales: 777, jornadaHoras: 7,
+            diasMes: 0, jornadas: [], vacaciones: [], puesto: '',
+          };
+          const nombre = typeof b.nombre === 'string' ? b.nombre.trim().slice(0, 80) : '';
+          const conductor = typeof b.conductor === 'string' ? b.conductor.trim().slice(0, 12) : '';
+          data[quien] = {
+            ...base,
+            email: quien,
+            nombre: base.nombre || nombre,
+            conductor: conductor || base.conductor || '',
+            avatar: base.avatar ?? (typeof b.avatar === 'string' && b.avatar ? b.avatar : null),
+            apps: [...new Set([...(previo ? appsDe(previo) : []), 'control'])],
+            actualizado: new Date().toISOString(),
+          };
+          return data;
+        }, `Alta de ${quien} desde Control de acceso`);
+        return nuevo ? res.status(200).json(nuevo[quien] || {}) : res.status(500).json({ error: 'No se pudo guardar' });
+      }
+
       const nuevo = await mutarUsuario(quien, data => {
         const previo = data[quien] || {};
         data[quien] = {
@@ -456,6 +547,8 @@ export default async function handler(req, res) {
           tramosDia:    previo.tramosDia || {},
           revisiones:   previo.revisiones || {},
           avisoVisto:   nuevoVisto(previo.avisoVisto, b.avisoVisto),
+          // Entra por la de conductores, y puede que también por la de control
+          apps:         [...new Set([...(previo.email ? appsDe(previo) : []), 'trabajador'])],
           grupo:        previo.grupo ?? null,
           actualizado:  new Date().toISOString(),
         };

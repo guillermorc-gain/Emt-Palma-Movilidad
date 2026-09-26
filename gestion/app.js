@@ -4804,7 +4804,17 @@ const app = {
             if (!resp.ok) { this._mostrarToast('❌ ' + (data.error || resp.status), 4000); return; }
             this._listasAcceso[cfg.id] = data.emails;
             this._renderAcceso(cfg.id);
-            this._mostrarToast('🗑️ Quitado', 2500);
+            // Sin acceso a la de conductores o a la de control, puede que haya
+            // salido también de la plantilla: se dice, y se repinta la lista
+            const pl = data.plantilla;
+            if (pl?.quitado) {
+                this._mostrarToast('🗑️ Quitado, y fuera de la plantilla de trabajadores. Su ficha queda guardada.', 4500);
+                try { this._cargarConductores?.(); } catch (_) {}
+            } else if (pl?.error) {
+                this._mostrarToast('🗑️ Quitado el acceso, pero no se ha podido sacar de la plantilla: ' + pl.error, 5000);
+            } else {
+                this._mostrarToast('🗑️ Quitado', 2500);
+            }
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
 
