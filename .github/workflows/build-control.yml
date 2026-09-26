@@ -237,6 +237,15 @@ jobs:
                           guardarEnDescargas(bytes, filename);
                       }
 
+                      // El Excel (.xlsx) es binario: llega en base64
+                      @JavascriptInterface
+                      public void saveFileBase64(String b64, String filename) {
+                          byte[] bytes;
+                          try { bytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT); }
+                          catch (Exception e) { return; }
+                          guardarEnDescargas(bytes, filename);
+                      }
+
                       private void guardarEnDescargas(byte[] data, String filename) {
                           final String fname = (filename != null && !filename.isEmpty())
                               ? filename : "partes-control-acceso.csv";
@@ -252,6 +261,7 @@ jobs:
                                       fname.endsWith(".csv") ? "text/csv"
                                       : fname.endsWith(".pdf") ? "application/pdf"
                                       : fname.endsWith(".json") ? "application/json"
+                                      : fname.endsWith(".xlsx") ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                       : "application/octet-stream");
                                   Uri uri = ctx.getContentResolver().insert(
                                       MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
