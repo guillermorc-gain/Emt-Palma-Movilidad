@@ -460,7 +460,10 @@ export default async function handler(req, res) {
       if (mio !== undefined) {
         const u = data[String(mio).toLowerCase().trim()];
         const f = /^\d{8}$/.test(String(fecha || '')) ? fecha : hoyClave();
-        return res.status(200).json(loQueLeToca(u, f) || { fecha: f, lugar: '', horario: null });
+        // Con su número: así la app de Control de acceso lo recupera en un
+        // móvil nuevo sin tener que volver a escribirlo.
+        return res.status(200).json({ ...(loQueLeToca(u, f) || { fecha: f, lugar: '', horario: null }),
+                                      conductor: u?.conductor || '' });
       }
       // Solo nombre y número, para que la app del trabajador pueda escribir a
       // un compañero sin bajarse las jornadas de toda la plantilla.

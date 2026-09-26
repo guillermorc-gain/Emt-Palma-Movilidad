@@ -454,7 +454,9 @@ const app = {
             this.mostrarApp();
             this._pintarQuien();
             this._actualizarBotonPerfil();
-            if (!ES_GC) { this._registrarEnPlantilla(); this._cargarAsignacion(); }
+            // Primero lo que tiene la plantilla (su número, si lo puso en otro
+            // móvil) y luego darse de alta con él
+            if (!ES_GC) this._cargarAsignacion().then(() => this._registrarEnPlantilla());
             this._prepararRegistro();
             this.cargarVisitantes();
             this.cargarRegistros();
@@ -809,6 +811,12 @@ const app = {
             if (!r.ok) return;
             const a = await r.json();
             if (!a || !a.fecha) return;
+            // El número se escribió en otro móvil: el que tiene la plantilla
+            // vale aquí también. El de este móvil, si lo hay, manda.
+            if (a.conductor && !localStorage.getItem('parteConductor')) {
+                localStorage.setItem('parteConductor', a.conductor);
+                this._actualizarConductorDisplay();
+            }
             localStorage.setItem('asignacionHoy', JSON.stringify(a));
             this._pintarQuien();
             this._actualizarConductorDisplay();
