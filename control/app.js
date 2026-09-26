@@ -139,6 +139,8 @@ const app = {
             if (document.visibilityState !== 'visible') return;
             const ultima = parseInt(sessionStorage.getItem('lastUpdateCheck') || '0', 10);
             if (Date.now() - ultima > 90 * 1000) { try { this._checkForUpdates(); } catch (_) {} }
+            // Y lo que le toca hoy, por si gestión le ha cambiado el sitio
+            if (this.usuarioActual && !ES_GC) this._cargarAsignacion();
         });
         if (this.darkMode) document.body.classList.add('dark');
         this._pintarTurnos();
@@ -476,6 +478,7 @@ const app = {
             this.mostrarApp();
             this._pintarQuien();
             this._actualizarBotonPerfil();
+            if (!ES_GC) this._cargarAsignacion();
             this._nuevoParteDeHoy();
             this.cargarPartes();
             // Ya está dentro: en el navegador se le pregunta si se descarga
@@ -753,11 +756,38 @@ const app = {
         }
         this._actualizarConductorDisplay();
         this._pintarQuien();
+        this._cargarAsignacion();
     },
 
     _actualizarConductorDisplay() {
         const el = document.getElementById('conductorDisplay');
-        if (el) el.textContent = [localStorage.getItem('parteConductor') || 'Sin asignar', 'Control'].join(' · ');
+        if (el) el.textContent = [localStorage.getItem('parteConductor') || 'Sin asignar', this._lugarAsignado()]
+            .filter(Boolean).join(' · ');
+    },
+
+    // El sitio no lo pone la app: es el que gestión de conductores le tiene
+    // asignado para hoy, el mismo que ve en la app de conductores. Sin
+    // asignar no sale nada.
+    _lugarAsignado() {
+        try {
+            const a = JSON.parse(localStorage.getItem('asignacionHoy') || 'null');
+            const hoy = this._aClave(this._hoyISO());
+            return a && a.fecha === hoy && !(a.baja || a.vacaciones || a.libre) ? (a.lugar || '') : '';
+        } catch (_) { return ''; }
+    },
+
+    async _cargarAsignacion() {
+        const email = this.usuarioActual?.email;
+        if (!email) return;
+        try {
+            const r = await fetch(`${API_BASE}usuarios?mio=${encodeURIComponent(email)}`, { cache: 'no-store' });
+            if (!r.ok) return;
+            const a = await r.json();
+            if (!a || !a.fecha) return;
+            localStorage.setItem('asignacionHoy', JSON.stringify(a));
+            this._pintarQuien();
+            this._actualizarConductorDisplay();
+        } catch (_) { /* sin red se queda lo último que se supo */ }
     },
 
     // ── Apariencia ───────────────────────────────────────────────────────────
@@ -1138,7 +1168,7 @@ const app = {
         poner('cabeceraSub', new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }));
         poner('cabeceraNombre', this.usuarioActual?.name || this.usuarioActual?.email || '');
         poner('cabeceraNum', ES_GC ? '' : (localStorage.getItem('parteConductor') || ''));
-        poner('cabeceraLugar', ES_GC ? '' : 'Control');
+        poner('cabeceraLugar', ES_GC ? '' : this._lugarAsignado());
     },
 
     // ── El parte ─────────────────────────────────────────────────────────────
@@ -1687,6 +1717,11 @@ const app = {
             this._updateApkUrl = asset?.browser_download_url || release.html_url;
             this._updateLatestNum = ultima;
             const texto = `${this._buildNumToVersion(ultima)} disponible (tienes ${this._buildNumToVersion(ahora)})`;
+            // La franja de abajo sale siempre; el cuadro, si no se ha apartado
+            const banner = document.getElementById('updateBanner');
+            const bMsg   = document.getElementById('updateBannerMsg');
+            if (bMsg) bMsg.textContent = texto;
+            if (banner) banner.style.display = 'flex';
             const modal = document.getElementById('updateModal');
             const msg   = document.getElementById('updateModalMsg');
             // "Más tarde" solo lo aparta unas horas, nunca para siempre: si no,
