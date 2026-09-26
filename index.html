@@ -857,6 +857,27 @@
         </div>
     </div>
 
+    <!-- La elección se enseña ya, sin esperar a que cargue la app: si no, se
+         veía un momento la pantalla de arranque de Trabajador antes de poder
+         elegir. Las mismas condiciones que _preguntarConQueApp. -->
+    <script>
+    (function () {
+        try {
+            // Dentro del APK la página se sirve desde localhost: ahí no se pregunta
+            if (location.hostname === 'localhost' || window.AndroidBridge
+                || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
+            var q = new URLSearchParams(location.search);
+            if (q.get('app') || q.has('code') || q.has('access_token') || q.has('error')
+                || location.hash.indexOf('access_token') >= 0) return;
+            if ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) return;
+            var gestion = history.state && history.state.pantalla === 'gestion';
+            document.getElementById(gestion ? 'gestionScreen' : 'rolScreen').style.display = 'flex';
+            var splash = document.getElementById('splashScreen');
+            if (splash) splash.style.display = 'none';
+        } catch (e) {}
+    })();
+    </script>
+
     <!-- Después de iniciar sesión: ¿se la descarga o sigue aquí? -->
     <div class="rol-screen" id="modoScreen" style="display:none;">
         <div class="rol-card">
