@@ -63,7 +63,7 @@ const API_BASE   = BASE_URL + '/api/';
 // exacta tiene que estar dada de alta en la consola de Google; de ahí que esté
 // aquí sola y no repetida por el fichero.
 const RETORNO_APP  = BASE_URL + '/';
-const PARTES_URL   = API_BASE + 'partes';
+const ACCESOS_URL  = API_BASE + 'accesos';
 const VERSION_URL  = API_BASE + 'version';
 const ALLOWLIST_URL = API_BASE + 'allowlist';
 
@@ -75,23 +75,6 @@ const VERSION_KEY     = ES_GC ? 'gestionControl' : 'control';
 
 const NOMBRE_APP = ES_GC ? 'Gestión control de acceso EMT - Movilidad'
                          : 'Control de acceso EMT - Movilidad';
-
-const TURNOS = [
-    { id: 'M', nombre: 'Mañana', desde: '05:00', hasta: '14:00' },
-    { id: 'T', nombre: 'Tarde',  desde: '14:00', hasta: '20:00' },
-    { id: 'N', nombre: 'Noche',  desde: '20:00', hasta: '05:00' },
-];
-const TIPOS = {
-    entrada:    '🟢 Entrada',
-    salida:     '🔴 Salida',
-    visita:     '👤 Visita',
-    incidencia: '⚠️ Incidencia',
-    llaves:     '🔑 Llaves',
-    otro:       '· Otro',
-};
-// Por orden de reloj, que es como se leen. Por la letra salían M, N, T, con la
-// noche antes de la tarde.
-const ORDEN_TURNO = { M: 0, T: 1, N: 2 };
 
 const AVATAR_EMOJIS = ['🚌','⭐','🔥','⚡','🌊','🎯','🚀','🦸','🎨','🌈'];
 const AVATAR_BG     = ['#667eea','#e74c3c','#f39c12','#27ae60','#3498db','#9b59b6','#1abc9c','#e67e22','#764ba2','#e91e63'];
@@ -113,8 +96,6 @@ const app = {
     backupFreq: localStorage.getItem('backupFreq') || 'dia',
     _copiando: false,
     modalCallback: null,
-    _partes: null,
-    _parte: null,          // el que se está escribiendo o corrigiendo
     _tab: 0,
     _toastTimer: null,
     _tokenRefreshTimer: null,
@@ -143,7 +124,6 @@ const app = {
             if (this.usuarioActual && !ES_GC) this._cargarAsignacion();
         });
         if (this.darkMode) document.body.classList.add('dark');
-        this._pintarTurnos();
         this._setupDeepLinkListener();
         window.addEventListener('popstate', () => {
             if (history.state?.pantalla !== 'opciones'
@@ -162,19 +142,15 @@ const app = {
         document.title = NOMBRE_APP;
         if (ES_GC) {
             poner('authTitulo', NOMBRE_APP);
-            poner('authSub', 'Los partes del puesto · EMT Palma');
+            poner('authSub', 'Los registros del puesto · EMT Palma');
             poner('splashRol', '🗝️ Gestión del puesto');
             poner('cabeceraTitulo', '🗝️ Gestión control de acceso');
-            poner('tabLblPartes', 'Todos los partes');
+
             const logo = document.getElementById('authLogo');
             if (logo) logo.src = 'icons/icon-gc-192.png';
             const modoLogo = document.getElementById('modoLogo');
             if (modoLogo) modoLogo.src = 'icons/icon-gc-192.png';
             poner('modoTit', NOMBRE_APP);
-            const f = document.getElementById('paFiltros');
-            if (f) f.style.display = '';
-            const d = document.getElementById('pDuenoBox');
-            if (d) d.style.display = '';
         }
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta && ES_GC) meta.content = '#7B241C';
@@ -458,8 +434,8 @@ const app = {
             if (antes && antes.toLowerCase() !== this.usuarioActual.email.toLowerCase()) {
                 // Otro correo en el mismo móvil es otra persona: lo que dejó
                 // aquí el anterior no puede quedarse a la vista.
-                ['partesCache', 'parteNombre', 'parteConductor'].forEach(k => localStorage.removeItem(k));
-                this._partes = null;
+                ['partesCache', 'parteNombre', 'parteConductor', 'registrosCache'].forEach(k => localStorage.removeItem(k));
+                this._porId = {};
             }
             localStorage.setItem('cUserEmail', this.usuarioActual.email);
 
@@ -479,8 +455,9 @@ const app = {
             this._pintarQuien();
             this._actualizarBotonPerfil();
             if (!ES_GC) { this._registrarEnPlantilla(); this._cargarAsignacion(); }
-            this._nuevoParteDeHoy();
-            this.cargarPartes();
+            this._prepararRegistro();
+            this.cargarVisitantes();
+            this.cargarRegistros();
             // Ya está dentro: en el navegador se le pregunta si se descarga
             // la aplicación o sigue aquí, como en las de conductores y gestión.
             this._preguntarModoSiToca();
@@ -531,12 +508,12 @@ const app = {
     },
 
     // Como en la de conductores: borra la copia de seguridad de esta app en
-    // tu Drive y lo guardado en el móvil, y cierra la sesión. Los partes no
+    // tu Drive y lo guardado en el móvil, y cierra la sesión. Los registros no
     // son solo tuyos —son el registro del puesto— y se quedan en el servidor.
     confirmarBorrarCuenta() {
         this.mostrarModal('⚠️ Borrar datos',
             'Se borrará tu copia de seguridad de Google Drive y todo lo guardado en este móvil, y se cerrará la sesión. '
-            + 'Los partes del puesto no se borran.',
+            + 'Los registros del puesto no se borran.',
             () => this._borrarCuenta());
     },
 
@@ -602,10 +579,6 @@ const app = {
         const son = document.getElementById('notifSoundSelect');
         if (son) son.value = this.notifSound;
         document.querySelectorAll('input[name="backupFreq"]').forEach(r => { r.checked = r.value === this.backupFreq; });
-        if (ES_GC) {
-            const que = document.getElementById('backupQue');
-            if (que) que.innerHTML = 'Se guardan en tu Google Drive, en <b>Movilidad Emt</b>, los partes de todos y tus ajustes.';
-        }
         this._actualizarTemaUI();
         this._actualizarAvatarPreview();
         this._pintarUltimaCopia();
@@ -779,11 +752,6 @@ const app = {
             return;
         }
         localStorage.setItem('parteConductor', n);
-        if (this._parte && !this._parte.id) {
-            this._parte.conductor = n;
-            const el = document.getElementById('pConductor');
-            if (el) el.value = n;
-        }
         this._actualizarConductorDisplay();
         this._pintarQuien();
         this._registrarEnPlantilla();
@@ -932,9 +900,10 @@ const app = {
 
     // ── Copia de seguridad en Google Drive ───────────────────────────────────
     //
-    // Lo que hay en el servidor son los partes; aquí se guarda una copia de
-    // ellos —los suyos, o los de todos en la del puesto— y de los ajustes de
-    // este móvil, en la misma carpeta de Drive que usa la de conductores.
+    // Lo que hay en el servidor son los registros; aquí se guarda una copia de
+    // ellos y del directorio de visitantes —son del puesto, no de cada uno— y
+    // de los ajustes de este móvil, en la misma carpeta de Drive que usa la de
+    // conductores.
 
     _getAjustes() {
         const g = k => localStorage.getItem(k);
@@ -962,11 +931,19 @@ const app = {
         this._pintarQuien();
     },
 
-    // Los partes, recién leídos del servidor. Sin poder leerlos no se hace
-    // copia: una copia vacía machacaría la buena que hubiera.
-    async _partesParaCopia() {
-        const r = await fetch(PARTES_URL, { cache: 'no-store' });
-        if (!r.ok) throw new Error('No se han podido leer los partes (' + r.status + ')');
+    // Los registros y el directorio, recién leídos del servidor. Sin poder
+    // leerlos no se hace copia: una copia vacía machacaría la buena que hubiera.
+    async _registrosParaCopia() {
+        const r = await fetch(ACCESOS_URL, { cache: 'no-store' });
+        if (!r.ok) throw new Error('No se han podido leer los registros (' + r.status + ')');
+        const lista = await r.json();
+        if (!Array.isArray(lista)) throw new Error('Respuesta rara del servidor');
+        return lista;
+    },
+
+    async _visitantesParaCopia() {
+        const r = await fetch(ACCESOS_URL + '?que=visitantes', { cache: 'no-store' });
+        if (!r.ok) throw new Error('No se ha podido leer el directorio (' + r.status + ')');
         const lista = await r.json();
         if (!Array.isArray(lista)) throw new Error('Respuesta rara del servidor');
         return lista;
@@ -980,7 +957,8 @@ const app = {
             fecha: new Date().toISOString(),
             email: this.usuarioActual?.email || '',
             ajustes: this._getAjustes(),
-            partes: await this._partesParaCopia(),
+            registros: await this._registrosParaCopia(),
+            visitantes: await this._visitantesParaCopia(),
         };
     },
 
@@ -1059,7 +1037,7 @@ const app = {
             localStorage.setItem('ultimaCopia', datos.fecha);
             localStorage.removeItem('copiaSinPermiso');
             this._pintarUltimaCopia();
-            if (!silencio) this._mostrarToast(`✅ Copia guardada en Google Drive (${datos.partes.length} partes)`, 3500);
+            if (!silencio) this._mostrarToast(`✅ Copia guardada en Google Drive (${datos.registros.length} registros · ${datos.visitantes.length} en el directorio)`, 4000);
         } catch (e) {
             if (e.sinPermiso) {
                 localStorage.setItem('copiaSinPermiso', '1');
@@ -1129,46 +1107,45 @@ const app = {
     },
 
     _confirmarRestaurar(datos, deDonde) {
-        if (!datos || typeof datos !== 'object' || !Array.isArray(datos.partes)) {
+        if (!datos || typeof datos !== 'object' || !Array.isArray(datos.registros)) {
             this._mostrarToast('❌ Eso no es una copia de esta aplicación', 4000);
             return;
         }
         const cuando = datos.fecha ? ' del ' + this._cuando(datos.fecha) : '';
         this.mostrarModal('Restaurar la copia',
-            `Se recuperan los ajustes y los partes de la copia${cuando} (${deDonde}). `
-            + 'Solo se vuelven a subir los partes que ya no están; los que siguen en el servidor no se tocan.',
+            `Se recuperan los ajustes, los registros y el directorio de visitantes de la copia${cuando} (${deDonde}). `
+            + 'Solo se vuelven a subir los registros que ya no están; los que siguen en el servidor no se tocan.',
             // Sin esperar: el cuadro se cierra y lo que va pasando sale abajo
             () => { this._restaurar(datos); });
     },
 
     async _restaurar(datos) {
         this._aplicarAjustes(datos.ajustes);
-        this._mostrarToast('⏳ Recuperando partes…', 3000);
-        let hay;
-        try { hay = new Set((await this._partesParaCopia()).map(p => p.id)); }
-        catch (e) { this._mostrarToast('❌ ' + e.message, 5000); return; }
-        const faltan = datos.partes.filter(p => p && p.id && !hay.has(p.id));
-        let bien = 0, mal = 0;
-        for (const p of faltan) {
-            try {
-                const r = await fetch(PARTES_URL, {
+        this._mostrarToast('⏳ Recuperando registros…', 3000);
+        let guardados = 0;
+        try {
+            // El servidor solo mete los que no tiene: los que están no se tocan
+            const r = await fetch(ACCESOS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ registros: datos.registros }),
+            });
+            const out = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(out.error || r.status);
+            guardados = out.guardados || 0;
+            if (Array.isArray(datos.visitantes) && datos.visitantes.length) {
+                await fetch(ACCESOS_URL + '?que=visitantes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fecha: p.fecha, turno: p.turno, nombre: p.nombre || '', conductor: p.conductor || '',
-                        notas: p.notas || '', anotaciones: Array.isArray(p.anotaciones) ? p.anotaciones : [],
-                        ...(ES_GC && p.email ? { email: p.email } : {}),
-                    }),
+                    body: JSON.stringify({ lista: datos.visitantes }),
                 });
-                if (r.ok) bien++; else mal++;
-            } catch (_) { mal++; }
-        }
-        await this.cargarPartes(true);
-        this._nuevoParteDeHoy();
+            }
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); return; }
+        await Promise.all([this.cargarRegistros(true), this.cargarVisitantes()]);
         this.mostrarOpciones();
-        this._mostrarToast(faltan.length
-            ? `✅ Ajustes recuperados · ${bien} partes recuperados` + (mal ? ` · ${mal} no se han podido` : '')
-            : '✅ Ajustes recuperados · no faltaba ningún parte', 5000);
+        this._mostrarToast(guardados
+            ? `✅ Ajustes recuperados · ${guardados} registros recuperados`
+            : '✅ Ajustes recuperados · no faltaba ningún registro', 5000);
     },
 
     async exportarDatos() {
@@ -1215,7 +1192,7 @@ const app = {
         document.querySelectorAll('.tab-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.tab === String(n)));
         document.getElementById('contenido').scrollTop = 0;
-        if (n === 1) this.cargarPartes();
+        if (n === 1) this._renderHistorial();
     },
 
     // La cabecera como la de conductores: a la izquierda qué app y qué día,
@@ -1250,343 +1227,428 @@ const app = {
             { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     },
 
-    // El turno en el que se está ahora mismo. Abrir la app en la garita a las
-    // tres de la mañana tiene que ofrecer la noche, no la mañana.
-    _turnoDeAhora() {
+    // ── Registros de entrada y salida ────────────────────────────────────────
+    //
+    // Arriba el día (hoy, de salida), debajo el formulario con la hora de
+    // ahora ya puesta, y debajo lo apuntado ese día. Con la matrícula de
+    // alguien que ya vino se rellena todo lo demás: el directorio se va
+    // aprendiendo solo con cada registro.
+
+    _claveMatricula(m) { return String(m || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); },
+
+    _horaAhora() {
         const d = new Date();
-        const min = d.getHours() * 60 + d.getMinutes();
-        const aMin = h => +h.slice(0, 2) * 60 + +h.slice(3, 5);
-        for (const t of TURNOS) {
-            const a = aMin(t.desde), b = aMin(t.hasta);
-            // La noche cruza la medianoche, así que el rango va del revés
-            if (a < b ? (min >= a && min < b) : (min >= a || min < b)) return t.id;
-        }
-        return 'M';
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     },
 
-    // El día al que pertenece el turno de ahora: en la noche, de madrugada, el
-    // parte sigue siendo el del día anterior.
-    _diaDeAhora() {
+    // Lo que se ha cargado, por id: el día que se ve y el historial salen de aquí
+    _porId: {},
+    _visitantes: {},
+    _dia: '',
+
+    _registrosDe(fecha) {
+        return Object.values(this._porId).filter(r => r.fecha === fecha)
+            .sort((a, b) => (a.entrada || '').localeCompare(b.entrada || ''));
+    },
+
+    _guardarCacheRegistros() {
+        try {
+            // Solo lo reciente: es para poder seguir sin cobertura, no un archivo
+            const desde = this._aClave(this._isoHaceDias(40));
+            const lista = Object.values(this._porId).filter(r => r.fecha >= desde);
+            localStorage.setItem('registrosCache', JSON.stringify(lista));
+        } catch (_) {}
+    },
+
+    _isoHaceDias(n) {
         const d = new Date();
-        if (this._turnoDeAhora() === 'N' && d.getHours() < 5) d.setDate(d.getDate() - 1);
+        d.setDate(d.getDate() - n);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     },
 
-    _pintarTurnos() {
-        const cont = document.getElementById('pTurnos');
-        if (!cont) return;
-        cont.innerHTML = TURNOS.map(t => `<div class="turno-op" data-turno="${t.id}" onclick="app.elegirTurno('${t.id}')">
-            <b>${t.nombre}</b><span>${t.desde}–${t.hasta}</span></div>`).join('');
-    },
-
-    elegirTurno(id) {
-        if (!this._parte) return;
-        this._parte.turno = id;
-        this._marcarTurno();
-        this.cambiarTurnoParte();
-    },
-
-    _marcarTurno() {
-        document.querySelectorAll('#pTurnos .turno-op').forEach(el =>
-            el.classList.toggle('sel', el.dataset.turno === this._parte?.turno));
-    },
-
-    // Al abrir, el parte del turno en el que se está: si ya hay uno guardado
-    // para ese día y turno se sigue escribiendo en él, que es lo que se espera
-    // al volver a abrir la app en medio del turno.
-    _nuevoParteDeHoy() {
-        this._parte = {
-            id: '', fecha: this._aClave(this._diaDeAhora()), turno: this._turnoDeAhora(),
-            email: '', nombre: localStorage.getItem('parteNombre') || this.usuarioActual?.name || '',
-            conductor: localStorage.getItem('parteConductor') || '',
-            notas: '', anotaciones: [],
-        };
-        this._pintarParte();
-        this.cambiarTurnoParte();
-    },
-
-    nuevoParte() {
-        this._nuevoParteDeHoy();
-        this.irA(0);
-    },
-
-    // Cambiar de día o de turno es cambiar de parte: si ese ya existe se trae,
-    // y si no se empieza en blanco. Sin esto se guardaba lo de un turno en el
-    // hueco de otro.
-    cambiarTurnoParte() {
-        if (!this._parte) return;
-        this._recogerCampos();
-        const fecha = this._aClave(document.getElementById('pFecha').value) || this._parte.fecha;
-        this._parte.fecha = fecha;
-        const clave = `${fecha}-${this._parte.turno}`;
-        const ya = (this._partes || []).find(p => p.id === clave);
-        if (ya) {
-            this._parte = JSON.parse(JSON.stringify(ya));
-        } else if (this._parte.id && this._parte.id !== clave) {
-            // Venía de otro parte ya guardado: se empieza uno nuevo en blanco
-            this._parte = { id: '', fecha, turno: this._parte.turno, email: '',
-                            nombre: this._parte.nombre, conductor: this._parte.conductor,
-                            notas: '', anotaciones: [] };
-        }
-        this._pintarParte();
-    },
-
-    abrirParte(id) {
-        const p = (this._partes || []).find(x => x.id === id);
-        if (!p) return;
-        // Una copia: si al final no se guarda, la lista se queda como estaba
-        this._parte = JSON.parse(JSON.stringify(p));
-        this._pintarParte();
-        this.irA(0);
-    },
-
-    _pintarParte() {
-        const p = this._parte;
-        if (!p) return;
-        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        v('pFecha', this._aISO(p.fecha) || this._hoyISO());
-        v('pNombre', p.nombre || '');
-        v('pConductor', p.conductor || '');
-        v('pNotas', p.notas || '');
-        if (ES_GC) v('pDueno', p.email || '');
-        this._marcarTurno();
-        this._pintarAnotaciones();
-        const firma = document.getElementById('pFirma');
-        if (firma) {
-            firma.textContent = p.actualizado
-                ? `Guardado el ${this._cuando(p.actualizado)}`
-                    + (p.email ? ` · parte de ${p.email}` : '')
-                    + (p.tocadoPor && p.tocadoPor !== p.email ? ` · corregido por ${p.tocadoPor}` : '')
-                : 'Este parte todavía no se ha guardado.';
-        }
-    },
-
-    _pintarAnotaciones() {
-        const cont = document.getElementById('pAnotaciones');
-        if (!cont || !this._parte) return;
-        const filas = this._parte.anotaciones || [];
-        const cuantas = document.getElementById('pCuantas');
-        if (cuantas) cuantas.textContent = filas.length ? `(${filas.length})` : '';
-        if (!filas.length) {
-            cont.innerHTML = '<div class="an-vacio">Todavía no hay nada apuntado en este turno.</div>';
-            return;
-        }
-        cont.innerHTML = filas.map((a, i) => `<div class="an-fila">
-            <div class="an-txt">
-                <div class="an-cab">
-                    <input class="an-hora" type="time" value="${esc(a.hora)}" onchange="app.tocarAnotacion(${i},'hora',this.value)">
-                    <select onchange="app.tocarAnotacion(${i},'tipo',this.value)">
-                        ${Object.entries(TIPOS).map(([k, t]) =>
-                            `<option value="${k}"${a.tipo === k ? ' selected' : ''}>${t}</option>`).join('')}
-                    </select>
-                </div>
-                <input type="text" value="${esc(a.que)}" maxlength="200" placeholder="Qué (bus 214, furgoneta, paquete…)"
-                       onchange="app.tocarAnotacion(${i},'que',this.value)">
-                <input type="text" value="${esc(a.quien)}" maxlength="200" placeholder="Quién (nombre o empresa)"
-                       onchange="app.tocarAnotacion(${i},'quien',this.value)">
-                <input type="text" value="${esc(a.obs)}" maxlength="400" placeholder="Observaciones"
-                       onchange="app.tocarAnotacion(${i},'obs',this.value)">
-            </div>
-            <button class="an-x" onclick="app.quitarAnotacion(${i})" title="Quitar">✕</button>
-        </div>`).join('');
-    },
-
-    tocarAnotacion(i, campo, valor) {
-        const a = this._parte?.anotaciones?.[i];
-        if (a) a[campo] = valor;
-    },
-
-    anadirAnotacion() {
-        if (!this._parte) return;
-        const d = new Date();
-        this._parte.anotaciones = this._parte.anotaciones || [];
-        this._parte.anotaciones.push({
-            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-            hora: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-            tipo: 'entrada', que: '', quien: '', obs: '',
-        });
-        this._pintarAnotaciones();
-    },
-
-    quitarAnotacion(i) {
-        if (!this._parte?.anotaciones) return;
-        this._parte.anotaciones.splice(i, 1);
-        this._pintarAnotaciones();
-    },
-
-    _recogerCampos() {
-        if (!this._parte) return;
-        const g = id => document.getElementById(id)?.value ?? '';
-        this._parte.nombre    = g('pNombre');
-        this._parte.conductor = g('pConductor');
-        this._parte.notas     = g('pNotas');
-        if (ES_GC) this._parte.email = g('pDueno').trim().toLowerCase();
-    },
-
-    async guardarParte() {
-        const p = this._parte;
-        if (!p) return;
-        this._recogerCampos();
-        const fecha = this._aClave(document.getElementById('pFecha').value);
-        if (fecha.length !== 8) { this._mostrarToast('❌ Falta el día', 3000); return; }
-        // El nombre y el número se repiten turno tras turno: se guardan para no
-        // tener que escribirlos cada vez.
-        localStorage.setItem('parteNombre', p.nombre || '');
-        localStorage.setItem('parteConductor', p.conductor || '');
-        const cuerpo = {
-            fecha, turno: p.turno, nombre: p.nombre, conductor: p.conductor, notas: p.notas,
-            // Sin nada escrito no es una anotación: el servidor las descarta
-            // igual, pero así no se manda de más.
-            anotaciones: (p.anotaciones || []).filter(a => a.que || a.quien || a.obs),
-            ...(ES_GC && p.email ? { email: p.email } : {}),
-        };
+    // Al entrar y cada vez que se registra: hoy, con la hora de ahora
+    _prepararRegistro() {
+        if (!this._dia) this._dia = this._aClave(this._hoyISO());
+        const pd = document.getElementById('paDesde'), ph = document.getElementById('paHasta');
+        if (pd && !pd.value) pd.value = this._isoHaceDias(30);
+        if (ph && !ph.value) ph.value = this._hoyISO();
+        const f = document.getElementById('rFecha');
+        if (f) f.value = this._aISO(this._dia);
+        this._pintarDiaLargo();
+        this._limpiarFormulario();
         try {
-            const r = await fetch(PARTES_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cuerpo),
-            });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error || r.status);
-            // El que vuelve manda: puede haber cambiado de clave si se le ha
-            // tocado el día o el turno.
-            this._partes = [data, ...(this._partes || []).filter(x => x.id !== data.id && x.id !== p.id)]
-                .sort((a, b) => this._orden(a, b));
-            this._guardarCache();
-            this._parte = JSON.parse(JSON.stringify(data));
-            this._pintarParte();
-            this._renderPartes();
-            this._mostrarToast('✅ Parte guardado', 2500);
-        } catch (e) {
-            this._mostrarToast('❌ ' + e.message, 5000);
-        }
+            const c = JSON.parse(localStorage.getItem('registrosCache') || '[]');
+            c.forEach(r => { if (r?.id && !this._porId[r.id]) this._porId[r.id] = r; });
+            const v = JSON.parse(localStorage.getItem('visitantesCache') || '[]');
+            this._ponerVisitantes(v);
+        } catch (_) {}
+        this._renderDia();
     },
 
-    borrarParte(id) {
-        const p = (this._partes || []).find(x => x.id === id);
-        if (!p) return;
-        this.mostrarModal('Borrar el parte', `¿Seguro que quieres borrar el parte de `
-            + `${this._diaLargo(p.fecha)} (turno ${p.turno})? No se puede deshacer.`, async () => {
-            try {
-                const r = await fetch(`${PARTES_URL}?id=${encodeURIComponent(p.id)}`, { method: 'DELETE' });
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error || r.status);
-                this._partes = (this._partes || []).filter(x => x.id !== p.id);
-                this._guardarCache();
-                this._renderPartes();
-                if (this._parte?.id === p.id) this._nuevoParteDeHoy();
-                this._mostrarToast('🗑️ Parte borrado', 2500);
-            } catch (e) {
-                this._mostrarToast('❌ ' + e.message, 5000);
+    _pintarDiaLargo() {
+        const el = document.getElementById('rDiaLargo');
+        if (!el) return;
+        const hoy = this._aClave(this._hoyISO());
+        const d = new Date(+this._dia.slice(0, 4), +this._dia.slice(4, 6) - 1, +this._dia.slice(6, 8), 12);
+        const largo = isNaN(d) ? '' : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        el.textContent = (this._dia === hoy ? 'Hoy · ' : '') + largo;
+        const volver = document.getElementById('rHoyBtn');
+        if (volver) volver.hidden = this._dia === hoy;
+    },
+
+    cambiarDia() {
+        const v = this._aClave(document.getElementById('rFecha')?.value);
+        if (v.length !== 8) return;
+        this._dia = v;
+        this._pintarDiaLargo();
+        this._renderDia();
+        this.cargarRegistros(true, v, v);
+    },
+
+    irAHoy() {
+        this._dia = this._aClave(this._hoyISO());
+        const f = document.getElementById('rFecha');
+        if (f) f.value = this._aISO(this._dia);
+        this.cambiarDia();
+    },
+
+    _limpiarFormulario() {
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('rEntrada', this._horaAhora());
+        // La hora va sola hasta que alguien la toque: si el formulario se queda
+        // abierto un rato, al registrar tiene que ser la de ese momento
+        const h = document.getElementById('rEntrada');
+        if (h) {
+            h.dataset.tocada = '';
+            if (!h._escucha) { h._escucha = true; h.addEventListener('input', () => { h.dataset.tocada = '1'; }); }
+        }
+        if (!this._relojHora) {
+            this._relojHora = setInterval(() => {
+                const e = document.getElementById('rEntrada');
+                if (e && !e.dataset.tocada && document.activeElement !== e) e.value = this._horaAhora();
+            }, 20000);
+        }
+        ['rMatricula', 'rNombre', 'rEmpresa', 'rVehiculo', 'rDepartamento', 'rObs'].forEach(id => v(id, ''));
+        this._autorrellenado = {};
+        this._pintarPista('');
+    },
+
+    // ── El directorio ────────────────────────────────────────────────────────
+
+    _ponerVisitantes(lista) {
+        if (!Array.isArray(lista)) return;
+        const mapa = {};
+        lista.forEach(v => { const k = this._claveMatricula(v?.matricula); if (k) mapa[k] = v; });
+        this._visitantes = mapa;
+        const opciones = (id, valores) => {
+            const dl = document.getElementById(id);
+            if (!dl) return;
+            dl.innerHTML = [...new Set(valores.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
+                .map(x => `<option value="${esc(x)}"></option>`).join('');
+        };
+        // En la lista de matrículas se ve también de quién es, para reconocerla
+        const dm = document.getElementById('dlMatriculas');
+        if (dm) dm.innerHTML = Object.values(mapa)
+            .sort((a, b) => (a.matricula || '').localeCompare(b.matricula || ''))
+            .map(v => `<option value="${esc(v.matricula)}">${esc([v.nombre, v.empresa].filter(Boolean).join(' · '))}</option>`).join('');
+        opciones('dlEmpresas', Object.values(mapa).map(v => v.empresa));
+        opciones('dlVehiculos', Object.values(mapa).map(v => v.vehiculo));
+        opciones('dlDepartamentos', ['Taller', 'Obra', 'Paquetería taller',
+            ...Object.values(mapa).map(v => v.departamento).filter(d => d && d !== '-')]);
+    },
+
+    async cargarVisitantes() {
+        try {
+            const r = await fetch(ACCESOS_URL + '?que=visitantes', { cache: 'no-store' });
+            if (!r.ok) return;
+            const lista = await r.json();
+            this._ponerVisitantes(lista);
+            try { localStorage.setItem('visitantesCache', JSON.stringify(lista)); } catch (_) {}
+        } catch (_) { /* sin cobertura vale lo último que se supo */ }
+    },
+
+    // Al escribir la matrícula: si ya vino alguna vez, se rellena lo demás. Lo
+    // que se haya escrito a mano no se pisa; lo rellenado solo sí, por si se
+    // cambia de matrícula a media escritura.
+    buscarMatricula() {
+        const el = document.getElementById('rMatricula');
+        if (!el) return;
+        const v = this._visitantes[this._claveMatricula(el.value)];
+        const campos = { rNombre: 'nombre', rEmpresa: 'empresa', rVehiculo: 'vehiculo', rDepartamento: 'departamento' };
+        this._autorrellenado = this._autorrellenado || {};
+        Object.entries(campos).forEach(([id, k]) => {
+            const c = document.getElementById(id);
+            if (!c) return;
+            const vacio = !c.value.trim() || this._autorrellenado[id] === c.value;
+            if (v && vacio) {
+                const nuevo = v[k] && v[k] !== '-' ? v[k] : '';
+                c.value = nuevo;
+                this._autorrellenado[id] = nuevo;
+            } else if (!v && this._autorrellenado[id] === c.value) {
+                c.value = '';
+                delete this._autorrellenado[id];
             }
         });
+        if (v) el.value = v.matricula || el.value;
+        const clave = this._claveMatricula(el.value);
+        this._pintarPista(!clave ? '' : v ? `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`
+            : '🆕 Matrícula nueva: se recordará al registrarla');
     },
 
-    // ── La lista ─────────────────────────────────────────────────────────────
-
-    // Del más reciente al más viejo, y dentro del día del último turno al
-    // primero: lo que acaba de pasar, arriba.
-    _orden(a, b) {
-        return (b.fecha || '').localeCompare(a.fecha || '')
-            || (ORDEN_TURNO[b.turno] ?? 9) - (ORDEN_TURNO[a.turno] ?? 9);
+    _pintarPista(t) {
+        const el = document.getElementById('rPista');
+        if (el) { el.textContent = t; el.hidden = !t; }
     },
 
-    _guardarCache() {
-        try { localStorage.setItem('partesCache', JSON.stringify(this._partes || [])); } catch (_) {}
+    // ── Apuntar ──────────────────────────────────────────────────────────────
+
+    _leerFormulario() {
+        const g = id => (document.getElementById(id)?.value || '').trim();
+        return {
+            fecha: this._dia,
+            entrada: g('rEntrada'),
+            matricula: g('rMatricula').toUpperCase(),
+            nombre: g('rNombre'),
+            empresa: g('rEmpresa'),
+            vehiculo: g('rVehiculo'),
+            departamento: g('rDepartamento'),
+            obs: g('rObs'),
+        };
+    },
+
+    async registrarEntrada() {
+        const h = document.getElementById('rEntrada');
+        if (h && !h.dataset.tocada) h.value = this._horaAhora();
+        const r = this._leerFormulario();
+        if (!/^\d{2}:\d{2}$/.test(r.entrada)) { this._mostrarToast('❌ Falta la hora de entrada', 3000); return; }
+        if (!r.matricula && !r.nombre) { this._mostrarToast('❌ Pon al menos la matrícula o el nombre', 3000); return; }
+        const btn = document.getElementById('rBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const data = await this._enviarRegistro(r);
+            // Lo aprendido, ya aquí, sin esperar a la próxima carga
+            if (data.matricula) {
+                const k = this._claveMatricula(data.matricula);
+                const previo = this._visitantes[k] || {};
+                const v = { ...previo, matricula: data.matricula,
+                            nombre: data.nombre || previo.nombre || '', empresa: data.empresa || previo.empresa || '',
+                            vehiculo: data.vehiculo || previo.vehiculo || '', departamento: data.departamento || previo.departamento || '' };
+                this._ponerVisitantes([...Object.values(this._visitantes).filter(x => this._claveMatricula(x.matricula) !== k), v]);
+                try { localStorage.setItem('visitantesCache', JSON.stringify(Object.values(this._visitantes))); } catch (_) {}
+            }
+            this._limpiarFormulario();
+            this._renderDia();
+            this._mostrarToast(`✅ Entrada a las ${data.entrada}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) {
+            this._mostrarToast('❌ ' + e.message, 5000);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async _enviarRegistro(cuerpo) {
+        const r = await fetch(ACCESOS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpo),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || r.status);
+        this._porId[data.id] = data;
+        this._guardarCacheRegistros();
+        return data;
+    },
+
+    // La salida, con la hora de ahora; si no era esa, se toca en el registro
+    async marcarSalida(id) {
+        const r = this._porId[id];
+        if (!r) return;
+        try {
+            const data = await this._enviarRegistro({ id, salida: this._horaAhora() });
+            this._renderDia();
+            this._renderHistorial();
+            this._mostrarToast(`🚪 Salida a las ${data.salida}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    // ── Lo apuntado ──────────────────────────────────────────────────────────
+
+    _tarjeta(r, conFecha) {
+        const dentro = !r.salida;
+        const quien = [r.nombre, r.empresa].filter(Boolean).join(' · ');
+        const que = [r.vehiculo, r.departamento && r.departamento !== '-' ? '→ ' + r.departamento : ''].filter(Boolean).join(' ');
+        return `<div class="re-card${dentro ? ' dentro' : ''}" onclick="app.abrirRegistro('${esc(r.id)}')">
+            <div class="re-top">
+                <span class="re-horas">${conFecha ? esc(this._diaLargo(r.fecha)) + ' · ' : ''}${esc(r.entrada)}–${dentro ? '<b>dentro</b>' : esc(r.salida)}</span>
+                ${r.matricula ? `<span class="re-mat">${esc(r.matricula)}</span>` : ''}
+            </div>
+            ${quien ? `<div class="re-quien">${esc(quien)}</div>` : ''}
+            ${que ? `<div class="re-que">${esc(que)}</div>` : ''}
+            ${r.obs ? `<div class="re-que">📝 ${esc(r.obs)}</div>` : ''}
+            ${ES_GC && r.creadoPor ? `<div class="re-que">Apuntado por ${esc(r.creadoPor)}</div>` : ''}
+            ${dentro ? `<button class="btn chico re-salida" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
+        </div>`;
+    },
+
+    _renderDia() {
+        const cont = document.getElementById('rLista');
+        if (!cont) return;
+        const lista = this._registrosDe(this._dia);
+        const dentro = lista.filter(r => !r.salida).length;
+        const cab = document.getElementById('rCuantos');
+        if (cab) cab.textContent = lista.length ? `${lista.length} · ${dentro} dentro` : '';
+        cont.innerHTML = lista.length
+            // Los que siguen dentro, arriba: son a los que hay que apuntar la salida
+            ? [...lista.filter(r => !r.salida), ...lista.filter(r => r.salida)].map(r => this._tarjeta(r)).join('')
+            : '<div class="pa-vacio">Todavía no hay nada apuntado este día.</div>';
+    },
+
+    async cargarRegistros(forzar, desde, hasta) {
+        if (!desde) {
+            desde = this._aClave(document.getElementById('paDesde')?.value) || this._aClave(this._isoHaceDias(30));
+            hasta = this._aClave(document.getElementById('paHasta')?.value) || this._aClave(this._hoyISO());
+        }
+        const q = new URLSearchParams({ desde, hasta });
+        try {
+            const r = await fetch(ACCESOS_URL + '?' + q, { cache: 'no-store' });
+            if (!r.ok) throw new Error(r.status);
+            const lista = await r.json();
+            // Lo de esas fechas manda: lo que ya no está es que se ha borrado
+            Object.values(this._porId).forEach(x => { if (x.fecha >= desde && x.fecha <= hasta) delete this._porId[x.id]; });
+            lista.forEach(x => { this._porId[x.id] = x; });
+            this._guardarCacheRegistros();
+        } catch (e) {
+            if (forzar) this._mostrarToast('📴 Sin conexión: se ve lo último que se cargó', 3000);
+        }
+        this._renderDia();
+        this._renderHistorial();
     },
 
     limpiarFiltros() {
-        ['paDesde', 'paHasta'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-        this.cargarPartes(true);
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('paDesde', this._isoHaceDias(30));
+        v('paHasta', this._hoyISO());
+        this.cargarRegistros(true);
     },
 
-    async cargarPartes(forzar) {
-        if (!this.usuarioActual?.email) return;
-        if (this._partes && !forzar) { this._renderPartes(); return; }
-        const cont = document.getElementById('paLista');
-        if (cont && !this._partes) cont.innerHTML = '<div class="pa-vacio">Cargando…</div>';
-        const q = new URLSearchParams();
-        if (ES_GC) {
-            const d = this._aClave(document.getElementById('paDesde')?.value || '');
-            const h = this._aClave(document.getElementById('paHasta')?.value || '');
-            if (d.length === 8) q.set('desde', d);
-            if (h.length === 8) q.set('hasta', h);
-        }
-        try {
-            const r = await fetch(PARTES_URL + (q.toString() ? '?' + q : ''), { cache: 'no-store' });
-            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
-            this._partes = await r.json();
-            this._guardarCache();
-        } catch (e) {
-            // Sin cobertura vale lo último que se vio: un parte cerrado no
-            // cambia solo, y en la garita el móvil no siempre tiene línea.
-            if (!this._partes) {
-                try { this._partes = JSON.parse(localStorage.getItem('partesCache') || '[]'); }
-                catch (__) { this._partes = []; }
-            }
-            if (forzar) this._mostrarToast('❌ ' + e.message, 4500);
-        }
-        this._renderPartes();
+    _enHistorial() {
+        const desde = this._aClave(document.getElementById('paDesde')?.value) || this._aClave(this._isoHaceDias(30));
+        const hasta = this._aClave(document.getElementById('paHasta')?.value) || this._aClave(this._hoyISO());
+        const busca = this._claveMatricula(document.getElementById('paBuscar')?.value || '');
+        const texto = String(document.getElementById('paBuscar')?.value || '').trim().toLowerCase();
+        return Object.values(this._porId)
+            .filter(r => r.fecha >= desde && r.fecha <= hasta)
+            .filter(r => !texto || (busca && this._claveMatricula(r.matricula).includes(busca))
+                || [r.nombre, r.empresa, r.vehiculo, r.departamento].some(x => String(x || '').toLowerCase().includes(texto)))
+            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.entrada || '').localeCompare(a.entrada || ''));
     },
 
-    _renderPartes() {
+    _renderHistorial() {
         const cont = document.getElementById('paLista');
         if (!cont) return;
-        const lista = Array.isArray(this._partes) ? this._partes : [];
+        const lista = this._enHistorial();
         if (!lista.length) {
-            cont.innerHTML = '<div class="pa-vacio">Todavía no hay ningún parte.<br>'
-                + 'Con ＋ Parte nuevo se empieza uno.</div>';
+            cont.innerHTML = '<div class="pa-vacio">No hay registros en esas fechas.</div>';
             return;
         }
-        cont.innerHTML = lista.map(p => {
-            const n = (p.anotaciones || []).length;
-            // Lo primero que se apuntó, para hacerse una idea sin abrirlo
-            const primeras = (p.anotaciones || []).slice(0, 2)
-                .map(a => `${esc(a.hora)} ${esc(a.que || a.quien || a.obs)}`).join(' · ');
-            const turno = TURNOS.find(t => t.id === p.turno);
-            return `<div class="pa-card" onclick="app.abrirParte('${esc(p.id)}')">
-                <div class="pa-top">
-                    <span class="pa-dia">${esc(this._diaLargo(p.fecha))}</span>
-                    <span class="pa-turno">${esc(turno ? turno.nombre : p.turno)}</span>
-                    <span class="pa-n">${n} anotaci${n === 1 ? 'ón' : 'ones'}</span>
-                </div>
-                <div class="pa-quien">${esc(p.nombre || p.email || 'Sin nombre')}${
-                    p.conductor ? ' · nº ' + esc(p.conductor) : ''}</div>
-                ${primeras ? `<div class="pa-res">${primeras}${n > 2 ? ' …' : ''}</div>` : ''}
-                ${p.notas ? `<div class="pa-res">📝 ${esc(String(p.notas).slice(0, 120))}</div>` : ''}
-                ${ES_GC ? `<div style="margin-top:9px;"><button class="btn sec chico"
-                    style="width:auto;padding:7px 12px;color:#c0392b;"
-                    onclick="event.stopPropagation();app.borrarParte('${esc(p.id)}')">🗑️ Borrar</button></div>` : ''}
-            </div>`;
+        let dia = '';
+        cont.innerHTML = lista.map(r => {
+            const cab = r.fecha !== dia ? `<div class="re-dia">${esc(this._diaLargo(r.fecha))}</div>` : '';
+            dia = r.fecha;
+            return cab + this._tarjeta(r);
         }).join('');
+    },
+
+    // ── Corregir un registro ─────────────────────────────────────────────────
+
+    abrirRegistro(id) {
+        const r = this._porId[id];
+        if (!r) return;
+        this._editando = id;
+        const v = (k, val) => { const el = document.getElementById(k); if (el) el.value = val || ''; };
+        v('eFecha', this._aISO(r.fecha)); v('eEntrada', r.entrada); v('eSalida', r.salida);
+        v('eMatricula', r.matricula); v('eNombre', r.nombre); v('eEmpresa', r.empresa);
+        v('eVehiculo', r.vehiculo); v('eDepartamento', r.departamento); v('eObs', r.obs);
+        const hoy = this._aClave(this._hoyISO());
+        const puede = ES_GC || (r.creadoPor === this.usuarioActual?.email && r.fecha === hoy);
+        const b = document.getElementById('eBorrar');
+        if (b) b.hidden = !puede;
+        const firma = document.getElementById('eFirma');
+        if (firma) firma.textContent = r.creadoPor
+            ? `Apuntado por ${r.creadoPor}` + (r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${r.tocadoPor}` : '')
+            : '';
+        document.getElementById('regModal').classList.add('show');
+    },
+
+    cerrarRegistro() { document.getElementById('regModal').classList.remove('show'); this._editando = null; },
+
+    salidaAhoraEnCuadro() {
+        const el = document.getElementById('eSalida');
+        if (el) el.value = this._horaAhora();
+    },
+
+    async guardarRegistro() {
+        const id = this._editando;
+        if (!id) return;
+        const g = k => (document.getElementById(k)?.value || '').trim();
+        const cuerpo = {
+            id, fecha: this._aClave(g('eFecha')), entrada: g('eEntrada'), salida: g('eSalida'),
+            matricula: g('eMatricula').toUpperCase(), nombre: g('eNombre'), empresa: g('eEmpresa'),
+            vehiculo: g('eVehiculo'), departamento: g('eDepartamento'), obs: g('eObs'),
+        };
+        if (cuerpo.fecha.length !== 8 || !/^\d{2}:\d{2}$/.test(cuerpo.entrada)) {
+            this._mostrarToast('❌ Falta el día o la hora de entrada', 3000); return;
+        }
+        if (cuerpo.salida && cuerpo.salida < cuerpo.entrada) {
+            this._mostrarToast('❌ La salida no puede ser antes que la entrada', 3500); return;
+        }
+        try {
+            await this._enviarRegistro(cuerpo);
+            this.cerrarRegistro();
+            this._renderDia();
+            this._renderHistorial();
+            this._mostrarToast('✅ Registro guardado', 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    borrarRegistro() {
+        const id = this._editando;
+        const r = this._porId[id];
+        if (!r) return;
+        this.cerrarRegistro();
+        this.mostrarModal('Borrar el registro',
+            `¿Borrar la entrada de las ${r.entrada}${r.matricula ? ' de ' + r.matricula : ''}${r.nombre ? ' (' + r.nombre + ')' : ''}?`,
+            async () => {
+                try {
+                    const resp = await fetch(`${ACCESOS_URL}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) throw new Error(data.error || resp.status);
+                    delete this._porId[id];
+                    this._guardarCacheRegistros();
+                    this._renderDia();
+                    this._renderHistorial();
+                    this._mostrarToast('🗑️ Registro borrado', 2500);
+                } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+            });
     },
 
     // ── Exportar ─────────────────────────────────────────────────────────────
 
-    CABECERAS: ['Día', 'Turno', 'Quién', 'Nº', 'Hora', 'Tipo', 'Qué', 'Quién/empresa', 'Observaciones', 'Notas del turno'],
+    // Las mismas columnas que la hoja "Listado" que se llevaba a mano
+    CABECERAS: ['Fecha', 'Nombre y apellidos', 'Matrícula', 'Marca y modelo', 'Empresa',
+                'H. Entrada', 'H. Salida', 'Departamento', 'Observaciones', 'Apuntado por'],
 
-    exportarPartes() {
-        const lista = Array.isArray(this._partes) ? this._partes : [];
-        if (!lista.length) { this._mostrarToast('No hay partes que exportar', 3000); return; }
-        const filas = [];
-        // Del más viejo al más nuevo: una hoja se lee hacia delante
-        lista.slice().sort((a, b) => this._orden(b, a)).forEach(p => {
-            const dia = (this._aISO(p.fecha) || '').split('-').reverse().join('/');
-            const turno = TURNOS.find(t => t.id === p.turno);
-            const cab = [dia, turno ? turno.nombre : p.turno, p.nombre || p.email || '', p.conductor || ''];
-            if (!(p.anotaciones || []).length) {
-                filas.push([...cab, '', '', '', '', '', p.notas || '']);
-                return;
-            }
-            (p.anotaciones || []).forEach((a, i) => {
-                filas.push([...cab, a.hora || '', (TIPOS[a.tipo] || '').replace(/^\S+\s/, ''),
-                            a.que || '', a.quien || '', a.obs || '', i === 0 ? (p.notas || '') : '']);
-            });
-        });
+    exportarRegistros() {
+        const lista = this._enHistorial().reverse();   // del más viejo al más nuevo
+        if (!lista.length) { this._mostrarToast('No hay registros que exportar', 3000); return; }
+        const filas = lista.map(r => [
+            (this._aISO(r.fecha) || '').split('-').reverse().join('/'),
+            r.nombre, r.matricula, r.vehiculo, r.empresa, r.entrada, r.salida, r.departamento, r.obs, r.creadoPor,
+        ]);
         // Punto y coma y BOM, que es lo que abre bien el Excel en español
         const csv = '﻿' + [this.CABECERAS, ...filas]
             .map(f => f.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
-        const nombre = `partes-control-acceso-${this._hoyISO()}.csv`;
+        const nombre = `control-acceso-${this._hoyISO()}.csv`;
         // En el móvil lo guarda el propio Android en Descargas; el navegador
         // no puede hacerlo y se baja como cualquier otro archivo.
         if (window.AndroidBridge?.saveFile) {
