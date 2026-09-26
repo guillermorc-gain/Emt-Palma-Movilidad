@@ -1,1 +1,34 @@
-{}
+{
+  "20260926-N": {
+    "id": "20260926-N",
+    "fecha": "20260926",
+    "turno": "N",
+    "email": "g.rioscorrea@gmail.com",
+    "nombre": "Guillermo Ríos Correa",
+    "conductor": "0123-4",
+    "notas": "",
+    "anotaciones": [
+      {
+        "id": "muiu03b7blsck",
+        "hora": "22:17",
+        "tipo": "entrada",
+        "que": "Berlingo",
+        "quien": "Ups",
+        "obs": "",
+        "en": "2026-09-26T20:18:23.559Z"
+      },
+      {
+        "id": "muiu0ablwucsx",
+        "hora": "22:24",
+        "tipo": "salida",
+        "que": "Berlingo",
+        "quien": "Ups",
+        "obs": "",
+        "en": "2026-09-26T20:18:23.559Z"
+      }
+    ],
+    "creado": "2026-09-26T20:18:23.476Z",
+    "actualizado": "2026-09-26T20:18:23.476Z",
+    "tocadoPor": "g.rioscorrea@gmail.com"
+  }
+}
