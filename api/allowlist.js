@@ -1,4 +1,5 @@
 import { exigirAdmin, GESTOR_PRINCIPAL } from './_auth.js';
+import { quitarDeApp } from './usuarios.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO         = 'guillermorc-gain/RegistroHorario';
@@ -86,7 +87,19 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const filtered = emails.filter(e => e.toLowerCase() !== norm);
       const ok = await setFile(cfg.file, filtered, sha);
-      return res.status(ok ? 200 : 500).json(ok ? { emails: filtered } : { error: 'No se pudo guardar' });
+      if (!ok) return res.status(500).json({ error: 'No se pudo guardar' });
+      // Sin acceso a la app de conductores o a la de Control de acceso, deja
+      // de ser de esa app; si no le queda ninguna, sale de la plantilla de
+      // gestión (con su ficha guardada antes). Que esto falle no deshace el
+      // quitarle el acceso, que es lo que se ha pedido.
+      const deApp = { movilidad: 'trabajador', control: 'control' }[
+        String(req.query?.app || req.body?.app || 'movilidad').toLowerCase()];
+      let plantilla = null;
+      if (deApp) {
+        try { plantilla = await quitarDeApp(norm, deApp); }
+        catch (e) { plantilla = { error: e.message }; }
+      }
+      return res.status(200).json({ emails: filtered, plantilla });
     }
   } catch (e) {
     return res.status(500).json({ error: e.message });

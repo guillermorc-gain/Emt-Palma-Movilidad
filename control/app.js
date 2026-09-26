@@ -478,7 +478,7 @@ const app = {
             this.mostrarApp();
             this._pintarQuien();
             this._actualizarBotonPerfil();
-            if (!ES_GC) this._cargarAsignacion();
+            if (!ES_GC) { this._registrarEnPlantilla(); this._cargarAsignacion(); }
             this._nuevoParteDeHoy();
             this.cargarPartes();
             // Ya está dentro: en el navegador se le pregunta si se descarga
@@ -697,6 +697,7 @@ const app = {
         this.cerrarAvatarPicker();
         this._actualizarBotonPerfil();
         this._actualizarAvatarPreview();
+        this._registrarEnPlantilla();
     },
 
     usarFotoGoogle() {
@@ -756,6 +757,7 @@ const app = {
         }
         this._actualizarConductorDisplay();
         this._pintarQuien();
+        this._registrarEnPlantilla();
         this._cargarAsignacion();
     },
 
@@ -774,6 +776,32 @@ const app = {
             const hoy = this._aClave(this._hoyISO());
             return a && a.fecha === hoy && !(a.baja || a.vacaciones || a.libre) ? (a.lugar || '') : '';
         } catch (_) { return ''; }
+    },
+
+    // Quien hace el turno en la garita es un trabajador más: se da de alta en
+    // la plantilla de gestión con su nombre y su número, igual que al abrir
+    // la de conductores. Solo se manda cuando cambia algo.
+    async _registrarEnPlantilla() {
+        if (ES_GC || !this.usuarioActual?.email) return;
+        const foto = localStorage.getItem('avatarPhoto') || '';
+        const datos = {
+            origen: 'control',
+            nombre: this.usuarioActual.name || '',
+            conductor: localStorage.getItem('parteConductor') || '',
+            // Una foto subida puede pesar; la de Google es solo su dirección
+            avatar: foto.length < 40000 ? foto || this.usuarioActual.picture || '' : '',
+        };
+        const huella = JSON.stringify([this.usuarioActual.email, datos.nombre, datos.conductor, datos.avatar,
+                                       new Date().toISOString().slice(0, 10)]);
+        if (localStorage.getItem('plantillaHuella') === huella) return;
+        try {
+            const r = await fetch(API_BASE + 'usuarios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos),
+            });
+            if (r.ok) localStorage.setItem('plantillaHuella', huella);
+        } catch (_) { /* se vuelve a intentar la próxima vez que entre */ }
     },
 
     async _cargarAsignacion() {
