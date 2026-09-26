@@ -138,6 +138,9 @@ const app = {
             poner('tabLblPartes', 'Todos los partes');
             const logo = document.getElementById('authLogo');
             if (logo) logo.src = 'icons/icon-gc-192.png';
+            const modoLogo = document.getElementById('modoLogo');
+            if (modoLogo) modoLogo.src = 'icons/icon-gc-192.png';
+            poner('modoTit', NOMBRE_APP);
             const f = document.getElementById('paFiltros');
             if (f) f.style.display = '';
             const d = document.getElementById('pDuenoBox');
@@ -445,6 +448,9 @@ const app = {
             this._pintarQuien();
             this._nuevoParteDeHoy();
             this.cargarPartes();
+            // Ya está dentro: en el navegador se le pregunta si se descarga
+            // la aplicación o sigue aquí, como en las de conductores y gestión.
+            this._preguntarModoSiToca();
         } catch (e) {
             this.mostrarAuth();
             this.mostrarMensaje('Error de red: ' + e.message, 'error');
@@ -965,6 +971,80 @@ const app = {
             .replace('build-', ''), 10) || 0;
         const el = document.getElementById('versionTxt');
         if (el) el.textContent = n ? 'Versión ' + this._buildNumToVersion(n) : 'Versión de pruebas';
+    },
+
+    // ── Descargar la aplicación desde el navegador ──────────────────────────
+    //
+    // Lo que se ofrece es el APK de verdad, el de la última versión que le
+    // toque a esta aplicación: cada una del puesto tiene sus etiquetas.
+
+    async _urlApkMasReciente() {
+        try {
+            const res = await this._releases();
+            if (!res.ok) return null;
+            const pub = await this._buildPublicado();
+            if (!pub.ok) return null;
+            const re = new RegExp('^' + RELEASE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
+            let release = null, mejor = 0;
+            (Array.isArray(res.lista) ? res.lista : []).forEach(r => {
+                const m = re.exec(r.tag_name || '');
+                if (!m) return;
+                const n = parseInt(m[1], 10);
+                if (pub.build !== null && n > pub.build) return;
+                if (n > mejor) { mejor = n; release = r; }
+            });
+            if (!release) return null;
+            const asset = release.assets?.find(a => a.name.endsWith('.apk'));
+            // Sin APK adjunto se abre la página de la versión, y desde ahí
+            // se puede bajar a mano.
+            return { url: asset?.browser_download_url || release.html_url,
+                     version: this._buildNumToVersion(mejor) };
+        } catch (_) { return null; }
+    },
+
+    _enLaApp() {
+        return !!(window.Capacitor?.isNativePlatform?.() || window.AndroidBridge);
+    },
+
+    _debePreguntarModo() {
+        if (this._enLaApp()) return false;
+        // En iPhone el APK no sirve de nada
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) return false;
+        return !localStorage.getItem('modoUso');
+    },
+
+    _preguntarModoSiToca() {
+        if (!this._enLaApp() && !/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            const fila = document.getElementById('opsDescargar');
+            if (fila) fila.hidden = false;
+        }
+        if (!this._debePreguntarModo()) return;
+        const pant = document.getElementById('modoScreen');
+        if (!pant) return;
+        pant.style.display = '';
+        // Qué versión se va a descargar, para que no sea un salto al vacío
+        this._urlApkMasReciente().then(apk => {
+            const sub = document.getElementById('modoApkSub');
+            if (sub && apk?.version) sub.textContent = 'Última versión: ' + apk.version;
+        }).catch(() => {});
+    },
+
+    elegirModo(modo) {
+        try { localStorage.setItem('modoUso', modo); } catch (_) {}
+        const pant = document.getElementById('modoScreen');
+        if (pant) pant.style.display = 'none';
+        if (modo === 'apk') this.instalarApp();
+    },
+
+    async instalarApp() {
+        const apk = await this._urlApkMasReciente();
+        if (!apk) {
+            this._mostrarToast('❌ No se ha podido encontrar la aplicación para descargar. Prueba en unos minutos.', 5000);
+            return;
+        }
+        this._mostrarToast('⬇️ Descargando ' + apk.version + '…', 4000);
+        // Los APK de GitHub se descargan sin sacarle de la página
+        window.location.href = apk.url;
     },
 
     async _releases() {
