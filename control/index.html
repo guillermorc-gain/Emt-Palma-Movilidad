@@ -191,6 +191,23 @@
                  border-top:1px solid var(--bord);font-size:14px;font-weight:700;cursor:pointer;text-align:left;}
         .ops-btn-v{margin-left:auto;color:var(--c1);font-weight:800;font-size:13px;}
         .ops-btn-f{color:var(--txt2);font-size:18px;}
+        /* Ajustes: apartados que se abren y se cierran, como en la de conductores */
+        .ops-cab{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 15px 12px;}
+        .ops-cab .app-header-tit{font-size:17px;}
+        .ops-volver{width:42px;height:42px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);
+                    background:rgba(255,255,255,0.2);color:#fff;font-size:20px;cursor:pointer;}
+        .ops-lista{display:flex;flex-direction:column;gap:10px;}
+        .ops-section{background:var(--card);border-radius:12px;border:1px solid var(--bord);
+                     box-shadow:0 2px 6px rgba(0,0,0,0.06);flex-shrink:0;}
+        .ops-title{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+                   padding:15px 16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;
+                   color:var(--c1);background:transparent;border:none;border-radius:12px;cursor:pointer;text-align:left;}
+        body.dark .ops-title{color:color-mix(in srgb,var(--c1) 70%,#fff);}
+        .ops-title:active{opacity:0.7;}
+        .ops-chevron{font-size:16px;color:#aab0bb;transition:transform 0.25s;flex-shrink:0;display:inline-block;}
+        .ops-section.open .ops-chevron{transform:rotate(90deg);}
+        .ops-body{display:none;border-top:1px solid var(--bord);padding:4px 14px 14px;}
+        .ops-section.open .ops-body{display:block;}
         .pie{text-align:center;font-size:11px;color:var(--txt2);padding:8px 0 2px;}
         .pie-btn{background:transparent;border:1px solid var(--bord);color:var(--txt2);border-radius:8px;
                  padding:6px 16px;font-size:11px;cursor:pointer;}
@@ -380,16 +397,14 @@
 
     <!-- ── OPCIONES ── -->
     <div class="options-screen" id="optionsScreen">
-        <div class="app-header">
-            <div>
-                <div class="app-header-tit">⚙️ Opciones</div>
-                <div class="app-header-sub" id="opsQuien"></div>
-            </div>
-            <button class="app-header-btn" onclick="app.atras()" title="Volver">✕</button>
+        <div class="app-header ops-cab">
+            <div class="app-header-tit">⚙️ Ajustes</div>
+            <button class="ops-volver" onclick="app.atras()" title="Volver">←</button>
         </div>
-        <div class="contenido">
-            <div class="card">
-                <h2>👤 Perfil</h2>
+        <div class="contenido ops-lista">
+            <div class="ops-section">
+                <button class="ops-title" onclick="app.toggleSection(this)">👤 Perfil <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
                 <div class="ops-row" style="gap:14px;">
                     <div id="profileAvatarPreview" class="avatar-preview"></div>
                     <button class="btn sec chico" style="width:auto;padding:9px 13px;" onclick="app.mostrarAvatarPicker()">Cambiar avatar</button>
@@ -407,9 +422,11 @@
                     <div id="perfilEmail" class="sub"></div>
                     <button class="btn peli chico" onclick="app.confirmarCerrarSesion()">🚪 Cerrar sesión de Google</button>
                 </div>
+                </div>
             </div>
-            <div class="card">
-                <h2>🎨 Apariencia</h2>
+            <div class="ops-section">
+                <button class="ops-title" onclick="app.toggleSection(this)">🎨 Apariencia <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
                 <div class="ops-row">
                     <div class="ops-row-t"><b>Modo oscuro</b><span>Más cómodo en el turno de noche</span></div>
                     <label class="sw"><input type="checkbox" id="darkModeToggle" onchange="app.toggleDarkMode()"><i></i></label>
@@ -425,9 +442,11 @@
                         <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
                     </div>
                 </div>
+                </div>
             </div>
-            <div class="card">
-                <h2>🔔 Notificaciones</h2>
+            <div class="ops-section">
+                <button class="ops-title" onclick="app.toggleSection(this)">🔔 Notificaciones <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
                 <div class="ops-field" style="border-top:none;padding-top:0;">
                     <b>🔊 Sonido de notificación</b>
                     <select id="notifSoundSelect" onchange="app.guardarSonidoNotif(this.value)">
@@ -445,9 +464,11 @@
                 <div class="ops-btns">
                     <button class="btn sec chico" onclick="app.probarNotificacion()">🔔 Probar notificación</button>
                 </div>
+                </div>
             </div>
-            <div class="card">
-                <h2>☁️ Copia de seguridad</h2>
+            <div class="ops-section">
+                <button class="ops-title" onclick="app.toggleSection(this)">☁️ Copia de seguridad <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
                 <div id="lastBackupInfo" class="sub" style="margin-bottom:10px;">Todavía no se ha hecho ninguna copia.</div>
                 <div class="ops-field">
                     <b>🔄 Copia automática</b>
@@ -464,12 +485,23 @@
                     <button class="btn sec chico" onclick="app.exportarDatos()">⬆️ Exportar datos JSON</button>
                     <button class="btn sec chico" onclick="app.importarDatos()">⬇️ Importar archivo JSON</button>
                 </div>
+                </div>
             </div>
-            <div class="card" id="opsAplicacion" hidden>
-                <h2>📲 Aplicación</h2>
+            <div class="ops-section" id="opsAplicacion" hidden>
+                <button class="ops-title" onclick="app.toggleSection(this)">📲 Aplicación <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
                 <div class="ops-row">
                     <div class="ops-row-t"><b>Descargar la aplicación</b><span>El APK para Android</span></div>
                     <button class="btn sec chico" style="width:auto;padding:9px 13px;" onclick="app.instalarApp()">Descargar</button>
+                </div>
+                </div>
+            </div>
+            <div class="ops-section">
+                <button class="ops-title" onclick="app.toggleSection(this)">🔑 Cuenta <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
+                    <div class="ops-btns" style="border-top:none;">
+                        <button class="btn peli chico" onclick="app.confirmarCerrarSesion()">🚪 Cerrar sesión</button>
+                    </div>
                 </div>
             </div>
 
