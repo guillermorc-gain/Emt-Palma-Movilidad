@@ -170,6 +170,29 @@ export default async function handler(req, res) {
         return res.status(200).json(Object.values(data)
           .sort((a, b) => (a.nombre || a.matricula || '').localeCompare(b.nombre || b.matricula || '', 'es')));
       }
+      if (req.method === 'POST' && req.body?.ficha) {
+        // Crear o corregir una ficha a mano, desde la del puesto: aquí sí vale
+        // dejar un campo vacío, y si cambia la matrícula la vieja se va.
+        if (!mandaEl) return res.status(403).json({ error: 'Solo gestión puede tocar el directorio' });
+        const b = req.body.ficha || {};
+        const clave = claveMatricula(b.matricula);
+        if (!clave) return res.status(400).json({ error: 'Falta la matrícula' });
+        const antes = claveMatricula(req.body.antes);
+        let repetida = false;
+        const nuevo = await guardarConReintento(F_VISITANTES, data => {
+          if (clave !== antes && data[clave]) { repetida = true; return null; }
+          const out = { ...data };
+          if (antes && antes !== clave) delete out[antes];
+          out[clave] = {
+            matricula: texto(b.matricula, 20).toUpperCase(), nombre: texto(b.nombre, 80),
+            empresa: texto(b.empresa, 80), vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60),
+            visto: data[antes || clave]?.visto || '', editado: new Date().toISOString(), editadoPor: quien,
+          };
+          return out;
+        }, `Ficha de ${clave} en el directorio`);
+        if (repetida) return res.status(409).json({ error: 'Esa matrícula ya está en el directorio' });
+        return res.status(200).json(nuevo?.[clave] || {});
+      }
       if (req.method === 'POST') {
         // Añadir o corregir fichas; nunca borrar las que no vengan. Así sirve
         // para restaurar una copia sin llevarse lo nuevo por delante.

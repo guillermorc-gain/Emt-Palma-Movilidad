@@ -153,6 +153,8 @@ const app = {
             poner('modoTit', NOMBRE_APP);
             const ex = document.getElementById('paExportar');
             if (ex) ex.hidden = false;
+            const tv = document.getElementById('tabBtnVisitantes');
+            if (tv) tv.hidden = false;
         }
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta && ES_GC) meta.content = '#7B241C';
@@ -1204,6 +1206,7 @@ const app = {
             b.classList.toggle('active', b.dataset.tab === String(n)));
         document.getElementById('contenido').scrollTop = 0;
         if (n === 1) this._renderHistorial();
+        if (n === 2) { this.renderVisitantes(); this.cargarVisitantes(); }
     },
 
     // La cabecera como la de conductores: a la izquierda qué app y qué día,
@@ -1352,6 +1355,93 @@ const app = {
         const mapa = {};
         lista.forEach(v => { const k = this._claveMatricula(v?.matricula); if (k) mapa[k] = v; });
         this._visitantes = mapa;
+        if (this._tab === 2) this.renderVisitantes();
+    },
+
+    // ── El directorio, a mano (solo la del puesto) ───────────────────────────
+
+    renderVisitantes() {
+        const cont = document.getElementById('viLista');
+        if (!cont) return;
+        const t = String(document.getElementById('viBuscar')?.value || '').trim().toLowerCase();
+        const k = this._claveMatricula(t);
+        const orden = document.getElementById('viOrden')?.value || 'nombre';
+        const lista = Object.values(this._visitantes)
+            .filter(v => !t || (k && this._claveMatricula(v.matricula).includes(k))
+                || [v.nombre, v.empresa, v.vehiculo, v.departamento].some(x => String(x || '').toLowerCase().includes(t)))
+            .sort((a, b) => orden === 'visto'
+                ? String(b.visto || '').localeCompare(String(a.visto || ''))
+                : String(a[orden] || '\uffff').localeCompare(String(b[orden] || '\uffff'), 'es', { numeric: true })
+                  || String(a.matricula || '').localeCompare(String(b.matricula || '')));
+        const n = document.getElementById('viCuantos');
+        if (n) n.textContent = String(Object.keys(this._visitantes).length);
+        cont.innerHTML = lista.length ? lista.map(v => `
+            <div class="re-card" onclick="app.abrirVisitante('${esc(this._claveMatricula(v.matricula))}')">
+                <div class="re-top">
+                    <span class="re-horas">${esc(v.nombre || '—')}</span>
+                    <span class="re-mat">${esc(v.matricula)}</span>
+                </div>
+                ${v.empresa ? `<div class="re-quien">${esc(v.empresa)}</div>` : ''}
+                ${v.vehiculo || v.departamento ? `<div class="re-que">${esc([v.vehiculo, v.departamento ? '→ ' + v.departamento : ''].filter(Boolean).join(' '))}</div>` : ''}
+                ${v.visto ? `<div class="re-que">Última vez: ${esc(this._cuando(v.visto))}</div>` : ''}
+            </div>`).join('')
+            : '<div class="pa-vacio">No hay nadie en el directorio con eso.</div>';
+    },
+
+    abrirVisitante(clave) {
+        const v = clave ? this._visitantes[clave] : null;
+        this._visEditando = clave || '';
+        const put = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        put('vMatricula', v?.matricula); put('vNombre', v?.nombre); put('vEmpresa', v?.empresa);
+        put('vVehiculo', v?.vehiculo); put('vDepartamento', v?.departamento);
+        const t = document.getElementById('visTitulo');
+        if (t) t.textContent = v ? '✏️ Visitante' : '➕ Nuevo visitante';
+        const b = document.getElementById('vBorrar');
+        if (b) b.hidden = !v;
+        const f = document.getElementById('vFirma');
+        if (f) f.textContent = v?.editadoPor ? `Modificado por ${v.editadoPor}` : '';
+        document.getElementById('visModal').classList.add('show');
+    },
+
+    cerrarVisitante() { document.getElementById('visModal').classList.remove('show'); },
+
+    async guardarVisitante() {
+        const g = id => (document.getElementById(id)?.value || '').trim();
+        const ficha = { matricula: g('vMatricula').toUpperCase(), nombre: g('vNombre'), empresa: g('vEmpresa'),
+                        vehiculo: g('vVehiculo'), departamento: g('vDepartamento') };
+        if (!this._claveMatricula(ficha.matricula)) { this._mostrarToast('❌ Falta la matrícula', 3000); return; }
+        try {
+            const r = await fetch(ACCESOS_URL + '?que=visitantes', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ficha, antes: this._visEditando }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || r.status);
+            this.cerrarVisitante();
+            await this.cargarVisitantes();
+            this.renderVisitantes();
+            this._mostrarToast('✅ Guardado', 2000);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 4500); }
+    },
+
+    borrarVisitante() {
+        const clave = this._visEditando;
+        const v = this._visitantes[clave];
+        if (!v) return;
+        this.cerrarVisitante();
+        this.mostrarModal('Quitar del directorio',
+            `¿Quitar ${v.matricula}${v.nombre ? ' (' + v.nombre + ')' : ''} del directorio? Sus registros no se borran.`,
+            async () => {
+                try {
+                    const r = await fetch(`${ACCESOS_URL}?que=visitantes&matricula=${encodeURIComponent(v.matricula)}`, { method: 'DELETE' });
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(data.error || r.status);
+                    delete this._visitantes[clave];
+                    try { localStorage.setItem('visitantesCache', JSON.stringify(Object.values(this._visitantes))); } catch (_) {}
+                    this.renderVisitantes();
+                    this._mostrarToast('🗑️ Quitado del directorio', 2500);
+                } catch (e) { this._mostrarToast('❌ ' + e.message, 4500); }
+            });
     },
 
     // ── Sugerencias al escribir ──────────────────────────────────────────────
