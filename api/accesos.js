@@ -7,12 +7,15 @@
 // Se va llenando solo con cada registro, para que la próxima vez que venga
 // el mismo baste con poner la matrícula.
 //
+// Los dos ficheros van cifrados (ver _cifrado.js): el repositorio es público.
+//
 //   accesos.json    { "<id>": { id, fecha, entrada, salida, matricula, nombre,
 //                               empresa, vehiculo, departamento, obs, ... } }
 //   visitantes.json { "<MATRICULA>": { matricula, nombre, empresa, vehiculo,
 //                                      departamento, visto } }
 import { emailDelToken, tokenDe, esGestorControl, esDelPuesto, GESTOR_PRINCIPAL } from './_auth.js';
-import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, REPO_PUBLICO, ghFetch } from './_datos.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
+import { cifrar, descifrar } from './_cifrado.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -53,12 +56,13 @@ async function getFile(fichero) {
   const meta = await r.json();
   const texto = await leerContenido(meta);
   if (!texto.trim()) return { data: {}, sha: meta.sha };
-  const parsed = JSON.parse(texto);
+  // Va cifrado: son nombres y matrículas de gente real en un repositorio público
+  const parsed = descifrar(JSON.parse(texto));
   return { data: parsed && typeof parsed === 'object' ? parsed : {}, sha: meta.sha };
 }
 
 async function setFile(fichero, data, sha, mensaje) {
-  const content = Buffer.from(JSON.stringify(data, null, 2) + '\n').toString('base64');
+  const content = Buffer.from(JSON.stringify(cifrar(data)) + '\n').toString('base64');
   const body = { message: mensaje, content, branch: BRANCH };
   if (sha) body.sha = sha;
   const r = await ghFetch(
@@ -145,12 +149,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(200).end();
-
-  // Nombres y matrículas de gente de otras empresas: nunca al repositorio
-  // público. Sin el privado configurado, esto no funciona en vez de filtrarlos.
-  if (REPO === REPO_PUBLICO) {
-    return res.status(503).json({ error: 'Falta configurar el almacén privado de datos (DATOS_REPO en Vercel)' });
-  }
 
   try {
     // Lo que entra y sale de las instalaciones no lo lee cualquiera: solo la
