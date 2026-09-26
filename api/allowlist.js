@@ -1,11 +1,10 @@
 import { exigirAdmin, GESTOR_PRINCIPAL } from './_auth.js';
 import { quitarDeApp } from './usuarios.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
 // Los datos viven fuera de main: cada escritura de las apps era un commit
 // que cancelaba el despliegue del código que fuera por medio.
-const BRANCH       = 'datos';
 
 // Each app keeps its own list and its own administrator: granting access to one
 // must not grant access to the other.
@@ -26,7 +25,7 @@ const ghHeaders = () => ({
 });
 
 async function getFile(FILE_PATH) {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}`,
     { headers: ghHeaders() }
   );
@@ -40,7 +39,7 @@ async function setFile(FILE_PATH, emails, sha) {
   const content = Buffer.from(JSON.stringify(emails, null, 2) + '\n').toString('base64');
   const body = { message: `Actualizar acceso (${FILE_PATH})`, content, branch: BRANCH };
   if (sha) body.sha = sha;
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`,
     { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );

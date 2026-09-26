@@ -1,3 +1,4 @@
+import { REPO_DATOS, RAMA_DATOS, ghFetch } from './_datos.js';
 // Quién hace la petición se comprobaba con una cabecera que rellena el propio
 // cliente, así que cualquiera podía decir que era el gestor. Aquí se valida el
 // token de Google contra Google: de ahí sale el correo, y no de lo que diga la
@@ -71,8 +72,6 @@ const MENSAJES = {
 // correos que él autoriza se encargan de gestionar a los trabajadores, y para
 // eso tienen que poder hacer lo mismo que él. La lista es la misma que decide
 // quién entra en la app de gestión, así que no hay dos sitios que cuadrar.
-const REPO_DATOS    = 'guillermorc-gain/RegistroHorario';
-const RAMA_DATOS    = 'datos';
 const LISTA_GESTION = 'allowed-users-gestion.json';
 // El puesto de control de acceso lleva sus propias listas: los que hacen el
 // turno en la garita y los que llevan el puesto. Quien gestiona ahí no es
@@ -89,7 +88,7 @@ async function lista(fichero) {
   const guardado = listaCache.get(fichero);
   if (guardado?.emails && Date.now() < guardado.hasta) return guardado.emails;
   try {
-    const r = await fetch(
+    const r = await ghFetch(
       `https://api.github.com/repos/${REPO_DATOS}/contents/${fichero}?ref=${RAMA_DATOS}`,
       { headers: {
           'User-Agent': 'horasemt-app',

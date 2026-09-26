@@ -9,10 +9,9 @@
 // salen de las jornadas que ya hay, que es su sitio. Aquí solo van los
 // importes, que son lo que el gestor escribe a mano.
 import { exigirGestor, esGestor, emailDelToken, tokenDe } from './_auth.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
-const BRANCH       = 'datos';
 const FILE_PATH    = 'nominas.json';
 const MAX_MESES    = 36;      // tres años; más no se mira nunca
 const MAX_LINEAS   = 30;
@@ -42,7 +41,7 @@ async function leerContenido(meta) {
 }
 
 async function getFile() {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}&t=${Date.now()}`,
     { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' }
   );
@@ -59,7 +58,7 @@ async function setFile(data, sha, mensaje) {
   const content = Buffer.from(JSON.stringify(data, null, 2) + '\n').toString('base64');
   const body = { message: mensaje, content, branch: BRANCH };
   if (sha) body.sha = sha;
-  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`, {
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`, {
     method: 'PUT',
     headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

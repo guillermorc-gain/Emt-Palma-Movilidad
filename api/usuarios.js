@@ -1,11 +1,10 @@
 import { emailDelToken, tokenDe, exigirGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { hayBaseDeDatos, leerUsuarios, leerUsuario, leerAvatares, guardarUsuario, borrarUsuario } from './_almacen.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
 // Los datos viven fuera de main: cada escritura de las apps era un commit
 // que cancelaba el despliegue del código que fuera por medio.
-const BRANCH       = 'datos';
 const FILE_PATH    = 'usuarios-resumen.json';
 const MAX_AVATAR   = 40 * 1024;   // el avatar va reescalado a 80px, no debe pasar de aquí
 const MAX_JORNADAS = 500;         // un año da ~220; el tope evita cargas absurdas
@@ -204,7 +203,7 @@ async function leerContenido(meta) {
 async function getFile() {
   // GitHub responde con ETag y puede servir una copia cacheada; el parámetro
   // suelto y el no-cache fuerzan a que la lectura sea siempre la última.
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}&t=${Date.now()}`,
     { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' }
   );
@@ -221,7 +220,7 @@ async function setFile(data, sha, mensaje) {
   const content = Buffer.from(JSON.stringify(data, null, 2) + '\n').toString('base64');
   const body = { message: mensaje, content, branch: BRANCH };
   if (sha) body.sha = sha;
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`,
     { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
@@ -263,7 +262,7 @@ const FICHERO_QUITADOS = 'usuarios-quitados.json';
 async function archivarQuitado(email, datos, app) {
   const { avatar, ...ficha } = datos || {};
   for (let intento = 0; intento < 3; intento++) {
-    const r = await fetch(
+    const r = await ghFetch(
       `https://api.github.com/repos/${REPO}/contents/${FICHERO_QUITADOS}?ref=${BRANCH}&t=${Date.now()}`,
       { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' });
     let archivo = {}, sha = null;
@@ -280,7 +279,7 @@ async function archivarQuitado(email, datos, app) {
     const body = { message: `Guardar la ficha de ${email} antes de quitarlo`, branch: BRANCH,
       content: Buffer.from(JSON.stringify(archivo, null, 2) + '\n').toString('base64') };
     if (sha) body.sha = sha;
-    const w = await fetch(`https://api.github.com/repos/${REPO}/contents/${FICHERO_QUITADOS}`,
+    const w = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${FICHERO_QUITADOS}`,
       { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (w.ok) return;
     if (w.status !== 409) throw new Error('GitHub ' + w.status + ' al guardar ' + FICHERO_QUITADOS);

@@ -12,12 +12,11 @@
 //   visitantes.json { "<MATRICULA>": { matricula, nombre, empresa, vehiculo,
 //                                      departamento, visto } }
 import { emailDelToken, tokenDe, esGestorControl, esDelPuesto, GESTOR_PRINCIPAL } from './_auth.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, REPO_PUBLICO, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
 // Los datos viven fuera de main: cada escritura de las apps era un commit
 // que cancelaba el despliegue del código que fuera por medio.
-const BRANCH       = 'datos';
 const F_ACCESOS    = 'accesos.json';
 const F_VISITANTES = 'visitantes.json';
 
@@ -45,7 +44,7 @@ async function leerContenido(meta) {
 }
 
 async function getFile(fichero) {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${fichero}?ref=${BRANCH}&t=${Date.now()}`,
     { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' }
   );
@@ -62,7 +61,7 @@ async function setFile(fichero, data, sha, mensaje) {
   const content = Buffer.from(JSON.stringify(data, null, 2) + '\n').toString('base64');
   const body = { message: mensaje, content, branch: BRANCH };
   if (sha) body.sha = sha;
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${fichero}`,
     { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
@@ -146,6 +145,12 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Nombres y matrículas de gente de otras empresas: nunca al repositorio
+  // público. Sin el privado configurado, esto no funciona en vez de filtrarlos.
+  if (REPO === REPO_PUBLICO) {
+    return res.status(503).json({ error: 'Falta configurar el almacén privado de datos (DATOS_REPO en Vercel)' });
+  }
 
   try {
     // Lo que entra y sale de las instalaciones no lo lee cualquiera: solo la

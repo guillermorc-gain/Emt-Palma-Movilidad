@@ -1,10 +1,9 @@
 import { exigirAdmin } from './_auth.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO         = 'guillermorc-gain/RegistroHorario';
 // Los datos viven fuera de main: cada escritura de las apps era un commit
 // que cancelaba el despliegue del código que fuera por medio.
-const BRANCH       = 'datos';
 const FILE_PATH    = 'version-publicada.json';
 // Only the gestor decides which build the drivers are offered.
 const ADMIN_EMAIL  = 'g.rioscorrea@gmail.com';
@@ -16,7 +15,7 @@ const ghHeaders = () => ({
 });
 
 async function getFile() {
-  const r = await fetch(
+  const r = await ghFetch(
     `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}`,
     { headers: ghHeaders() }
   );
@@ -77,7 +76,7 @@ export default async function handler(req, res) {
     const content = Buffer.from(JSON.stringify(payload, null, 2) + '\n').toString('base64');
     const body = { message: `Publicar ${cual} ${build === null ? '(ninguna)' : build}`, content, branch: BRANCH };
     if (sha) body.sha = sha;
-    const r = await fetch(
+    const r = await ghFetch(
       `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`,
       { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
