@@ -1336,7 +1336,7 @@ const app = {
                 if (e && !e.dataset.tocada && document.activeElement !== e) e.value = this._horaAhora();
             }, 20000);
         }
-        ['rMatricula', 'rNombre', 'rEmpresa', 'rVehiculo', 'rDepartamento', 'rObs'].forEach(id => v(id, ''));
+        ['rMatricula', 'rNombre', 'rEmpresa', 'rVehiculo', 'rDepartamento'].forEach(id => v(id, ''));
         this._autorrellenado = {};
         this._pintarPista('');
     },
@@ -1420,7 +1420,6 @@ const app = {
             empresa: g('rEmpresa'),
             vehiculo: g('rVehiculo'),
             departamento: g('rDepartamento'),
-            obs: g('rObs'),
         };
     },
 
@@ -1482,19 +1481,20 @@ const app = {
     // ── Lo apuntado ──────────────────────────────────────────────────────────
 
     _tarjeta(r, conFecha) {
-        const dentro = !r.salida;
+        // Sin hora de salida no se pone nada. El botón para apuntarla, solo en
+        // los de hoy: en uno de otro día pondría la hora de ahora, que no es.
+        const abierto = !r.salida && r.fecha === this._aClave(this._hoyISO());
         const quien = [r.nombre, r.empresa].filter(Boolean).join(' · ');
         const que = [r.vehiculo, r.departamento && r.departamento !== '-' ? '→ ' + r.departamento : ''].filter(Boolean).join(' ');
-        return `<div class="re-card${dentro ? ' dentro' : ''}" onclick="app.abrirRegistro('${esc(r.id)}')">
+        return `<div class="re-card${abierto ? ' dentro' : ''}" onclick="app.abrirRegistro('${esc(r.id)}')">
             <div class="re-top">
-                <span class="re-horas">${conFecha ? esc(this._diaLargo(r.fecha)) + ' · ' : ''}${esc(r.entrada)}–${dentro ? '<b>dentro</b>' : esc(r.salida)}</span>
+                <span class="re-horas">${conFecha ? esc(this._diaLargo(r.fecha)) + ' · ' : ''}${esc(r.entrada)}${r.salida ? '–' + esc(r.salida) : ''}</span>
                 ${r.matricula ? `<span class="re-mat">${esc(r.matricula)}</span>` : ''}
             </div>
             ${quien ? `<div class="re-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="re-que">${esc(que)}</div>` : ''}
-            ${r.obs ? `<div class="re-que">📝 ${esc(r.obs)}</div>` : ''}
             ${ES_GC && r.creadoPor ? `<div class="re-que">Apuntado por ${esc(r.creadoPor)}</div>` : ''}
-            ${dentro ? `<button class="btn chico re-salida" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
+            ${abierto ? `<button class="btn chico re-salida" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
         </div>`;
     },
 
@@ -1502,9 +1502,8 @@ const app = {
         const cont = document.getElementById('rLista');
         if (!cont) return;
         const lista = this._registrosDe(this._dia);
-        const dentro = lista.filter(r => !r.salida).length;
         const cab = document.getElementById('rCuantos');
-        if (cab) cab.textContent = lista.length ? `${lista.length} · ${dentro} dentro` : '';
+        if (cab) cab.textContent = lista.length ? String(lista.length) : '';
         cont.innerHTML = lista.length
             // Los que siguen dentro, arriba: son a los que hay que apuntar la salida
             ? [...lista.filter(r => !r.salida), ...lista.filter(r => r.salida)].map(r => this._tarjeta(r)).join('')
@@ -1576,7 +1575,7 @@ const app = {
         const v = (k, val) => { const el = document.getElementById(k); if (el) el.value = val || ''; };
         v('eFecha', this._aISO(r.fecha)); v('eEntrada', r.entrada); v('eSalida', r.salida);
         v('eMatricula', r.matricula); v('eNombre', r.nombre); v('eEmpresa', r.empresa);
-        v('eVehiculo', r.vehiculo); v('eDepartamento', r.departamento); v('eObs', r.obs);
+        v('eVehiculo', r.vehiculo); v('eDepartamento', r.departamento);
         const hoy = this._aClave(this._hoyISO());
         const puede = ES_GC || (r.creadoPor === this.usuarioActual?.email && r.fecha === hoy);
         const b = document.getElementById('eBorrar');
@@ -1602,7 +1601,7 @@ const app = {
         const cuerpo = {
             id, fecha: this._aClave(g('eFecha')), entrada: g('eEntrada'), salida: g('eSalida'),
             matricula: g('eMatricula').toUpperCase(), nombre: g('eNombre'), empresa: g('eEmpresa'),
-            vehiculo: g('eVehiculo'), departamento: g('eDepartamento'), obs: g('eObs'),
+            vehiculo: g('eVehiculo'), departamento: g('eDepartamento'),
         };
         if (cuerpo.fecha.length !== 8 || !/^\d{2}:\d{2}$/.test(cuerpo.entrada)) {
             this._mostrarToast('❌ Falta el día o la hora de entrada', 3000); return;
@@ -1644,14 +1643,14 @@ const app = {
 
     // Las mismas columnas que la hoja "Listado" que se llevaba a mano
     CABECERAS: ['Fecha', 'Nombre y apellidos', 'Matrícula', 'Marca y modelo', 'Empresa',
-                'H. Entrada', 'H. Salida', 'Departamento', 'Observaciones', 'Apuntado por'],
+                'H. Entrada', 'H. Salida', 'Departamento', 'Apuntado por'],
 
     exportarRegistros() {
         const lista = this._enHistorial().reverse();   // del más viejo al más nuevo
         if (!lista.length) { this._mostrarToast('No hay registros que exportar', 3000); return; }
         const filas = lista.map(r => [
             (this._aISO(r.fecha) || '').split('-').reverse().join('/'),
-            r.nombre, r.matricula, r.vehiculo, r.empresa, r.entrada, r.salida, r.departamento, r.obs, r.creadoPor,
+            r.nombre, r.matricula, r.vehiculo, r.empresa, r.entrada, r.salida, r.departamento, r.creadoPor,
         ]);
         // Punto y coma y BOM, que es lo que abre bien el Excel en español
         const csv = '﻿' + [this.CABECERAS, ...filas]
