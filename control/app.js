@@ -132,6 +132,14 @@ const app = {
         // falla, quien la tenga instalada no puede quedarse clavado para
         // siempre en una versión vieja por culpa de eso.
         setTimeout(() => { try { this._checkForUpdates(); } catch (_) {} }, 1500);
+        // Y cada vez que se vuelve a la app, aunque solo estuviera en segundo
+        // plano, como en la de conductores. La espera corta es para que entrar
+        // y salir seguido no gaste las 60 consultas por hora de GitHub.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible') return;
+            const ultima = parseInt(sessionStorage.getItem('lastUpdateCheck') || '0', 10);
+            if (Date.now() - ultima > 90 * 1000) { try { this._checkForUpdates(); } catch (_) {} }
+        });
         if (this.darkMode) document.body.classList.add('dark');
         this._pintarTurnos();
         this._setupDeepLinkListener();
@@ -1112,6 +1120,8 @@ const app = {
         input.click();
     },
 
+    toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },
+
     irA(n) {
         this._tab = n;
         document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', i === n));
@@ -1593,10 +1603,12 @@ const app = {
         window.location.href = apk.url;
     },
 
-    async _releases() {
+    // Al pulsar "Comprobar actualizaciones" se va a GitHub sin caché: si no,
+    // una versión recién salida tardaría hasta cinco minutos en verse.
+    async _releases(forzar = false) {
         const CACHE = 'releasesCache', EDAD = 'releasesCacheAt';
         const t = parseInt(sessionStorage.getItem(EDAD) || '0', 10);
-        if (Date.now() - t < 5 * 60 * 1000) {
+        if (!forzar && Date.now() - t < 5 * 60 * 1000) {
             try { return { ok: true, lista: JSON.parse(sessionStorage.getItem(CACHE) || '[]') }; } catch (_) {}
         }
         const r = await this._fetchOriginal(
@@ -1637,8 +1649,9 @@ const app = {
             return;
         }
         if (typeof APP_VERSION === 'undefined' || APP_VERSION === '0') return;
+        sessionStorage.setItem('lastUpdateCheck', String(Date.now()));
         try {
-            const res = await this._releases();
+            const res = await this._releases(avisar);
             if (!res.ok) {
                 if (avisar) this._mostrarToast(res.limite
                     ? '⏳ GitHub ha limitado las consultas. Prueba en unos minutos.'
