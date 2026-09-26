@@ -476,6 +476,23 @@ jobs:
                       }
                   }, "AndroidBridge");
               }
+
+              // Atrás lo decide la app, como en la de conductores: cierra el
+              // cuadro o las opciones que haya abiertos y vuelve a la pantalla
+              // principal. Solo cuando no queda nada se va la aplicación.
+              @Override
+              public void onBackPressed() {
+                  android.webkit.WebView wv = (getBridge() != null) ? getBridge().getWebView() : null;
+                  if (wv == null) { moveTaskToBack(true); return; }
+                  wv.evaluateJavascript(
+                      "(function(){try{return app.atras()?'ok':'exit';}catch(e){return 'exit';}})()",
+                      result -> {
+                          if (result == null || result.contains("exit")) {
+                              moveTaskToBack(true);
+                          }
+                      }
+                  );
+              }
           }
           JAVAEOF
           # El mismo código, con el paquete que le toca a esta aplicación
