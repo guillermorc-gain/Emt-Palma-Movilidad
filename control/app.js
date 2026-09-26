@@ -462,6 +462,7 @@ const app = {
             this._prepararRegistro();
             this.cargarVisitantes();
             this.cargarRegistros();
+            this._sincronizarSolo();
             // Ya está dentro: en el navegador se le pregunta si se descarga
             // la aplicación o sigue aquí, como en las de conductores y gestión.
             this._preguntarModoSiToca();
@@ -1601,6 +1602,36 @@ const app = {
             : '<div class="pa-vacio">Todavía no hay nada apuntado este día.</div>';
     },
 
+    // A mano, con el botón: lo que haya apuntado otra garita, ya
+    async recargar() {
+        const b = document.getElementById('rRecargar');
+        if (b) { b.disabled = true; b.textContent = '⏳'; }
+        const [a, d] = await Promise.all([this.cargarRegistros(true), this.cargarRegistros(true, this._dia, this._dia),
+                                          this.cargarVisitantes()]);
+        if (b) { b.disabled = false; b.textContent = '🔄 Recargar'; }
+        if (a && d) this._mostrarToast('✅ Actualizado', 1500);
+    },
+
+    // Y solo: mientras la app está a la vista, cada pocos segundos se trae
+    // lo nuevo, para que lo que apunta una garita salga en la otra al momento.
+    // Al volver a la app, también.
+    _sincronizarSolo() {
+        if (this._relojSync) return;
+        const traer = () => {
+            if (!this.usuarioActual || document.visibilityState !== 'visible') return;
+            // Con un cuadro abierto no se repinta nada debajo
+            if (document.querySelector('.modal.show')) return;
+            const hoy = this._aClave(this._hoyISO());
+            // El día que se está viendo y hasta hoy: lo que puede haber cambiado
+            const desde = this._dia && this._dia < hoy ? this._dia : hoy;
+            this.cargarRegistros(false, desde, this._dia > hoy ? this._dia : hoy);
+        };
+        this._relojSync = setInterval(traer, 15000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') { traer(); this.cargarVisitantes(); }
+        });
+    },
+
     async cargarRegistros(forzar, desde, hasta) {
         if (!desde) {
             desde = this._aClave(document.getElementById('paDesde')?.value) || this._aClave(this._isoHaceDias(30));
@@ -1615,11 +1646,15 @@ const app = {
             Object.values(this._porId).forEach(x => { if (x.fecha >= desde && x.fecha <= hasta) delete this._porId[x.id]; });
             lista.forEach(x => { this._porId[x.id] = x; });
             this._guardarCacheRegistros();
+            this._renderDia();
+            this._renderHistorial();
+            return true;
         } catch (e) {
             if (forzar) this._mostrarToast('📴 Sin conexión: se ve lo último que se cargó', 3000);
         }
         this._renderDia();
         this._renderHistorial();
+        return false;
     },
 
     limpiarFiltros() {
