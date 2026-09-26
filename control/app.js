@@ -135,6 +135,10 @@ const app = {
         if (this.darkMode) document.body.classList.add('dark');
         this._pintarTurnos();
         this._setupDeepLinkListener();
+        window.addEventListener('popstate', () => {
+            if (history.state?.pantalla !== 'opciones'
+                    && document.getElementById('optionsScreen')?.classList.contains('active')) this.mostrarApp();
+        });
         this._initGoogleAuth();
         this._pintarVersion();
     },
@@ -225,7 +229,8 @@ const app = {
         const abiertos = [...document.querySelectorAll('.modal.show')];
         if (abiertos.length) { abiertos.pop().classList.remove('show'); return true; }
         if (document.getElementById('optionsScreen')?.classList.contains('active')) {
-            this.mostrarApp();
+            if (!this._enLaApp() && history.state?.pantalla === 'opciones') history.back();
+            else this.mostrarApp();
             return true;
         }
         if (this._tab !== 0) { this.irA(0); return true; }
@@ -538,6 +543,11 @@ const app = {
     },
 
     mostrarOpciones() {
+        // En el navegador las opciones dejan su paso en el historial, para
+        // que atrás vuelva a la pantalla principal y no se salga de la página
+        if (!this._enLaApp() && history.state?.pantalla !== 'opciones') {
+            try { history.pushState({ pantalla: 'opciones' }, '', window.location.href); } catch (_) {}
+        }
         document.getElementById('appScreen').classList.remove('active');
         document.getElementById('optionsScreen').classList.add('active');
         document.getElementById('darkModeToggle').checked = this.darkMode;
@@ -548,8 +558,7 @@ const app = {
         poner('perfilEmail', this.usuarioActual?.email || '');
         const cond = document.getElementById('opsConductor');
         if (cond) cond.hidden = ES_GC;
-        const num = document.getElementById('numConductor');
-        if (num) num.value = localStorage.getItem('parteConductor') || '';
+        this._actualizarConductorDisplay();
         const son = document.getElementById('notifSoundSelect');
         if (son) son.value = this.notifSound;
         document.querySelectorAll('input[name="backupFreq"]').forEach(r => { r.checked = r.value === this.backupFreq; });
@@ -710,17 +719,37 @@ const app = {
         input.click();
     },
 
-    // El número de conductor se apunta una vez aquí y sale solo en cada parte
-    // nuevo, igual que el de trabajador en la app de conductores.
-    guardarNumConductor(valor) {
-        const n = String(valor || '').trim();
+    // El número de trabajador se apunta una vez aquí y sale en la cabecera y
+    // solo en cada parte nuevo, igual que en la app de conductores.
+    _normalizarConductor(v) {
+        const digitos = String(v ?? '').replace(/\D/g, '');
+        if (!String(v ?? '').trim()) return '';
+        if (digitos.length !== 4 && digitos.length !== 5) return null;
+        return digitos.slice(0, -1) + '-' + digitos.slice(-1);
+    },
+
+    mostrarCambiarConductor() {
+        const v = prompt('Número de trabajador.\n\nPuedes escribirlo con o sin guión: 14183 o 1418-3, 2091 o 209-1',
+            localStorage.getItem('parteConductor') || '');
+        if (v === null) return;
+        const n = this._normalizarConductor(v);
+        if (n === null) {
+            alert('❌ Formato incorrecto. Deben ser 4 o 5 dígitos.\nEjemplo: 209-1 o 1418-3');
+            return;
+        }
         localStorage.setItem('parteConductor', n);
         if (this._parte && !this._parte.id) {
             this._parte.conductor = n;
             const el = document.getElementById('pConductor');
             if (el) el.value = n;
         }
-        this._mostrarToast('✅ Número guardado', 2000);
+        this._actualizarConductorDisplay();
+        this._pintarQuien();
+    },
+
+    _actualizarConductorDisplay() {
+        const el = document.getElementById('conductorDisplay');
+        if (el) el.textContent = [localStorage.getItem('parteConductor') || 'Sin asignar', 'Control'].join(' · ');
     },
 
     // ── Apariencia ───────────────────────────────────────────────────────────
@@ -835,6 +864,7 @@ const app = {
         if (a.notifSound) this.guardarSonidoNotif(a.notifSound);
         if (['hora', 'dia', 'cerrar'].includes(a.backupFreq)) this.guardarFrecuenciaCopia(a.backupFreq, true);
         this._actualizarBotonPerfil();
+        this._pintarQuien();
     },
 
     // Los partes, recién leídos del servidor. Sin poder leerlos no se hace
@@ -1091,9 +1121,14 @@ const app = {
         if (n === 1) this.cargarPartes();
     },
 
+    // La cabecera como la de conductores: a la izquierda qué app y qué día,
+    // y junto a la foto quién eres, tu número y dónde.
     _pintarQuien() {
-        const el = document.getElementById('cabeceraSub');
-        if (el) el.textContent = this.usuarioActual?.name || this.usuarioActual?.email || '';
+        const poner = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+        poner('cabeceraSub', new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }));
+        poner('cabeceraNombre', this.usuarioActual?.name || this.usuarioActual?.email || '');
+        poner('cabeceraNum', ES_GC ? '' : (localStorage.getItem('parteConductor') || ''));
+        poner('cabeceraLugar', ES_GC ? '' : 'Control');
     },
 
     // ── El parte ─────────────────────────────────────────────────────────────
@@ -1480,8 +1515,8 @@ const app = {
     _pintarVersion() {
         const n = parseInt(String(typeof APP_VERSION === 'undefined' ? '0' : APP_VERSION)
             .replace('build-', ''), 10) || 0;
-        const el = document.getElementById('versionTxt');
-        if (el) el.textContent = n ? 'Versión ' + this._buildNumToVersion(n) : 'Versión de pruebas';
+        const el = document.getElementById('versionDisplay');
+        if (el) el.textContent = n ? 'Versión ' + this._buildNumToVersion(n) : 'Versión web';
     },
 
     // ── Descargar la aplicación desde el navegador ──────────────────────────
@@ -1526,7 +1561,7 @@ const app = {
 
     _preguntarModoSiToca() {
         if (!this._enLaApp() && !/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            const fila = document.getElementById('opsDescargar');
+            const fila = document.getElementById('opsAplicacion');
             if (fila) fila.hidden = false;
         }
         if (!this._debePreguntarModo()) return;
@@ -1596,7 +1631,11 @@ const app = {
     },
 
     async _checkForUpdates(avisar = false) {
-        if (!window.Capacitor?.isNativePlatform?.()) return;
+        if (!window.Capacitor?.isNativePlatform?.()) {
+            // En el navegador la página se carga siempre de nuevo
+            if (avisar) this._mostrarToast('✅ En el navegador tienes siempre la última versión');
+            return;
+        }
         if (typeof APP_VERSION === 'undefined' || APP_VERSION === '0') return;
         try {
             const res = await this._releases();
