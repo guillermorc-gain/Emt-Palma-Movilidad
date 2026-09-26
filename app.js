@@ -175,8 +175,21 @@ const app = {
             if (window.matchMedia?.('(display-mode: standalone)')?.matches
                 || window.navigator.standalone) return;
         } catch (_) {}
-        const el = document.getElementById('rolScreen');
-        if (el) el.style.display = 'flex';
+        // Cada pantalla que se abre desde aquí deja su paso en el historial,
+        // y al volver atrás se pinta la que toca: sin esto, atrás desde
+        // Trabajador o desde Gestión se salía de la página.
+        window.addEventListener('popstate', () => this._pintarBienvenida());
+        window.addEventListener('pageshow', e => { if (e.persisted) this._pintarBienvenida(); });
+        this._pintarBienvenida();
+    },
+
+    // Qué se ve según la dirección y el paso del historial en que se está
+    _pintarBienvenida() {
+        const ver = (id, si) => { const el = document.getElementById(id); if (el) el.style.display = si ? 'flex' : 'none'; };
+        const elegida = new URLSearchParams(window.location.search).get('app');
+        const enGestion = !elegida && history.state?.pantalla === 'gestion';
+        ver('rolScreen', !elegida && !enGestion);
+        ver('gestionScreen', enGestion);
     },
 
     // Esto se abre desde el navegador, así que lo que hace es llevar a la web
@@ -186,18 +199,26 @@ const app = {
     // salía la pantalla de error y se quedaba sin poder entrar por ningún
     // lado. Quien la tenga instalada la abre desde su icono, que para eso está.
     elegirRol(rol) {
-        const ver = (id, si) => { const el = document.getElementById(id); if (el) el.style.display = si ? 'flex' : 'none'; };
         // Gestión son dos, y antes de entrar se pregunta cuál
-        if (rol === 'gestion') { ver('rolScreen', false); ver('gestionScreen', true); return; }
-        if (rol === 'volver')  { ver('gestionScreen', false); ver('rolScreen', true); return; }
+        if (rol === 'gestion') {
+            try { history.pushState({ pantalla: 'gestion' }, '', '/'); } catch (_) {}
+            this._pintarBienvenida();
+            return;
+        }
+        if (rol === 'volver') {
+            if (history.state?.pantalla === 'gestion') { history.back(); return; }
+            try { history.replaceState(null, '', '/'); } catch (_) {}
+            this._pintarBienvenida();
+            return;
+        }
         const webs = {
             'gestion-emt':     '/gestion/',
             'control':         '/control/',
             'gestion-control': '/control/?app=gestion-control',
         };
         if (webs[rol]) { window.location.href = webs[rol]; return; }
-        ver('rolScreen', false);
-        try { history.replaceState(null, '', '/?app=trabajador'); } catch (_) {}
+        try { history.pushState({ pantalla: 'trabajador' }, '', '/?app=trabajador'); } catch (_) {}
+        this._pintarBienvenida();
     },
 
     _migrarUbicacionAntigua() {
