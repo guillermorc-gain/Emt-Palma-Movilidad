@@ -45,10 +45,12 @@
 'use strict';
 
 const GOOGLE_CLIENT_ID = '563294598347-2sag5tsloqdrd9eh19kfnnc3nrc2gnja.apps.googleusercontent.com';
-// Aquí no se guarda nada en Drive ni se manda ningún correo, así que se piden
-// los permisos justos: quién eres. Con cualquiera de los que Google llama
-// sensibles saldría el aviso de aplicación no verificada.
-const AUTH_SCOPE = 'profile email';
+// Se piden los permisos justos: quién eres y, para la copia de seguridad, los
+// archivos que la propia app crea en tu Drive —como en la de conductores—.
+// Con cualquiera de los que Google llama sensibles saldría el aviso de
+// aplicación no verificada, y éste no lo es.
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const AUTH_SCOPE = 'profile email ' + DRIVE_SCOPE;
 
 const ROL_APP  = (document.querySelector('meta[name="app-rol"]')?.content || 'control').trim();
 // La de quien lleva el puesto. La otra es la de quien hace el turno.
@@ -91,6 +93,13 @@ const TIPOS = {
 // noche antes de la tarde.
 const ORDEN_TURNO = { M: 0, T: 1, N: 2 };
 
+const AVATAR_EMOJIS = ['🚌','⭐','🔥','⚡','🌊','🎯','🚀','🦸','🎨','🌈'];
+const AVATAR_BG     = ['#667eea','#e74c3c','#f39c12','#27ae60','#3498db','#9b59b6','#1abc9c','#e67e22','#764ba2','#e91e63'];
+const TEMAS         = ['azul', 'verde', 'fuego', 'acero', 'rojo'];
+// La copia va a la misma carpeta de Drive que la de conductores
+const CARPETA_DRIVE = 'Movilidad Emt';
+const FICHERO_COPIA = (ES_GC ? 'Gestión control de acceso' : 'Control de acceso') + ' - copia de seguridad.json';
+
 const esc = t => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
 const app = {
@@ -99,6 +108,10 @@ const app = {
     refreshToken: localStorage.getItem('cRefreshToken') || null,
     usuarioActual: null,
     darkMode: localStorage.getItem('darkMode') === 'true',
+    tema: localStorage.getItem('tema') || '',
+    notifSound: localStorage.getItem('notifSound') || 'default',
+    backupFreq: localStorage.getItem('backupFreq') || 'dia',
+    _copiando: false,
     modalCallback: null,
     _partes: null,
     _parte: null,          // el que se está escribiendo o corrigiendo
@@ -111,7 +124,10 @@ const app = {
 
     init() {
         this._pintarIdentidad();
+        this._aplicarTema(this.tema);
         this._instalarFirmaApi();
+        this._buildAvatarGrid();
+        this._prepararCopiaAutomatica();
         // La comprobación de versión va aparte y con retraso: si algo de arriba
         // falla, quien la tenga instalada no puede quedarse clavado para
         // siempre en una versión vieja por culpa de eso.
@@ -446,11 +462,15 @@ const app = {
             }
             this.mostrarApp();
             this._pintarQuien();
+            this._actualizarBotonPerfil();
             this._nuevoParteDeHoy();
             this.cargarPartes();
             // Ya está dentro: en el navegador se le pregunta si se descarga
             // la aplicación o sigue aquí, como en las de conductores y gestión.
             this._preguntarModoSiToca();
+            this._crearCanalesNotificacion();
+            // Por si tocaba una copia mientras estaba cerrada
+            setTimeout(() => this._copiaSiToca(), 20000);
         } catch (e) {
             this.mostrarAuth();
             this.mostrarMensaje('Error de red: ' + e.message, 'error');
@@ -523,6 +543,23 @@ const app = {
         document.getElementById('darkModeToggle').checked = this.darkMode;
         const q = document.getElementById('opsQuien');
         if (q) q.textContent = this.usuarioActual?.email || '';
+        const poner = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+        poner('perfilNombre', this.usuarioActual?.name || '');
+        poner('perfilEmail', this.usuarioActual?.email || '');
+        const cond = document.getElementById('opsConductor');
+        if (cond) cond.hidden = ES_GC;
+        const num = document.getElementById('numConductor');
+        if (num) num.value = localStorage.getItem('parteConductor') || '';
+        const son = document.getElementById('notifSoundSelect');
+        if (son) son.value = this.notifSound;
+        document.querySelectorAll('input[name="backupFreq"]').forEach(r => { r.checked = r.value === this.backupFreq; });
+        if (ES_GC) {
+            const que = document.getElementById('backupQue');
+            if (que) que.innerHTML = 'Se guardan en tu Google Drive, en <b>Movilidad Emt</b>, los partes de todos y tus ajustes.';
+        }
+        this._actualizarTemaUI();
+        this._actualizarAvatarPreview();
+        this._pintarUltimaCopia();
         this._pintarVersion();
     },
 
@@ -569,6 +606,480 @@ const app = {
         this.darkMode = document.getElementById('darkModeToggle').checked;
         localStorage.setItem('darkMode', String(this.darkMode));
         document.body.classList.toggle('dark', this.darkMode);
+    },
+
+    // ── Perfil ───────────────────────────────────────────────────────────────
+
+    // Lo que se ve en el botón de arriba a la derecha y en Opciones: la foto
+    // o el avatar elegidos, y si no, la foto de la cuenta de Google.
+    _pintarAvatar(el, grande) {
+        if (!el) return;
+        const photo = localStorage.getItem('avatarPhoto') || '';
+        const emoji = localStorage.getItem('avatarEmoji');
+        const google = this.usuarioActual?.picture || '';
+        el.style.background = '';
+        el.style.fontSize = '';
+        if (photo || (!emoji && google)) {
+            const img = document.createElement('img');
+            img.alt = '';
+            img.referrerPolicy = 'no-referrer';
+            img.src = photo || google;
+            // Si la foto no carga se queda la inicial, no un hueco
+            img.onerror = () => { localStorage.removeItem('avatarPhoto'); this._pintarInicial(el, grande); };
+            el.replaceChildren(img);
+            el.style.background = 'transparent';
+        } else if (emoji) {
+            el.textContent = emoji;
+            el.style.background = localStorage.getItem('avatarBg') || '#1565C0';
+            el.style.fontSize = grande ? '26px' : '20px';
+        } else {
+            this._pintarInicial(el, grande);
+        }
+    },
+
+    _pintarInicial(el, grande) {
+        const email = this.usuarioActual?.email || '';
+        const nombre = this.usuarioActual?.name || email || '?';
+        const paleta = ['#667eea','#764ba2','#e74c3c','#27ae60','#f39c12','#3498db'];
+        el.textContent = nombre.charAt(0).toUpperCase();
+        el.style.background = paleta[(email.charCodeAt(0) || 0) % paleta.length];
+        el.style.fontSize = grande ? '24px' : '16px';
+    },
+
+    _actualizarBotonPerfil()   { this._pintarAvatar(document.getElementById('profileBtn'), false); },
+    _actualizarAvatarPreview() { this._pintarAvatar(document.getElementById('profileAvatarPreview'), true); },
+
+    _buildAvatarGrid() {
+        const grid = document.getElementById('avatarGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        AVATAR_EMOJIS.forEach((emoji, i) => {
+            const b = document.createElement('button');
+            b.className = 'avatar-option';
+            b.textContent = emoji;
+            b.style.background = AVATAR_BG[i];
+            b.addEventListener('click', () => this._elegirAvatar({ emoji, bg: AVATAR_BG[i] }));
+            grid.appendChild(b);
+        });
+    },
+
+    mostrarAvatarPicker() {
+        const g = document.getElementById('googlePhotoBtn');
+        if (g) g.style.display = this.usuarioActual?.picture ? '' : 'none';
+        document.getElementById('avatarPickerModal').classList.add('show');
+    },
+    cerrarAvatarPicker() { document.getElementById('avatarPickerModal').classList.remove('show'); },
+
+    _elegirAvatar({ emoji, bg, photo }) {
+        ['avatarEmoji', 'avatarBg', 'avatarPhoto'].forEach(k => localStorage.removeItem(k));
+        if (photo) localStorage.setItem('avatarPhoto', photo);
+        if (emoji) { localStorage.setItem('avatarEmoji', emoji); localStorage.setItem('avatarBg', bg); }
+        this.cerrarAvatarPicker();
+        this._actualizarBotonPerfil();
+        this._actualizarAvatarPreview();
+    },
+
+    usarFotoGoogle() {
+        const url = this.usuarioActual?.picture;
+        if (url) this._elegirAvatar({ photo: url.replace(/=s\d+(-c)?$/, '=s200-c') });
+    },
+
+    subirFotoPerfil() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const img = new Image();
+                img.onload = () => {
+                    // Pequeña: va en el almacenamiento del móvil y en la copia
+                    const c = document.createElement('canvas');
+                    c.width = 120; c.height = 120;
+                    const lado = Math.min(img.width, img.height);
+                    c.getContext('2d').drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2,
+                                                 lado, lado, 0, 0, 120, 120);
+                    this._elegirAvatar({ photo: c.toDataURL('image/jpeg', 0.85) });
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    },
+
+    // El número de conductor se apunta una vez aquí y sale solo en cada parte
+    // nuevo, igual que el de trabajador en la app de conductores.
+    guardarNumConductor(valor) {
+        const n = String(valor || '').trim();
+        localStorage.setItem('parteConductor', n);
+        if (this._parte && !this._parte.id) {
+            this._parte.conductor = n;
+            const el = document.getElementById('pConductor');
+            if (el) el.value = n;
+        }
+        this._mostrarToast('✅ Número guardado', 2000);
+    },
+
+    // ── Apariencia ───────────────────────────────────────────────────────────
+
+    seleccionarTema(tema) {
+        this.tema = TEMAS.includes(tema) ? tema : '';
+        localStorage.setItem('tema', this.tema);
+        this._aplicarTema(this.tema);
+        this._actualizarTemaUI();
+    },
+
+    _aplicarTema(tema) {
+        TEMAS.forEach(t => document.body.classList.remove('theme-' + t));
+        if (TEMAS.includes(tema)) document.body.classList.add('theme-' + tema);
+    },
+
+    _actualizarTemaUI() {
+        const propio = document.getElementById('dot-propio');
+        if (propio) propio.style.background = ES_GC
+            ? 'linear-gradient(135deg,#943126,#7B241C)' : 'linear-gradient(135deg,#1E8449,#186A3B)';
+        ['propio', ...TEMAS].forEach(t => {
+            const dot = document.getElementById('dot-' + t);
+            if (dot) dot.classList.toggle('active', (t === 'propio' ? '' : t) === this.tema);
+        });
+    },
+
+    // ── Notificaciones ───────────────────────────────────────────────────────
+
+    guardarSonidoNotif(sonido) {
+        this.notifSound = sonido || 'default';
+        localStorage.setItem('notifSound', this.notifSound);
+        this._crearCanalesNotificacion();
+    },
+
+    // Un canal por sonido: en Android el sonido va con el canal y no con cada
+    // aviso. Los ficheros de sonido los mete el montaje del APK.
+    _crearCanalesNotificacion() {
+        const LN = window.Capacitor?.Plugins?.LocalNotifications;
+        if (!LN?.createChannel) return;
+        [['notif_ding', 'Ding'], ['notif_campana', 'Campana'], ['notif_alerta', 'Alerta'],
+         ['notif_silbido', 'Silbido'], ['notif_doble', 'Doble pitido'], ['notif_fanfare', 'Fanfare'],
+         ['notif_suave', 'Suave']].forEach(([id, name]) => {
+            LN.createChannel({ id, name, sound: id, importance: 5, visibility: 1 }).catch(() => {});
+        });
+    },
+
+    async probarNotificacion() {
+        const titulo = '🔔 ' + NOMBRE_APP + ' — prueba';
+        const texto = 'Las notificaciones funcionan correctamente.';
+        const LN = window.Capacitor?.Plugins?.LocalNotifications;
+        if (LN) {
+            try {
+                const perm = await LN.requestPermissions();
+                if (perm?.display && perm.display !== 'granted') {
+                    alert('❌ Las notificaciones están desactivadas para esta aplicación. Actívalas en los ajustes del móvil.');
+                    return;
+                }
+                const aviso = { id: 9999, title: titulo, body: texto };
+                if (this.notifSound !== 'default') {
+                    aviso.sound = this.notifSound;
+                    aviso.channelId = this.notifSound;
+                }
+                await LN.schedule({ notifications: [aviso] });
+            } catch (e) {
+                alert('❌ Error al enviar la notificación: ' + e.message);
+            }
+            return;
+        }
+        if (!('Notification' in window)) { alert('❌ Tu navegador no admite notificaciones'); return; }
+        if (Notification.permission === 'default' && await Notification.requestPermission() !== 'granted') {
+            alert('❌ Permiso de notificación denegado');
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            alert('❌ Las notificaciones están bloqueadas. Actívalas en los ajustes del navegador.');
+            return;
+        }
+        const icono = ES_GC ? 'icons/icon-gc-192.png' : 'icons/icon-192.png';
+        try {
+            const reg = await navigator.serviceWorker?.getRegistration?.();
+            if (reg) { await reg.showNotification(titulo, { body: texto, icon: icono, tag: 'prueba' }); return; }
+        } catch (_) { /* sin trabajador de servicio se hace con la de siempre */ }
+        new Notification(titulo, { body: texto, icon: icono });
+    },
+
+    // ── Copia de seguridad en Google Drive ───────────────────────────────────
+    //
+    // Lo que hay en el servidor son los partes; aquí se guarda una copia de
+    // ellos —los suyos, o los de todos en la del puesto— y de los ajustes de
+    // este móvil, en la misma carpeta de Drive que usa la de conductores.
+
+    _getAjustes() {
+        const g = k => localStorage.getItem(k);
+        return {
+            darkMode: this.darkMode, tema: this.tema, notifSound: this.notifSound,
+            backupFreq: this.backupFreq,
+            avatarEmoji: g('avatarEmoji'), avatarBg: g('avatarBg'), avatarPhoto: g('avatarPhoto'),
+            parteNombre: g('parteNombre'), parteConductor: g('parteConductor'),
+        };
+    },
+
+    _aplicarAjustes(a) {
+        if (!a || typeof a !== 'object') return;
+        const poner = (k, v) => { if (v === null || v === undefined || v === '') localStorage.removeItem(k); else localStorage.setItem(k, String(v)); };
+        ['avatarEmoji', 'avatarBg', 'avatarPhoto', 'parteNombre', 'parteConductor'].forEach(k => poner(k, a[k]));
+        if (typeof a.darkMode === 'boolean') {
+            this.darkMode = a.darkMode;
+            localStorage.setItem('darkMode', String(a.darkMode));
+            document.body.classList.toggle('dark', a.darkMode);
+        }
+        this.seleccionarTema(a.tema || '');
+        if (a.notifSound) this.guardarSonidoNotif(a.notifSound);
+        if (['hora', 'dia', 'cerrar'].includes(a.backupFreq)) this.guardarFrecuenciaCopia(a.backupFreq, true);
+        this._actualizarBotonPerfil();
+    },
+
+    // Los partes, recién leídos del servidor. Sin poder leerlos no se hace
+    // copia: una copia vacía machacaría la buena que hubiera.
+    async _partesParaCopia() {
+        const r = await fetch(PARTES_URL, { cache: 'no-store' });
+        if (!r.ok) throw new Error('No se han podido leer los partes (' + r.status + ')');
+        const lista = await r.json();
+        if (!Array.isArray(lista)) throw new Error('Respuesta rara del servidor');
+        return lista;
+    },
+
+    async _contenidoCopia() {
+        return {
+            app: ROL_APP,
+            nombreApp: NOMBRE_APP,
+            version: typeof APP_VERSION === 'undefined' ? '' : APP_VERSION,
+            fecha: new Date().toISOString(),
+            email: this.usuarioActual?.email || '',
+            ajustes: this._getAjustes(),
+            partes: await this._partesParaCopia(),
+        };
+    },
+
+    // Drive, con el token de la sesión. Un 401 es que ha caducado: se renueva
+    // y se prueba otra vez. Un 403 casi siempre es que falta el permiso.
+    async _drive(url, op = {}, reintento = true) {
+        if (!this.accessToken) throw Object.assign(new Error('Sin sesión'), { sinPermiso: true });
+        if (Date.now() >= this.tokenExpiry) { try { await this._silentReauth(); } catch (_) {} }
+        const h = new Headers(op.headers || {});
+        h.set('Authorization', 'Bearer ' + this.accessToken);
+        const r = await this._fetchOriginal(url, { ...op, headers: h });
+        if (r.status === 401 && reintento) {
+            await this._silentReauth();
+            return this._drive(url, op, false);
+        }
+        if (r.status === 403) throw Object.assign(new Error('Google Drive no da permiso'), { sinPermiso: true });
+        if (!r.ok) throw new Error('Google Drive ' + r.status);
+        return r;
+    },
+
+    async _buscarEnDrive(q) {
+        const r = await this._drive('https://www.googleapis.com/drive/v3/files?spaces=drive&fields=files(id,modifiedTime)'
+            + '&orderBy=modifiedTime desc&q=' + encodeURIComponent(q + ' and trashed=false'));
+        return (await r.json()).files || [];
+    },
+
+    // Se busca cada vez en vez de guardar cuál es: si alguien la borra o la
+    // mueve a la papelera, una guardada mandaría la copia a ninguna parte.
+    async _carpetaDrive() {
+        const nombre = CARPETA_DRIVE.replace(/'/g, "\\'");
+        const ya = await this._buscarEnDrive(`name='${nombre}' and mimeType='application/vnd.google-apps.folder'`);
+        let id = ya[0]?.id;
+        if (!id) {
+            const r = await this._drive('https://www.googleapis.com/drive/v3/files?fields=id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: CARPETA_DRIVE, mimeType: 'application/vnd.google-apps.folder' }),
+            });
+            id = (await r.json()).id;
+        }
+        return id;
+    },
+
+    async _ficheroCopia() {
+        const carpeta = await this._carpetaDrive();
+        const nombre = FICHERO_COPIA.replace(/'/g, "\\'");
+        const ya = await this._buscarEnDrive(`name='${nombre}' and '${carpeta}' in parents`);
+        return ya[0]?.id || null;
+    },
+
+    async _subirCopia(texto) {
+        const id = await this._ficheroCopia();
+        if (id) {
+            await this._drive(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: texto,
+            });
+            return;
+        }
+        const carpeta = await this._carpetaDrive();
+        const limite = 'copia' + Date.now();
+        const cuerpo = `--${limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`
+            + JSON.stringify({ name: FICHERO_COPIA, parents: [carpeta], mimeType: 'application/json' })
+            + `\r\n--${limite}\r\nContent-Type: application/json\r\n\r\n${texto}\r\n--${limite}--`;
+        await this._drive('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+            method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + limite }, body: cuerpo,
+        });
+    },
+
+    async hacerCopiaEnDrive(silencio = false) {
+        if (this._copiando || !this.usuarioActual) return;
+        this._copiando = true;
+        if (!silencio) this._mostrarToast('☁️ Guardando la copia…', 2500);
+        try {
+            const datos = await this._contenidoCopia();
+            await this._subirCopia(JSON.stringify(datos));
+            localStorage.setItem('ultimaCopia', datos.fecha);
+            localStorage.removeItem('copiaSinPermiso');
+            this._pintarUltimaCopia();
+            if (!silencio) this._mostrarToast(`✅ Copia guardada en Google Drive (${datos.partes.length} partes)`, 3500);
+        } catch (e) {
+            if (e.sinPermiso) {
+                localStorage.setItem('copiaSinPermiso', '1');
+                this._pintarUltimaCopia();
+                if (!silencio) this._pedirPermisoDrive();
+            } else if (!silencio) {
+                this._mostrarToast('❌ No se ha podido guardar la copia: ' + e.message, 5000);
+            }
+        } finally {
+            this._copiando = false;
+        }
+    },
+
+    // Quien entró antes de que existiera la copia no le dio permiso a Drive:
+    // hay que volver a entrar y aceptarlo.
+    _pedirPermisoDrive() {
+        this.mostrarModal('Permiso de Google Drive',
+            'Para guardar la copia en tu Google Drive hace falta que le des permiso. '
+            + 'Vuelve a entrar con tu cuenta de Google y acepta el permiso de Drive.',
+            () => this.login(false));
+    },
+
+    _pintarUltimaCopia() {
+        const el = document.getElementById('lastBackupInfo');
+        if (!el) return;
+        if (localStorage.getItem('copiaSinPermiso')) {
+            el.textContent = '⚠️ Falta el permiso de Google Drive: pulsa «Guardar copia en Google Drive».';
+            return;
+        }
+        const u = localStorage.getItem('ultimaCopia');
+        el.textContent = u ? 'Última copia: ' + this._cuando(u) : 'Todavía no se ha hecho ninguna copia.';
+    },
+
+    guardarFrecuenciaCopia(freq, callado) {
+        this.backupFreq = ['hora', 'dia', 'cerrar'].includes(freq) ? freq : 'dia';
+        localStorage.setItem('backupFreq', this.backupFreq);
+        document.querySelectorAll('input[name="backupFreq"]').forEach(r => { r.checked = r.value === this.backupFreq; });
+        if (!callado) this._mostrarToast('✅ Copia automática: ' + ({ hora: 'cada hora', dia: 'cada día', cerrar: 'al cerrar la app' })[this.backupFreq], 2500);
+    },
+
+    _prepararCopiaAutomatica() {
+        setInterval(() => this._copiaSiToca(), 5 * 60 * 1000);
+        // Al irse de la app —cerrarla, cambiar a otra o apagar la pantalla—
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && this.backupFreq === 'cerrar') this.hacerCopiaEnDrive(true);
+        });
+    },
+
+    _copiaSiToca() {
+        if (!this.usuarioActual || this.backupFreq === 'cerrar') return;
+        if (localStorage.getItem('copiaSinPermiso')) return;
+        const cada = this.backupFreq === 'hora' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const ultima = Date.parse(localStorage.getItem('ultimaCopia') || '') || 0;
+        if (Date.now() - ultima >= cada) this.hacerCopiaEnDrive(true);
+    },
+
+    async restaurarDesdeDrive() {
+        try {
+            const id = await this._ficheroCopia();
+            if (!id) { this._mostrarToast('No hay ninguna copia en tu Google Drive', 3500); return; }
+            const r = await this._drive(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`);
+            this._confirmarRestaurar(await r.json(), 'Google Drive');
+        } catch (e) {
+            if (e.sinPermiso) this._pedirPermisoDrive();
+            else this._mostrarToast('❌ No se ha podido leer la copia: ' + e.message, 5000);
+        }
+    },
+
+    _confirmarRestaurar(datos, deDonde) {
+        if (!datos || typeof datos !== 'object' || !Array.isArray(datos.partes)) {
+            this._mostrarToast('❌ Eso no es una copia de esta aplicación', 4000);
+            return;
+        }
+        const cuando = datos.fecha ? ' del ' + this._cuando(datos.fecha) : '';
+        this.mostrarModal('Restaurar la copia',
+            `Se recuperan los ajustes y los partes de la copia${cuando} (${deDonde}). `
+            + 'Solo se vuelven a subir los partes que ya no están; los que siguen en el servidor no se tocan.',
+            // Sin esperar: el cuadro se cierra y lo que va pasando sale abajo
+            () => { this._restaurar(datos); });
+    },
+
+    async _restaurar(datos) {
+        this._aplicarAjustes(datos.ajustes);
+        this._mostrarToast('⏳ Recuperando partes…', 3000);
+        let hay;
+        try { hay = new Set((await this._partesParaCopia()).map(p => p.id)); }
+        catch (e) { this._mostrarToast('❌ ' + e.message, 5000); return; }
+        const faltan = datos.partes.filter(p => p && p.id && !hay.has(p.id));
+        let bien = 0, mal = 0;
+        for (const p of faltan) {
+            try {
+                const r = await fetch(PARTES_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fecha: p.fecha, turno: p.turno, nombre: p.nombre || '', conductor: p.conductor || '',
+                        notas: p.notas || '', anotaciones: Array.isArray(p.anotaciones) ? p.anotaciones : [],
+                        ...(ES_GC && p.email ? { email: p.email } : {}),
+                    }),
+                });
+                if (r.ok) bien++; else mal++;
+            } catch (_) { mal++; }
+        }
+        await this.cargarPartes(true);
+        this._nuevoParteDeHoy();
+        this.mostrarOpciones();
+        this._mostrarToast(faltan.length
+            ? `✅ Ajustes recuperados · ${bien} partes recuperados` + (mal ? ` · ${mal} no se han podido` : '')
+            : '✅ Ajustes recuperados · no faltaba ningún parte', 5000);
+    },
+
+    async exportarDatos() {
+        let datos;
+        try { datos = await this._contenidoCopia(); }
+        catch (e) { this._mostrarToast('❌ ' + e.message, 5000); return; }
+        const texto = JSON.stringify(datos, null, 2);
+        const nombre = (ES_GC ? 'gestion-control-acceso' : 'control-acceso') + `-copia-${this._hoyISO()}.json`;
+        if (window.AndroidBridge?.saveFile) {
+            try { window.AndroidBridge.saveFile(texto, nombre); return; }
+            catch (_) { /* si el puente falla, se baja como en el navegador */ }
+        }
+        const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = nombre;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        this._mostrarToast('⬇️ ' + nombre, 3500);
+    },
+
+    importarDatos() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                let datos = null;
+                try { datos = JSON.parse(ev.target.result); } catch (_) {}
+                this._confirmarRestaurar(datos, 'archivo ' + file.name);
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     },
 
     irA(n) {

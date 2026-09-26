@@ -69,23 +69,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # El puesto no lleva geovallas ni avisos, pero los complementos son los
-      # mismos para todas las apps del repositorio y Capacitor mete en el APK
-      # el manifiesto de cada uno: el de geolocalización trae los permisos de
-      # ubicación, el arranque con el móvil y un servicio en segundo plano. En
-      # la garita eso no pinta nada y sale en la lista de permisos de la app.
-      # Se quitan de esta copia del código; package.json en el repositorio no
-      # se toca, que lo comparten las demás.
+      # El puesto no lleva geovallas, pero los complementos son los mismos para
+      # todas las apps del repositorio y Capacitor mete en el APK el manifiesto
+      # de cada uno: el de geolocalización trae los permisos de ubicación, el
+      # arranque con el móvil y un servicio en segundo plano. En la garita eso
+      # no pinta nada y sale en la lista de permisos de la app. Se quita de
+      # esta copia del código; package.json en el repositorio no se toca, que
+      # lo comparten las demás. El de notificaciones se queda: con él se
+      # prueba el aviso y se elige su sonido, como en las otras.
       - name: Fuera los complementos que aquí no se usan
         run: |
           node -e "
             const fs = require('fs');
             const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             delete p.dependencies['@capacitor-community/background-geolocation'];
-            delete p.dependencies['@capacitor/local-notifications'];
             fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
           "
-          rm -rf node_modules/@capacitor-community node_modules/@capacitor/local-notifications
+          rm -rf node_modules/@capacitor-community
           node -e "console.log(Object.keys(require('./package.json').dependencies).join(' '))"
 
       - name: Build www/
@@ -98,7 +98,8 @@ jobs:
             "appId": "${{ matrix.appid }}",
             "appName": "${{ matrix.nombre }}",
             "webDir": "www-control",
-            "server": { "androidScheme": "https" }
+            "server": { "androidScheme": "https" },
+            "plugins": { "LocalNotifications": { "iconColor": "${{ matrix.color }}" } }
           }
           CAPEOF
           cat capacitor.config.json
@@ -486,6 +487,48 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      - name: Generate notification sound files
+        run: |
+          python3 << 'PYEOF'
+          import wave, struct, math, os
+          def gen_wav(path, segments, sr=44100):
+              frames = []
+              for seg in segments:
+                  freq = seg[0]; dur = seg[1]
+                  mode = seg[2] if len(seg) > 2 else 'tone'
+                  freq_end = seg[3] if len(seg) > 3 else freq
+                  n = int(sr * dur); phase = 0.0
+                  for i in range(n):
+                      t = i / sr
+                      if freq == 0:
+                          frames.append(struct.pack('<h', 0)); continue
+                      att = min(1.0, t / 0.012)
+                      if mode == 'bell':
+                          env = att * math.exp(-t * 4.0 / dur)
+                          f = freq
+                      elif mode == 'sweep':
+                          env = att * min(1.0, (dur - t) / 0.10)
+                          f = freq + (freq_end - freq) * t / dur
+                      else:
+                          env = att * min(1.0, (dur - t) / max(dur * 0.15, 0.05))
+                          f = freq
+                      phase += 2 * math.pi * f / sr
+                      frames.append(struct.pack('<h', int(32767 * 0.65 * env * math.sin(phase))))
+              with wave.open(path, 'w') as f:
+                  f.setnchannels(1); f.setsampwidth(2); f.setframerate(sr)
+                  f.writeframes(b''.join(frames))
+          os.makedirs('android/app/src/main/res/raw', exist_ok=True)
+          R = 'android/app/src/main/res/raw/'
+          gen_wav(R+'notif_ding.wav',    [(880, 1.0, 'bell')])
+          gen_wav(R+'notif_campana.wav', [(660, 0.5, 'bell'), (880, 0.75, 'bell')])
+          gen_wav(R+'notif_alerta.wav',  [(440, 0.20), (0, 0.05), (660, 0.20), (0, 0.05), (880, 0.30)])
+          gen_wav(R+'notif_silbido.wav', [(800, 0.42, 'sweep', 1400), (1400, 0.38, 'sweep', 800)])
+          gen_wav(R+'notif_doble.wav',   [(880, 0.30), (0, 0.12), (880, 0.30)])
+          gen_wav(R+'notif_fanfare.wav', [(440, 0.20), (550, 0.20), (660, 0.20), (880, 0.60, 'bell')])
+          gen_wav(R+'notif_suave.wav',   [(330, 1.2, 'bell')])
+          print("Sound files OK")
+          PYEOF
 
       - name: Set native splash background color
         env:
