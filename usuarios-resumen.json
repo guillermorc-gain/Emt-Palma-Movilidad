@@ -1541,7 +1541,8 @@
     },
     "apps": [
       "trabajador"
-    ]
+    ],
+    "oculto": true
   },
   "guillermo.rcxx@gmail.com": {
     "email": "guillermo.rcxx@gmail.com",
