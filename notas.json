@@ -27,36 +27,6 @@
     "gestor": "Guillermo Ríos Correa",
     "estado": "pendiente"
   },
-  "20260927140808133-1roci-0": {
-    "id": "20260927140808133-1roci-0",
-    "email": "guillermo.rc82@gmail.com",
-    "creado": "2026-09-27T14:08:08.133Z",
-    "nombre": "Guillermo Ríos Correa",
-    "conductor": "1418-3",
-    "mensajes": [
-      {
-        "de": "g.rioscorrea@gmail.com",
-        "autor": "Desarrollador",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T14:08:08.133Z"
-      },
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Sonido de mensajes normal y cuando entras en la aplicación te suena el sonido que ha personalizado otra vez",
-        "adjuntos": [],
-        "en": "2026-09-27T14:15:22.781Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "companero",
-    "deEmail": "g.rioscorrea@gmail.com",
-    "deNombre": "Desarrollador",
-    "deConductor": "💻",
-    "estado": "pendiente"
-  },
   "20260927140808133-j3u5i-1": {
     "id": "20260927140808133-j3u5i-1",
     "email": "guillermo.rcxx@gmail.com",
