@@ -593,6 +593,16 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
     </div>
 </div>
 
+<!-- En el navegador: la franja para descargar la aplicación, como en las otras -->
+<div class="install-banner" id="installBanner" style="background:#0052CC;">
+    <div style="flex:1;">
+        <strong style="display:block;font-size:13px;margin-bottom:2px;" id="installBannerTit">📲 Descargar la aplicación</strong>
+        <span style="font-size:11px;opacity:0.9;">Descarga el APK para Android</span>
+    </div>
+    <button onclick="app.instalarApp()" style="background:#fff;color:#0052CC;border:none;border-radius:6px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">Descargar</button>
+    <button onclick="app.ocultarInstallBanner()" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 6px;line-height:1;">×</button>
+</div>
+
 <!-- Versión nueva: se queda abajo hasta que se actualice o se cierre -->
 <div class="install-banner" id="updateBanner">
     <div style="flex:1;">
