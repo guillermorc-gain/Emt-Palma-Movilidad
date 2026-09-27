@@ -1703,7 +1703,9 @@ const app = {
             </div>
             ${quien ? `<div class="re-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="re-que">${esc(que)}</div>` : ''}
-            ${ES_GC && r.creadoPor ? `<div class="re-que">Apuntado por ${esc(this._quienApunto(r.creadoPor, r.creadoNombre, r.creadoNum))}</div>` : ''}
+            ${ES_GC && r.creadoPor ? `<div class="re-que">✍️ Apuntado por ${esc(this._quienApunto(r.creadoPor, r.creadoNombre, r.creadoNum))}${
+                r.tocadoPor && r.tocadoPor !== r.creadoPor
+                    ? ` · ✏️ corregido por ${esc(this._quienApunto(r.tocadoPor, r.tocadoNombre, r.tocadoNum))}` : ''}</div>` : ''}
             ${!r.salida ? `<div class="re-btns">${abierto
                 ? `<button class="btn chico" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
                 <button class="btn sec chico" onclick="event.stopPropagation();app.ponerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}

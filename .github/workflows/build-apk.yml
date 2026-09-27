@@ -267,6 +267,14 @@ jobs:
                           arrancarVigilante(ctx);
                       }
 
+                      // Opciones → Notificaciones: el turno en la barra, sí o no
+                      @JavascriptInterface
+                      public void ponerAvisoTurno(boolean activo) {
+                          ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                              .putString("avisoTurno", activo ? "1" : "0").apply();
+                          arrancarVigilante(ctx);
+                      }
+
                       @JavascriptInterface
                       public void chatLeidoHasta(String cuando) {
                           ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -332,7 +340,10 @@ jobs:
 
                       @JavascriptInterface
                       public void cancelWorkNotification() {
-                          ((NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1001);
+                          NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                          nm.cancel(1001);
+                          // Y el de "registra tu jornada", que ya está registrada
+                          nm.cancel(1003);
                       }
 
                       @JavascriptInterface
@@ -1113,6 +1124,14 @@ jobs:
               public static void arrancarVigilante(Context ctx) {
                   SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                   if (prefs.getString("chatEmail", "").isEmpty()) return;
+                  // Sin el turno en la barra no hay servicio: Android no deja
+                  // tenerlo sin su aviso fijo. Los mensajes y el recordatorio
+                  // siguen llegando por la alarma y el trabajo periódico, con
+                  // algo más de retraso.
+                  if ("0".equals(prefs.getString("avisoTurno", "1"))) {
+                      try { ctx.stopService(new Intent(ctx, AvisoService.class)); } catch (Exception ignored) {}
+                      return;
+                  }
                   try {
                       Intent i = new Intent(ctx, AvisoService.class);
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i);
@@ -1197,6 +1216,65 @@ jobs:
                       try { mirarChat(ctx); } catch (Exception ignored) {}
                       try { mirarJornada(ctx); } catch (Exception ignored) {}
                       try { mirarCuadrante(ctx); } catch (Exception ignored) {}
+                      try { mirarSinRegistrar(ctx); } catch (Exception ignored) {}
+                  }
+
+                  // Media hora después de acabar la jornada de hoy, si no se ha
+                  // registrado nada, un aviso para registrarla. Una vez al día,
+                  // y se puede quitar en Opciones → Notificaciones. No se avisa
+                  // de baja, de vacaciones ni libre, ni sin horario asignado.
+                  // El turno que acaba pasada la medianoche no entra: su día
+                  // ya no es el de hoy cuando termina.
+                  static void mirarSinRegistrar(Context ctx) {
+                      SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                      if ("0".equals(prefs.getString("avisoRegistrar", "1"))) return;
+                      java.util.Calendar c = java.util.Calendar.getInstance();
+                      String hoy = String.format(java.util.Locale.US, "%04d%02d%02d",
+                          c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH) + 1,
+                          c.get(java.util.Calendar.DAY_OF_MONTH));
+                      if (hoy.equals(prefs.getString("recordatorioAvisado", ""))) return;
+                      if (hoy.equals(prefs.getString("lastRegisteredDate", ""))) return;
+                      if (hoy.equals(prefs.getString("jornadaCompleta", ""))) return;
+                      if (hoy.equals(prefs.getString("jornadaMuda", ""))) return;
+                      String[] t = prefs.getString("jornadaVista", "").split("\\|", -1);
+                      if (t.length < 3 || !t[0].equals(hoy)) return;
+                      String horas = t[2].trim();
+                      if (horas.length() < 11) return;
+                      int ini, fin;
+                      try {
+                          ini = Integer.parseInt(horas.substring(0, 2)) * 60 + Integer.parseInt(horas.substring(3, 5));
+                          fin = Integer.parseInt(horas.substring(6, 8)) * 60 + Integer.parseInt(horas.substring(9, 11));
+                      } catch (Exception e) { return; }
+                      if (fin <= ini) return;
+                      int ahora = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
+                      if (ahora < fin + 30) return;
+                      prefs.edit().putString("recordatorioAvisado", hoy).apply();
+
+                      NotificationManager nm =
+                          (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                      if (nm == null) return;
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          nm.createNotificationChannel(new NotificationChannel(
+                              CHANNEL_ID, "Trabajo cercano", NotificationManager.IMPORTANCE_HIGH));
+                      }
+                      int flags = PendingIntent.FLAG_UPDATE_CURRENT
+                          | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
+                      Intent oi = new Intent(ctx, MainActivity.class);
+                      oi.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                      PendingIntent openPI = PendingIntent.getActivity(ctx, 6, oi, flags);
+                      String lugar = t[1].trim();
+                      String texto = "Tu jornada" + (lugar.isEmpty() ? "" : " en " + lugar)
+                          + " (" + horas + ") ha terminado y no la has registrado.";
+                      nm.notify(1003, new NotificationCompat.Builder(ctx, CHANNEL_ID)
+                          .setSmallIcon(R.drawable.ic_stat_chat)
+                          .setContentTitle("\u23F0 Registra tu jornada")
+                          .setContentText(texto)
+                          .setStyle(new NotificationCompat.BigTextStyle().bigText(texto))
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
+                          .setContentIntent(openPI)
+                          .setAutoCancel(true)
+                          .addAction(0, "\u270F\uFE0F Registrar", openPI)
+                          .build());
                   }
 
 
@@ -1285,6 +1363,13 @@ jobs:
                       org.json.JSONObject a = new org.json.JSONObject(sb.toString());
                       String fecha = a.optString("fecha", "");
                       if (fecha.isEmpty()) return;
+                      // De baja, de vacaciones o libre no hay jornada que registrar
+                      boolean muda = false;
+                      for (String k : new String[]{ "baja", "vacaciones", "libre" }) {
+                          String v = a.has(k) && !a.isNull(k) ? a.optString(k, "") : "";
+                          if (!v.isEmpty() && !"false".equals(v) && !"0".equals(v)) muda = true;
+                      }
+                      if (muda) prefs.edit().putString("jornadaMuda", fecha).apply();
                       String lugar = a.optString("lugar", "");
                       org.json.JSONObject h = a.optJSONObject("horario");
                       String horas = "";

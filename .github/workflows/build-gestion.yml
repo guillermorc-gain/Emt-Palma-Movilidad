@@ -1036,14 +1036,12 @@ jobs:
               // Arrancarlo es cosa de dos sitios: al abrir la app y al encender el
               // móvil. Desde el fondo Android puede no dejar, y entonces no pasa
               // nada: quedan la alarma y el trabajo periódico.
+              // El servicio fijo ya no se arranca: su aviso "Mensajes al día"
+              // se quedaba siempre en la barra sin decir nada. Si lo hubiera
+              // dejado en marcha una versión anterior, aquí se para. Los
+              // mensajes siguen llegando por la alarma y el trabajo periódico.
               public static void arrancarVigilante(Context ctx) {
-                  SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-                  if (prefs.getString("chatEmail", "").isEmpty()) return;
-                  try {
-                      Intent i = new Intent(ctx, AvisoService.class);
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i);
-                      else ctx.startService(i);
-                  } catch (Exception ignored) {}
+                  try { ctx.stopService(new Intent(ctx, AvisoService.class)); } catch (Exception ignored) {}
               }
               
               // La cadena de arriba se sostiene sola: cada despertar deja puesto el
