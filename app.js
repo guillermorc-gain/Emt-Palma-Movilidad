@@ -510,6 +510,7 @@ const app = {
                 return;
             }
             this.mostrarApp();
+            this._caArrancar();
             this._pedirBateriaSiHaceFalta();
             this._pintarAvisoCambio();
             this.actualizarBotonesPerfil();
@@ -1835,6 +1836,8 @@ const app = {
         document.getElementById('appScreen').classList.remove('active');
         document.getElementById('optionsScreen').classList.add('active');
         document.getElementById('darkModeToggle').checked = this.darkMode;
+        const caToggle = document.getElementById('controlAccesoToggle');
+        if (caToggle) caToggle.checked = !!this.controlAcceso;
         document.getElementById('horasAnualesDisplay').textContent = this.horasAnualesCustom + 'h';
         this._actualizarJornadaDisplay();
         this._actualizarConductorDisplay();
@@ -5431,8 +5434,9 @@ const app = {
         // cuál se está y con qué cuenta.
         const tit = document.getElementById('cabeceraTitulo');
         if (tit) {
-            tit.textContent = this._soyElDesarrollador()
-                ? '⚙️ Desarrollador EMT - Movilidad' : '🚌 EMT - Movilidad';
+            tit.textContent = (this._soyElDesarrollador()
+                ? '⚙️ Desarrollador EMT - Movilidad' : '🚌 EMT - Movilidad')
+                + (this.controlAcceso ? '/Control de acceso' : '');
         }
 
         const a = this._asignacionDeHoy();
@@ -5695,6 +5699,11 @@ const app = {
         if (idx === 1) { this._cargarCuadrante(); this._renderHistorialModal(); }
         if (idx === 2) this._cargarNotas();
         if (idx === 3) this._cargarMisNominas();
+        if (idx === 4 || idx === 5) {
+            if (idx === 5) this._caRenderHistorial();
+            // Al entrar se trae lo último, sin esperar al siguiente repaso
+            if (!this._caSinPermiso) this.caCargarRegistros(false, ...(idx === 4 ? [this._caDia, this._caDia] : []));
+        }
     },
 
     // El dedo puede arrastrar tanto sobre el orden visual de la barra
@@ -5715,7 +5724,7 @@ const app = {
             const t = e.changedTouches[0];
             const dx = t.clientX - x0, dy = t.clientY - y0;
             if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-            const btns = [...document.querySelectorAll('#tabBar .tab-btn')];
+            const btns = [...document.querySelectorAll('#tabBar .tab-btn:not([hidden])')];
             const actualIdx = btns.findIndex(b => b.classList.contains('active'));
             if (actualIdx === -1) return;
             const destino = dx < 0 ? actualIdx + 1 : actualIdx - 1;
@@ -5752,8 +5761,16 @@ const app = {
                     const btn = bar.querySelector(`.tab-btn[data-tab="${t}"]`);
                     if (btn) bar.appendChild(btn);
                 });
+                // Las que no estaban cuando se guardó el orden —las de Control
+                // de acceso—, al final y no delante de todo
+                [...bar.querySelectorAll('.tab-btn')].filter(b => !orden.includes(b.dataset.tab))
+                    .forEach(b => bar.appendChild(b));
             }
         } catch(_) {}
+        ['tabBtnCa', 'tabBtnCaHist'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.hidden = !this.controlAcceso;
+        });
         // Al abrir la app se empieza siempre en Registro, que es a lo que se
         // entra. Se guardaba la última pestaña y se volvía a ella, así que
         // quien había mirado la nómina o el historial se encontraba eso al
@@ -5784,6 +5801,630 @@ const app = {
         if (si < di) bar.insertBefore(src, dst.nextSibling);
         else bar.insertBefore(src, dst);
         this._guardarOrdenTabs();
+    },
+
+    // ── Control de acceso dentro de esta app ─────────────────────────────────
+    //
+    // Hay quien hace unos días de conductor y otros el turno en la garita, y
+    // tenía que llevar dos aplicaciones. Con la opción de Ajustes → Trabajo
+    // salen aquí las dos pestañas de la de Control de acceso —el registro del
+    // día y su historial— con lo mismo que allí: los datos son los mismos del
+    // puesto (api/accesos), así que lo que se apunta aquí sale en las garitas
+    // y al revés, y se sincroniza igual, cada pocos segundos.
+    //
+    // El servidor sigue decidiendo quién ve el registro: la cuenta tiene que
+    // estar dada de alta en el puesto. Si no lo está, las pestañas lo dicen.
+
+    controlAcceso: localStorage.getItem('controlAcceso') === '1',
+    _caPorId: {},
+    _caVisitantes: {},
+    _caDia: '',
+    _caAutorrellenado: {},
+    _caEditando: null,
+    _caSalidaDe: null,
+    _caRelojSync: null,
+    _caRelojHora: null,
+    _caSinPermiso: '',
+    _caPreparado: false,
+
+    toggleControlAcceso(activo) {
+        this._ponerControlAcceso(!!activo);
+        this._mostrarToast(activo ? '🛡️ Control de acceso activado' : 'Control de acceso quitado', 2500);
+    },
+
+    // Enseña o quita las pestañas, la cabecera y la línea del arranque
+    _ponerControlAcceso(activo, guardar = true) {
+        this.controlAcceso = !!activo;
+        try { localStorage.setItem('controlAcceso', activo ? '1' : '0'); } catch (_) {}
+        ['tabBtnCa', 'tabBtnCaHist'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.hidden = !activo;
+        });
+        const t = document.getElementById('controlAccesoToggle');
+        if (t) t.checked = !!activo;
+        this._actualizarCabeceraUsuario();
+        if (activo) this._caArrancar();
+        else if (this._activeTab === 4 || this._activeTab === 5) this.switchTab(0);
+        if (guardar) this._guardarPreferencias();
+    },
+
+    _caEsc(t) {
+        return String(t ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+    },
+
+    _caUrl(q) { return this.API_BASE + 'accesos' + (q ? '?' + q : ''); },
+
+    // La firma de las llamadas solo renueva la sesión al escribir; aquí se lee
+    // cada pocos segundos, así que se renueva antes si ha caducado y, si aun
+    // así el servidor no la acepta, se prueba una vez más con una nueva. Solo
+    // con la llave de renovar: sin ella, renovar es sacar la pantalla de
+    // entrar, y un repaso de fondo no puede hacer eso.
+    async _caFetch(url, op = {}) {
+        if (this.refreshToken && this.accessToken && Date.now() >= this.tokenExpiry) {
+            try { await this._silentReauth(); } catch (_) {}
+        }
+        let r = await fetch(url, op);
+        if (r.status === 401 && this.refreshToken) {
+            try { await this._silentReauth(); } catch (_) {}
+            r = await fetch(url, op);
+        }
+        return r;
+    },
+
+    async _caRespuesta(r) {
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 403) this._caPonerSinPermiso(data.error);
+        if (!r.ok) throw new Error(data.error || r.status);
+        return data;
+    },
+
+    _caPonerSinPermiso(error) {
+        this._caSinPermiso = error || 'Esta cuenta no tiene acceso al puesto de control de acceso';
+        ['caAviso', 'caHistAviso'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = '🔒 ' + this._caSinPermiso + '. Pide al desarrollador que te dé de alta en Control de acceso.';
+            el.hidden = false;
+        });
+    },
+
+    _caQuitarSinPermiso() {
+        this._caSinPermiso = '';
+        ['caAviso', 'caHistAviso'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
+    },
+
+    // Al entrar en la app con la opción puesta, o al ponerla
+    _caArrancar() {
+        if (!this.controlAcceso || !this.usuarioActual) return;
+        if (!this._caPreparado) {
+            this._caPreparado = true;
+            this._caPreparar();
+        }
+        this.caCargarVisitantes();
+        this.caCargarRegistros();
+        this._caSincronizarSolo();
+    },
+
+    _caHoyISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    _caIsoHaceDias(n) {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    _caAISO(f)   { const s = String(f || ''); return s.length === 8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : ''; },
+    _caAClave(f) { return String(f || '').replace(/-/g, '').slice(0, 8); },
+    _caClaveMatricula(m) { return String(m || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); },
+    _caHoraAhora() {
+        const d = new Date();
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    },
+    _caDiaLargo(fecha) {
+        const f = String(fecha || '');
+        if (f.length !== 8) return f;
+        const d = new Date(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8), 12);
+        return isNaN(d) ? f : d.toLocaleDateString('es-ES',
+            { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    },
+
+    _caRegistrosDe(fecha) {
+        return Object.values(this._caPorId).filter(r => r.fecha === fecha)
+            .sort((a, b) => (a.entrada || '').localeCompare(b.entrada || ''));
+    },
+
+    _caGuardarCacheRegistros() {
+        try {
+            // Solo lo reciente: es para poder seguir sin cobertura, no un archivo
+            const desde = this._caAClave(this._caIsoHaceDias(40));
+            const lista = Object.values(this._caPorId).filter(r => r.fecha >= desde);
+            localStorage.setItem('caRegistrosCache', JSON.stringify(lista));
+        } catch (_) {}
+    },
+
+    _caGuardarCacheVisitantes() {
+        try { localStorage.setItem('caVisitantesCache', JSON.stringify(Object.values(this._caVisitantes))); } catch (_) {}
+    },
+
+    // Hoy, con la hora de ahora, y lo que se tuviera guardado sin red
+    _caPreparar() {
+        if (!this._caDia) this._caDia = this._caAClave(this._caHoyISO());
+        const pd = document.getElementById('caDesde'), ph = document.getElementById('caHasta');
+        if (pd && !pd.value) pd.value = this._caIsoHaceDias(30);
+        if (ph && !ph.value) ph.value = this._caHoyISO();
+        const f = document.getElementById('caFecha');
+        if (f) f.value = this._caAISO(this._caDia);
+        this._caPintarDiaLargo();
+        this._caPrepararSugerencias();
+        this._caLimpiarFormulario();
+        try {
+            const c = JSON.parse(localStorage.getItem('caRegistrosCache') || '[]');
+            c.forEach(r => { if (r?.id && !this._caPorId[r.id]) this._caPorId[r.id] = r; });
+            this._caPonerVisitantes(JSON.parse(localStorage.getItem('caVisitantesCache') || '[]'));
+        } catch (_) {}
+        this._caRenderDia();
+        this._caRenderHistorial();
+    },
+
+    _caPintarDiaLargo() {
+        const el = document.getElementById('caDiaLargo');
+        if (!el) return;
+        const hoy = this._caAClave(this._caHoyISO());
+        const d = new Date(+this._caDia.slice(0, 4), +this._caDia.slice(4, 6) - 1, +this._caDia.slice(6, 8), 12);
+        const largo = isNaN(d) ? '' : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        el.textContent = (this._caDia === hoy ? 'Hoy · ' : '') + largo;
+        const volver = document.getElementById('caHoyBtn');
+        if (volver) volver.hidden = this._caDia === hoy;
+    },
+
+    caCambiarDia() {
+        const v = this._caAClave(document.getElementById('caFecha')?.value);
+        if (v.length !== 8) return;
+        this._caDia = v;
+        this._caPintarDiaLargo();
+        this._caRenderDia();
+        this.caCargarRegistros(true, v, v);
+    },
+
+    caIrAHoy() {
+        this._caDia = this._caAClave(this._caHoyISO());
+        const f = document.getElementById('caFecha');
+        if (f) f.value = this._caAISO(this._caDia);
+        this.caCambiarDia();
+    },
+
+    _caLimpiarFormulario() {
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('caEntrada', this._caHoraAhora());
+        // La hora va sola hasta que alguien la toque: si el formulario se queda
+        // abierto un rato, al registrar tiene que ser la de ese momento
+        const h = document.getElementById('caEntrada');
+        if (h) {
+            h.dataset.tocada = '';
+            if (!h._escucha) { h._escucha = true; h.addEventListener('input', () => { h.dataset.tocada = '1'; }); }
+        }
+        if (!this._caRelojHora) {
+            this._caRelojHora = setInterval(() => {
+                const e = document.getElementById('caEntrada');
+                if (e && !e.dataset.tocada && document.activeElement !== e) e.value = this._caHoraAhora();
+            }, 20000);
+        }
+        ['caMatricula', 'caNombre', 'caEmpresa', 'caVehiculo', 'caDepartamento'].forEach(id => v(id, ''));
+        this._caAutorrellenado = {};
+        this._caPintarPista('');
+    },
+
+    // ── El directorio de visitantes: lo que se sabe de cada matrícula ──
+
+    _caPonerVisitantes(lista) {
+        if (!Array.isArray(lista)) return;
+        const mapa = {};
+        lista.forEach(v => { const k = this._caClaveMatricula(v?.matricula); if (k) mapa[k] = v; });
+        this._caVisitantes = mapa;
+    },
+
+    async caCargarVisitantes() {
+        if (!this.controlAcceso || !this.usuarioActual) return;
+        try {
+            const r = await this._caFetch(this._caUrl('que=visitantes'), { cache: 'no-store' });
+            const lista = await this._caRespuesta(r);
+            this._caPonerVisitantes(lista);
+            this._caGuardarCacheVisitantes();
+        } catch (_) { /* sin cobertura vale lo último que se supo */ }
+    },
+
+    // Debajo del campo, lo que ya se conoce y encaja con lo escrito. En la
+    // matrícula basta con ir poniendo números: salen las que los llevan.
+    _caOpcionesDe(campo, q) {
+        const vs = Object.values(this._caVisitantes);
+        if (campo === 'matricula') {
+            const k = this._caClaveMatricula(q);
+            if (!k) return [];
+            return vs.filter(v => this._caClaveMatricula(v.matricula).includes(k))
+                .sort((a, b) => (this._caClaveMatricula(b.matricula).startsWith(k) - this._caClaveMatricula(a.matricula).startsWith(k))
+                                || (a.matricula || '').localeCompare(b.matricula || ''))
+                .map(v => ({ valor: v.matricula, texto: v.matricula,
+                             sub: [v.nombre, v.empresa].filter(Boolean).join(' · ') }));
+        }
+        const t = String(q || '').trim().toLowerCase();
+        const base = campo === 'departamento' ? ['Taller', 'Obra', 'Paquetería taller'] : [];
+        const valores = [...new Set([...base, ...vs.map(v => v[campo])].filter(x => x && x !== '-'))];
+        return valores.filter(x => !t || x.toLowerCase().includes(t))
+            .filter(x => x.toLowerCase() !== t)
+            .sort((a, b) => (b.toLowerCase().startsWith(t) - a.toLowerCase().startsWith(t)) || a.localeCompare(b, 'es'))
+            .map(x => ({ valor: x, texto: x }));
+    },
+
+    _caPrepararSugerencias() {
+        const campos = { caMatricula: 'matricula', caEmpresa: 'empresa', caVehiculo: 'vehiculo', caDepartamento: 'departamento',
+                         caeMatricula: 'matricula', caeEmpresa: 'empresa', caeVehiculo: 'vehiculo', caeDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, campo]) => {
+            const input = document.getElementById(id);
+            if (!input || input._sug) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'ca-sug-wrap';
+            wrap.style.marginBottom = input.style.marginBottom;
+            input.style.marginBottom = '0';
+            input.parentNode.insertBefore(wrap, input);
+            wrap.appendChild(input);
+            const caja = document.createElement('div');
+            caja.className = 'ca-sug';
+            caja.hidden = true;
+            wrap.appendChild(caja);
+            input._sug = caja;
+            const pintar = () => {
+                const ops = this._caOpcionesDe(campo, input.value).slice(0, 8);
+                caja.innerHTML = ops.map((o, i) => `<div class="ca-sug-op" data-i="${i}"><b>${this._caEsc(o.texto)}</b>${
+                    o.sub ? `<span>${this._caEsc(o.sub)}</span>` : ''}</div>`).join('');
+                caja.hidden = !ops.length || document.activeElement !== input;
+                caja._ops = ops;
+            };
+            input.addEventListener('input', pintar);
+            input.addEventListener('focus', pintar);
+            input.addEventListener('blur', () => setTimeout(() => { caja.hidden = true; }, 150));
+            // mousedown y no click: con click el campo pierde el foco antes y la
+            // lista se cierra sin haber elegido
+            caja.addEventListener('mousedown', e => e.preventDefault());
+            caja.addEventListener('click', e => {
+                const op = caja._ops?.[+e.target.closest('.ca-sug-op')?.dataset.i];
+                if (!op) return;
+                input.value = op.valor;
+                input.dispatchEvent(new Event('input'));
+                caja.hidden = true;
+                if (id === 'caMatricula') this.caBuscarMatricula();
+            });
+        });
+    },
+
+    // Al escribir la matrícula: si ya vino alguna vez, se rellena lo demás. Lo
+    // escrito a mano no se pisa; lo rellenado solo sí, por si se cambia de
+    // matrícula a media escritura.
+    caBuscarMatricula() {
+        const el = document.getElementById('caMatricula');
+        if (!el) return;
+        const v = this._caVisitantes[this._caClaveMatricula(el.value)];
+        const campos = { caNombre: 'nombre', caEmpresa: 'empresa', caVehiculo: 'vehiculo', caDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, k]) => {
+            const c = document.getElementById(id);
+            if (!c) return;
+            const vacio = !c.value.trim() || this._caAutorrellenado[id] === c.value;
+            if (v && vacio) {
+                const nuevo = v[k] && v[k] !== '-' ? v[k] : '';
+                c.value = nuevo;
+                this._caAutorrellenado[id] = nuevo;
+            } else if (!v && this._caAutorrellenado[id] === c.value) {
+                c.value = '';
+                delete this._caAutorrellenado[id];
+            }
+        });
+        if (v) el.value = v.matricula || el.value;
+        const clave = this._caClaveMatricula(el.value);
+        // "Nueva" solo si no hay ninguna que la contenga: a medio escribir aún
+        // puede ser una conocida, y para eso están las sugerencias
+        const aMedias = !v && Object.keys(this._caVisitantes).some(k => k.includes(clave));
+        this._caPintarPista(!clave || aMedias ? '' : v ? `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`
+            : '🆕 Matrícula nueva: se recordará al registrarla');
+    },
+
+    _caPintarPista(t) {
+        const el = document.getElementById('caPista');
+        if (el) { el.textContent = t; el.hidden = !t; }
+    },
+
+    // ── Apuntar ──
+
+    async caRegistrarEntrada() {
+        const h = document.getElementById('caEntrada');
+        if (h && !h.dataset.tocada) h.value = this._caHoraAhora();
+        const g = id => (document.getElementById(id)?.value || '').trim();
+        const r = {
+            fecha: this._caDia, entrada: g('caEntrada'), matricula: g('caMatricula').toUpperCase(),
+            nombre: g('caNombre'), empresa: g('caEmpresa'), vehiculo: g('caVehiculo'), departamento: g('caDepartamento'),
+        };
+        if (!/^\d{2}:\d{2}$/.test(r.entrada)) { this._mostrarToast('❌ Falta la hora de entrada', 3000); return; }
+        if (!r.matricula && !r.nombre) { this._mostrarToast('❌ Pon al menos la matrícula o el nombre', 3000); return; }
+        const btn = document.getElementById('caBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const data = await this._caEnviarRegistro(r);
+            // Lo aprendido, ya aquí, sin esperar a la próxima carga
+            if (data.matricula) {
+                const k = this._caClaveMatricula(data.matricula);
+                const previo = this._caVisitantes[k] || {};
+                this._caVisitantes[k] = { ...previo, matricula: data.matricula,
+                    nombre: data.nombre || previo.nombre || '', empresa: data.empresa || previo.empresa || '',
+                    vehiculo: data.vehiculo || previo.vehiculo || '', departamento: data.departamento || previo.departamento || '' };
+                this._caGuardarCacheVisitantes();
+            }
+            this._caLimpiarFormulario();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast(`✅ Entrada a las ${data.entrada}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) {
+            this._mostrarToast('❌ ' + e.message, 5000);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async _caEnviarRegistro(cuerpo) {
+        const r = await this._caFetch(this._caUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpo),
+        });
+        const data = await this._caRespuesta(r);
+        this._caQuitarSinPermiso();
+        this._caPorId[data.id] = data;
+        this._caGuardarCacheRegistros();
+        return data;
+    },
+
+    // La salida, con la hora de ahora; si no era esa, se toca en el registro
+    async caMarcarSalida(id) {
+        if (!this._caPorId[id]) return;
+        try {
+            const data = await this._caEnviarRegistro({ id, salida: this._caHoraAhora() });
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast(`🚪 Salida a las ${data.salida}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    // La hora de salida escrita a mano, por si no se apuntó en el momento
+    caPonerHoraSalida(id) {
+        const r = this._caPorId[id];
+        if (!r) return;
+        this._caSalidaDe = id;
+        const t = document.getElementById('caHsTitulo');
+        if (t) t.textContent = [r.matricula, r.nombre].filter(Boolean).join(' · ') + ` · entró a las ${r.entrada}`;
+        const h = document.getElementById('caHsHora');
+        if (h) h.value = r.fecha === this._caAClave(this._caHoyISO()) ? this._caHoraAhora() : '';
+        document.getElementById('caSalidaModal').classList.add('show');
+        setTimeout(() => h?.focus(), 50);
+    },
+
+    caCerrarHoraSalida() { document.getElementById('caSalidaModal').classList.remove('show'); this._caSalidaDe = null; },
+
+    async caGuardarHoraSalida() {
+        const r = this._caPorId[this._caSalidaDe];
+        const hora = document.getElementById('caHsHora')?.value || '';
+        if (!r) return;
+        if (!/^\d{2}:\d{2}$/.test(hora)) { this._mostrarToast('❌ Pon la hora de salida', 3000); return; }
+        if (hora < r.entrada) { this._mostrarToast('❌ La salida no puede ser antes que la entrada', 3500); return; }
+        try {
+            const data = await this._caEnviarRegistro({ id: r.id, salida: hora });
+            this.caCerrarHoraSalida();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast(`🚪 Salida a las ${data.salida}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    // ── Lo apuntado ──
+
+    _caTarjeta(r) {
+        // Sin hora de salida no se pone nada. El botón de salida ahora, solo en
+        // los de hoy: en uno de otro día pondría la hora de ahora, que no es.
+        const esc = t => this._caEsc(t);
+        const abierto = !r.salida && r.fecha === this._caAClave(this._caHoyISO());
+        const quien = [r.nombre, r.empresa].filter(Boolean).join(' · ');
+        const que = [r.vehiculo, r.departamento && r.departamento !== '-' ? '→ ' + r.departamento : ''].filter(Boolean).join(' ');
+        return `<div class="ca-reg${abierto ? ' dentro' : ''}" onclick="app.caAbrirRegistro('${esc(r.id)}')">
+            <div class="ca-top">
+                <span class="ca-horas">${esc(r.entrada)}${r.salida ? '–' + esc(r.salida) : ''}</span>
+                ${r.matricula ? `<span class="ca-mat">${esc(r.matricula)}</span>` : ''}
+            </div>
+            ${quien ? `<div class="ca-quien">${esc(quien)}</div>` : ''}
+            ${que ? `<div class="ca-que">${esc(que)}</div>` : ''}
+            ${!r.salida ? `<div class="ca-btns">${abierto
+                ? `<button class="ca-btn" onclick="event.stopPropagation();app.caMarcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
+                <button class="btn-secondary" onclick="event.stopPropagation();app.caPonerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
+        </div>`;
+    },
+
+    _caRenderDia() {
+        const cont = document.getElementById('caLista');
+        if (!cont) return;
+        const lista = this._caRegistrosDe(this._caDia);
+        const cab = document.getElementById('caCuantos');
+        if (cab) cab.textContent = lista.length ? String(lista.length) : '';
+        cont.innerHTML = lista.length
+            // Los que siguen dentro, arriba: son a los que hay que apuntar la salida
+            ? [...lista.filter(r => !r.salida), ...lista.filter(r => r.salida)].map(r => this._caTarjeta(r)).join('')
+            : '<div class="ca-vacio">Todavía no hay nada apuntado este día.</div>';
+    },
+
+    _caEnHistorial() {
+        const desde = this._caAClave(document.getElementById('caDesde')?.value) || this._caAClave(this._caIsoHaceDias(30));
+        const hasta = this._caAClave(document.getElementById('caHasta')?.value) || this._caAClave(this._caHoyISO());
+        const texto = String(document.getElementById('caBuscar')?.value || '').trim().toLowerCase();
+        const busca = this._caClaveMatricula(texto);
+        return Object.values(this._caPorId)
+            .filter(r => r.fecha >= desde && r.fecha <= hasta)
+            .filter(r => !texto || (busca && this._caClaveMatricula(r.matricula).includes(busca))
+                || [r.nombre, r.empresa, r.vehiculo, r.departamento].some(x => String(x || '').toLowerCase().includes(texto)))
+            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.entrada || '').localeCompare(a.entrada || ''));
+    },
+
+    _caRenderHistorial() {
+        const cont = document.getElementById('caHistLista');
+        if (!cont) return;
+        const lista = this._caEnHistorial();
+        if (!lista.length) {
+            cont.innerHTML = '<div class="ca-vacio">No hay registros en esas fechas.</div>';
+            return;
+        }
+        let dia = '';
+        cont.innerHTML = lista.map(r => {
+            const cab = r.fecha !== dia ? `<div class="ca-dia">${this._caEsc(this._caDiaLargo(r.fecha))}</div>` : '';
+            dia = r.fecha;
+            return cab + this._caTarjeta(r);
+        }).join('');
+    },
+
+    // A mano, con el botón: lo que haya apuntado otra garita, ya
+    async caRecargar() {
+        const b = document.getElementById('caRecargar');
+        if (b) { b.disabled = true; b.textContent = '⏳'; }
+        this._caQuitarSinPermiso();
+        const [a, d] = await Promise.all([this.caCargarRegistros(true), this.caCargarRegistros(true, this._caDia, this._caDia),
+                                          this.caCargarVisitantes()]);
+        if (b) { b.disabled = false; b.textContent = '🔄 Recargar'; }
+        if (a && d) this._mostrarToast('✅ Actualizado', 1500);
+    },
+
+    // Y solo, como en la app del puesto: mientras se está en una de las dos
+    // pestañas, cada pocos segundos se trae lo nuevo, para que lo que apunta
+    // una garita salga en la otra al momento. Al volver a la app, también.
+    _caSincronizarSolo() {
+        if (this._caRelojSync) return;
+        const traer = () => {
+            if (!this.controlAcceso || !this.usuarioActual || this._caSinPermiso) return;
+            if (document.visibilityState !== 'visible') return;
+            if (this._activeTab !== 4 && this._activeTab !== 5) return;
+            // Con un cuadro abierto no se repinta nada debajo
+            if (document.querySelector('.modal.show')) return;
+            const hoy = this._caAClave(this._caHoyISO());
+            // El día que se está viendo y hasta hoy: lo que puede haber cambiado
+            const desde = this._caDia && this._caDia < hoy ? this._caDia : hoy;
+            this.caCargarRegistros(false, desde, this._caDia > hoy ? this._caDia : hoy);
+        };
+        this._caRelojSync = setInterval(traer, 15000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible' || !this.controlAcceso || !this.usuarioActual) return;
+            traer();
+            if (!this._caSinPermiso) this.caCargarVisitantes();
+        });
+    },
+
+    async caCargarRegistros(forzar, desde, hasta) {
+        if (!this.controlAcceso || !this.usuarioActual) return false;
+        if (!desde) {
+            desde = this._caAClave(document.getElementById('caDesde')?.value) || this._caAClave(this._caIsoHaceDias(30));
+            hasta = this._caAClave(document.getElementById('caHasta')?.value) || this._caAClave(this._caHoyISO());
+        }
+        try {
+            const r = await this._caFetch(this._caUrl(new URLSearchParams({ desde, hasta })), { cache: 'no-store' });
+            const lista = await this._caRespuesta(r);
+            this._caQuitarSinPermiso();
+            // Lo de esas fechas manda: lo que ya no está es que se ha borrado
+            Object.values(this._caPorId).forEach(x => { if (x.fecha >= desde && x.fecha <= hasta) delete this._caPorId[x.id]; });
+            (Array.isArray(lista) ? lista : []).forEach(x => { this._caPorId[x.id] = x; });
+            this._caGuardarCacheRegistros();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            return true;
+        } catch (e) {
+            if (forzar && !this._caSinPermiso) this._mostrarToast('📴 Sin conexión: se ve lo último que se cargó', 3000);
+        }
+        this._caRenderDia();
+        this._caRenderHistorial();
+        return false;
+    },
+
+    caLimpiarFiltros() {
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('caDesde', this._caIsoHaceDias(30));
+        v('caHasta', this._caHoyISO());
+        const b = document.getElementById('caBuscar');
+        if (b) b.value = '';
+        this.caCargarRegistros(true);
+    },
+
+    // ── Corregir un registro ──
+
+    caAbrirRegistro(id) {
+        const r = this._caPorId[id];
+        if (!r) return;
+        this._caEditando = id;
+        const v = (k, val) => { const el = document.getElementById(k); if (el) el.value = val || ''; };
+        v('caeFecha', this._caAISO(r.fecha)); v('caeEntrada', r.entrada); v('caeSalida', r.salida);
+        v('caeMatricula', r.matricula); v('caeNombre', r.nombre); v('caeEmpresa', r.empresa);
+        v('caeVehiculo', r.vehiculo); v('caeDepartamento', r.departamento);
+        // Borrar es de quien lleva el puesto; aquí, lo apuntado por uno mismo
+        // hoy, por si se equivocó. El servidor lo vuelve a mirar.
+        const hoy = this._caAClave(this._caHoyISO());
+        const yo = (this.usuarioActual?.email || '').toLowerCase();
+        const b = document.getElementById('caeBorrar');
+        if (b) b.hidden = !(String(r.creadoPor || '').toLowerCase() === yo && r.fecha === hoy);
+        const firma = document.getElementById('caeFirma');
+        if (firma) firma.textContent = r.creadoPor
+            ? `Apuntado por ${r.creadoPor}` + (r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${r.tocadoPor}` : '')
+            : '';
+        document.getElementById('caRegModal').classList.add('show');
+    },
+
+    caCerrarRegistro() { document.getElementById('caRegModal').classList.remove('show'); this._caEditando = null; },
+
+    caSalidaAhoraEnCuadro() {
+        const el = document.getElementById('caeSalida');
+        if (el) el.value = this._caHoraAhora();
+    },
+
+    async caGuardarRegistro() {
+        const id = this._caEditando;
+        if (!id) return;
+        const g = k => (document.getElementById(k)?.value || '').trim();
+        const cuerpo = {
+            id, fecha: this._caAClave(g('caeFecha')), entrada: g('caeEntrada'), salida: g('caeSalida'),
+            matricula: g('caeMatricula').toUpperCase(), nombre: g('caeNombre'), empresa: g('caeEmpresa'),
+            vehiculo: g('caeVehiculo'), departamento: g('caeDepartamento'),
+        };
+        if (cuerpo.fecha.length !== 8 || !/^\d{2}:\d{2}$/.test(cuerpo.entrada)) {
+            this._mostrarToast('❌ Falta el día o la hora de entrada', 3000); return;
+        }
+        if (cuerpo.salida && cuerpo.salida < cuerpo.entrada) {
+            this._mostrarToast('❌ La salida no puede ser antes que la entrada', 3500); return;
+        }
+        try {
+            await this._caEnviarRegistro(cuerpo);
+            this.caCerrarRegistro();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast('✅ Registro guardado', 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    caBorrarRegistro() {
+        const id = this._caEditando;
+        const r = this._caPorId[id];
+        if (!r) return;
+        this.caCerrarRegistro();
+        this.mostrarModal('Borrar el registro',
+            `¿Borrar la entrada de las ${r.entrada}${r.matricula ? ' de ' + r.matricula : ''}${r.nombre ? ' (' + r.nombre + ')' : ''}?`,
+            async () => {
+                try {
+                    const resp = await this._caFetch(this._caUrl('id=' + encodeURIComponent(id)), { method: 'DELETE' });
+                    await this._caRespuesta(resp);
+                    delete this._caPorId[id];
+                    this._caGuardarCacheRegistros();
+                    this._caRenderDia();
+                    this._caRenderHistorial();
+                    this._mostrarToast('🗑️ Registro borrado', 2500);
+                } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+            });
     },
 
     calcularExtra() {
@@ -6991,7 +7632,7 @@ const app = {
     aplicarDarkMode() {
         document.body.classList.add('dark');
         ['#appHeader','#appContent','#tabBar','#optionsHeader','#optionsContent','#modalContent',
-         '#editModalContent','#avatarModalContent']
+         '#editModalContent','#avatarModalContent','#caRegModalContent','#caSalidaModalContent']
             .forEach(s => { const e = document.querySelector(s); if(e) e.classList.add('dark'); });
         document.querySelector('.container')?.classList.add('dark');
     },
@@ -6999,7 +7640,7 @@ const app = {
     removerDarkMode() {
         document.body.classList.remove('dark');
         ['#appHeader','#appContent','#tabBar','#optionsHeader','#optionsContent','#modalContent',
-         '#editModalContent','#avatarModalContent']
+         '#editModalContent','#avatarModalContent','#caRegModalContent','#caSalidaModalContent']
             .forEach(s => { const e = document.querySelector(s); if(e) e.classList.remove('dark'); });
         document.querySelector('.container')?.classList.remove('dark');
     },
@@ -7675,11 +8316,15 @@ const app = {
             vacaciones: this._getVacaciones(),
             workLocations: this._getWorkLocations(),
             notifSound: this.notifSound,
-            notifSoundChat: this.notifSoundChat
+            notifSoundChat: this.notifSoundChat,
+            controlAcceso: !!this.controlAcceso
         };
     },
 
     _aplicarPreferenciasDesde(prefs) {
+        if (typeof prefs.controlAcceso === 'boolean' && prefs.controlAcceso !== this.controlAcceso) {
+            this._ponerControlAcceso(prefs.controlAcceso, false);
+        }
         if (prefs.darkMode !== undefined && prefs.darkMode !== this.darkMode) {
             this.darkMode = prefs.darkMode;
             localStorage.setItem('darkMode', String(prefs.darkMode));
