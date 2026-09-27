@@ -141,7 +141,7 @@ const app = {
         const poner = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
         document.title = NOMBRE_APP;
         if (ES_GC) {
-            poner('authTitulo', NOMBRE_APP);
+            poner('authTitulo', 'Gestión EMT - Palma (Control de acceso)');
             poner('authSub', 'Los registros del puesto · EMT Palma');
             poner('splashRol', '🗝️ Gestión del puesto');
             poner('cabeceraTitulo', '🗝️ Gestión control de acceso');
