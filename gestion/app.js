@@ -2573,22 +2573,33 @@ const app = {
             || (this.ORDEN_TURNO[b.turno] ?? 9) - (this.ORDEN_TURNO[a.turno] ?? 9);
     },
 
+    // Los registros de entrada y salida del puesto, del mes elegido
     async _cargarPartes(forzar) {
         if (!ES_APP_DEV || !this.usuarioActual?.email) return;
-        if (this._partes && !forzar) { this._renderPartes(); return; }
+        const hoy = this._aClave(this._hoyISO());
+        const dia = document.getElementById('caDia'), mes = document.getElementById('caMes');
+        if (dia && !dia.value) dia.value = this._hoyISO();
+        if (mes && !mes.value) mes.value = this._hoyISO().slice(0, 7);
+        const m = (mes?.value || this._hoyISO().slice(0, 7)).replace('-', '');
+        if (this._accesos && this._accesosMes === m && !forzar) { this._renderPartes(); return; }
         const cont = document.getElementById('paLista');
-        if (cont && !this._partes) cont.innerHTML = '<div class="pa-vacio">Cargando…</div>';
+        if (cont && !this._accesos) cont.innerHTML = '<div class="pa-vacio">Cargando…</div>';
         try {
-            const r = await fetch(this.PARTES_URL, { cache: 'no-store' });
-            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
-            this._partes = await r.json();
-            localStorage.setItem('partesCache', JSON.stringify(this._partes));
+            // El mes entero, y además el día elegido por si es de otro mes
+            const d = this._aClave(dia?.value) || hoy;
+            const pedir = async (desde, hasta) => {
+                const r = await fetch(`${this.API_BASE}accesos?desde=${desde}&hasta=${hasta}`, { cache: 'no-store' });
+                if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+                return r.json();
+            };
+            const [delMes, delDia] = await Promise.all([pedir(m + '01', m + '31'),
+                d.startsWith(m) ? Promise.resolve([]) : pedir(d, d)]);
+            const porId = {};
+            [...delMes, ...delDia].forEach(r => { porId[r.id] = r; });
+            this._accesos = Object.values(porId);
+            this._accesosMes = m;
         } catch (e) {
-            // Sin red vale lo último que se vio: un parte cerrado no cambia solo
-            if (!this._partes) {
-                try { this._partes = JSON.parse(localStorage.getItem('partesCache') || '[]'); }
-                catch (__) { this._partes = []; }
-            }
+            if (!this._accesos) this._accesos = [];
             if (forzar) this._mostrarToast('❌ ' + e.message, 4000);
         }
         this._renderPartes();
@@ -2602,32 +2613,58 @@ const app = {
             { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
     },
 
+    // Quién es cada correo, con el nombre de la plantilla si lo hay
+    _guardiaEs(email) {
+        const u = (this._conductores || {})[String(email || '').toLowerCase()];
+        return u?.nombre ? `${u.nombre}${u.conductor ? ' · ' + u.conductor : ''}` : (email || '—');
+    },
+
     _renderPartes() {
         const cont = document.getElementById('paLista');
         if (!cont) return;
-        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-        const lista = Array.isArray(this._partes) ? this._partes : [];
-        if (!lista.length) {
-            cont.innerHTML = '<div class="pa-vacio">Todavía no hay ningún parte.<br>'
-                + 'Con ＋ se abre uno a mano.</div>';
-            return;
-        }
-        cont.innerHTML = lista.map(p => {
-            const n = (p.anotaciones || []).length;
-            // Lo primero que se apuntó, para hacerse una idea sin abrirlo
-            const primeras = (p.anotaciones || []).slice(0, 2)
-                .map(a => `${a.hora} ${esc(a.que || a.quien || a.obs)}`).join(' · ');
-            return `<div class="pa-card" onclick="app._abrirParte('${esc(p.id)}')">
-                <div class="pa-card-top">
-                    <span class="pa-dia">${esc(this._diaLargo(p.fecha))}</span>
-                    <span class="pa-turno">${esc(p.turno)}</span>
-                    <span class="pa-n">${n} anotaci${n === 1 ? 'ón' : 'ones'}</span>
-                </div>
-                <div class="pa-quien">${esc(p.nombre || p.email || 'Sin nombre')}</div>
-                ${primeras ? `<div class="pa-resumen">${primeras}${n > 2 ? ' …' : ''}</div>` : ''}
-                ${p.notas ? `<div class="pa-resumen">📝 ${esc(p.notas).slice(0, 120)}</div>` : ''}
-            </div>`;
+        const esc = t => String(t ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+        const lista = Array.isArray(this._accesos) ? this._accesos : [];
+        const dia = this._aClave(document.getElementById('caDia')?.value) || this._aClave(this._hoyISO());
+        const mes = this._accesosMes || dia.slice(0, 6);
+        // Por persona: cuántos apuntó y de qué hora a qué hora
+        const resumen = regs => {
+            const q = {};
+            regs.forEach(r => {
+                const k = r.creadoPor || '—';
+                const x = q[k] || (q[k] = { n: 0, desde: '99:99', hasta: '00:00' });
+                x.n++; if (r.entrada < x.desde) x.desde = r.entrada; if (r.entrada > x.hasta) x.hasta = r.entrada;
+            });
+            return Object.entries(q).sort((a, b) => b[1].n - a[1].n);
+        };
+        const delDia = lista.filter(r => r.fecha === dia).sort((a, b) => (a.entrada || '').localeCompare(b.entrada || ''));
+        const quienDia = resumen(delDia);
+        let html = `<div class="pa-card" style="cursor:default;">
+            <div class="pa-card-top"><span class="pa-dia">📅 ${esc(this._diaLargo(dia))}</span>
+                <span class="pa-n">${delDia.length} entrada${delDia.length === 1 ? '' : 's'}</span></div>
+            ${quienDia.length ? quienDia.map(([k, x]) => `<div class="pa-quien">👤 ${esc(this._guardiaEs(k))} — ${x.n} registro${x.n === 1 ? '' : 's'} (${esc(x.desde)}–${esc(x.hasta)})</div>`).join('')
+                : '<div class="pa-resumen">Nadie ha registrado entradas este día.</div>'}
+            ${delDia.map(r => `<div class="pa-resumen">${esc(r.entrada)}${r.salida ? '–' + esc(r.salida) : ''} · <b>${esc(r.matricula || '')}</b> ${esc([r.nombre, r.empresa].filter(Boolean).join(' · '))}</div>`).join('')}
+        </div>`;
+        // El mes, día a día
+        const delMes = lista.filter(r => String(r.fecha).startsWith(mes));
+        const dias = [...new Set(delMes.map(r => r.fecha))].sort().reverse();
+        const nombreMes = new Date(+mes.slice(0, 4), +mes.slice(4, 6) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        const quienMes = resumen(delMes);
+        html += `<div class="pa-card" style="cursor:default;">
+            <div class="pa-card-top"><span class="pa-dia">🗓️ ${esc(nombreMes)}</span>
+                <span class="pa-n">${delMes.length} entradas · ${dias.length} días</span></div>
+            ${quienMes.map(([k, x]) => `<div class="pa-quien">👤 ${esc(this._guardiaEs(k))} — ${x.n} en el mes</div>`).join('')
+                || '<div class="pa-resumen">Sin registros este mes.</div>'}
+        </div>`;
+        html += dias.map(f => {
+            const regs = delMes.filter(r => r.fecha === f);
+            const q = resumen(regs).map(([k, x]) => `${esc(this._guardiaEs(k))} (${x.n})`).join(' · ');
+            return `<div class="pa-card" onclick="document.getElementById('caDia').value='${this._aISO(f)}';app._renderPartes();document.getElementById('paLista').scrollTop=0;">
+                <div class="pa-card-top"><span class="pa-dia">${esc(this._diaLargo(f))}</span>
+                    <span class="pa-n">${regs.length} entrada${regs.length === 1 ? '' : 's'}</span></div>
+                <div class="pa-resumen">${q}</div></div>`;
         }).join('');
+        cont.innerHTML = html;
     },
 
     // El día va en AAAAMMDD por dentro y con guiones en el campo de fecha
