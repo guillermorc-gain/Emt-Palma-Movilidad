@@ -1274,12 +1274,15 @@
         </div>
 
         <!-- ── TAB: Control de acceso (solo desarrollador) ── -->
+        <!-- Quién ha apuntado entradas en la garita: el día y el mes -->
         <div class="tab-panel" id="tabPanel4">
             <div class="pa-barra">
                 <span class="pa-title">🛡️ Control de acceso</span>
-                <button class="cond-refresh" onclick="app._nuevoParte()" title="Parte nuevo">＋</button>
                 <button class="cond-refresh" onclick="app._cargarPartes(true)" title="Recargar">⟳</button>
-                <button class="cond-refresh" onclick="app.exportarPartes()" title="Exportar a hoja de cálculo">📊</button>
+            </div>
+            <div style="display:flex;gap:8px;padding:0 12px 10px;">
+                <input type="date" id="caDia" onchange="app._renderPartes()" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border,#ddd);background:var(--bg,#fff);color:inherit;font:inherit;">
+                <input type="month" id="caMes" onchange="app._cargarPartes(true)" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border,#ddd);background:var(--bg,#fff);color:inherit;font:inherit;">
             </div>
             <div id="paLista" class="pa-lista"></div>
         </div>
