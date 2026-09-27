@@ -1629,7 +1629,9 @@ const app = {
         const r = await fetch(ACCESOS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cuerpo),
+            // Con el nombre y el número de quien apunta, que es como se le conoce
+            body: JSON.stringify({ ...cuerpo, autor: { nombre: this.usuarioActual?.name || '',
+                                   num: ES_GC ? '' : (localStorage.getItem('parteConductor') || '') } }),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || r.status);
@@ -1682,6 +1684,12 @@ const app = {
 
     // ── Lo apuntado ──────────────────────────────────────────────────────────
 
+    // Nombre y número de trabajador de quien apuntó; en los de antes, que no
+    // lo guardaban, el correo
+    _quienApunto(email, nombre, num) {
+        return [nombre || email || '', num ? 'nº ' + num : ''].filter(Boolean).join(' · ');
+    },
+
     _tarjeta(r, conFecha) {
         // Sin hora de salida no se pone nada. El botón para apuntarla, solo en
         // los de hoy: en uno de otro día pondría la hora de ahora, que no es.
@@ -1695,7 +1703,7 @@ const app = {
             </div>
             ${quien ? `<div class="re-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="re-que">${esc(que)}</div>` : ''}
-            ${ES_GC && r.creadoPor ? `<div class="re-que">Apuntado por ${esc(r.creadoPor)}</div>` : ''}
+            ${ES_GC && r.creadoPor ? `<div class="re-que">Apuntado por ${esc(this._quienApunto(r.creadoPor, r.creadoNombre, r.creadoNum))}</div>` : ''}
             ${!r.salida ? `<div class="re-btns">${abierto
                 ? `<button class="btn chico" onclick="event.stopPropagation();app.marcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
                 <button class="btn sec chico" onclick="event.stopPropagation();app.ponerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
@@ -1820,7 +1828,9 @@ const app = {
         if (b) b.hidden = !puede;
         const firma = document.getElementById('eFirma');
         if (firma) firma.textContent = r.creadoPor
-            ? `Apuntado por ${r.creadoPor}` + (r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${r.tocadoPor}` : '')
+            ? `Apuntado por ${this._quienApunto(r.creadoPor, r.creadoNombre, r.creadoNum)}`
+              + (r.tocadoPor && r.tocadoPor !== r.creadoPor
+                  ? ` · corregido por ${this._quienApunto(r.tocadoPor, r.tocadoNombre, r.tocadoNum)}` : '')
             : '';
         document.getElementById('regModal').classList.add('show');
     },

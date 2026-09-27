@@ -3354,7 +3354,7 @@ const app = {
             this._notas = [...nuevas, ...this._notas];
             this._renderNotas();
             this._mostrarToast(nuevas.length === 1
-                ? '📨 Nota enviada' : `📨 Nota enviada a ${nuevas.length}`, 3000);
+                ? '📨 Mensaje enviado' : `📨 Mensaje enviado a ${nuevas.length}`, 3000);
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
 
@@ -5926,12 +5926,19 @@ const app = {
         } catch (_) { /* sin red, el correo */ }
     },
 
-    _caQuien(email) {
+    // Nombre y número de trabajador: lo que guardó el registro al apuntarse
+    // y, en los de antes, lo de la plantilla. Si no hay nada, el correo.
+    _caQuien(email, nombre, num) {
         const e = String(email || '').toLowerCase();
-        if (!e) return '';
-        if (e === (this.usuarioActual?.email || '').toLowerCase()) return 'ti';
+        if (!e && !nombre) return '';
+        if (e && e === (this.usuarioActual?.email || '').toLowerCase()) {
+            nombre = nombre || this.usuarioActual?.name;
+            num = num || this.numConductor;
+        }
         const u = (this._directorio || []).find(x => (x.email || '').toLowerCase() === e);
-        return u ? [u.nombre || e, u.conductor].filter(Boolean).join(' · ') : e;
+        nombre = nombre || u?.nombre;
+        num = num || u?.conductor;
+        return [nombre || e, num ? 'nº ' + num : ''].filter(Boolean).join(' · ');
     },
 
     _caHoyISO() {
@@ -6201,7 +6208,8 @@ const app = {
         const r = await this._caFetch(this._caUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cuerpo),
+            body: JSON.stringify({ ...cuerpo,
+                autor: { nombre: this.usuarioActual?.name || '', num: this.numConductor || '' } }),
         });
         const data = await this._caRespuesta(r);
         this._caQuitarSinPermiso();
@@ -6267,8 +6275,8 @@ const app = {
             </div>
             ${quien ? `<div class="ca-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="ca-que">${esc(que)}</div>` : ''}
-            ${r.creadoPor ? `<div class="ca-por">✍️ Apuntado por ${esc(this._caQuien(r.creadoPor))}${
-                r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${esc(this._caQuien(r.tocadoPor))}` : ''}</div>` : ''}
+            ${r.creadoPor ? `<div class="ca-por">✍️ Apuntado por ${esc(this._caQuien(r.creadoPor, r.creadoNombre, r.creadoNum))}${
+                r.tocadoPor && r.tocadoPor !== r.creadoPor ? `<br>✏️ Corregido por ${esc(this._caQuien(r.tocadoPor, r.tocadoNombre, r.tocadoNum))}` : ''}</div>` : ''}
             ${!r.salida ? `<div class="ca-btns">${abierto
                 ? `<button class="ca-btn" onclick="event.stopPropagation();app.caMarcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
                 <button class="btn-secondary" onclick="event.stopPropagation();app.caPonerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
@@ -6404,8 +6412,9 @@ const app = {
         if (b) b.hidden = !(String(r.creadoPor || '').toLowerCase() === yo && r.fecha === hoy);
         const firma = document.getElementById('caeFirma');
         if (firma) firma.textContent = r.creadoPor
-            ? `Apuntado por ${this._caQuien(r.creadoPor)}`
-              + (r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${this._caQuien(r.tocadoPor)}` : '')
+            ? `Apuntado por ${this._caQuien(r.creadoPor, r.creadoNombre, r.creadoNum)}`
+              + (r.tocadoPor && r.tocadoPor !== r.creadoPor
+                  ? ` · corregido por ${this._caQuien(r.tocadoPor, r.tocadoNombre, r.tocadoNum)}` : '')
             : '';
         document.getElementById('caRegModal').classList.add('show');
     },
