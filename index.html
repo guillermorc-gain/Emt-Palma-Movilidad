@@ -63,7 +63,10 @@
         .app-header-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
         .app-header.dark{background:linear-gradient(135deg,var(--gdark1) 0%,var(--gdark2) 100%);}
         .app-header-left{display:flex;flex-direction:column;}
-        .app-header-title{font-size:14px;font-weight:700;letter-spacing:0.2px;}
+        .app-header-title{font-size:14px;font-weight:700;letter-spacing:0.2px;white-space:nowrap;}
+        /* Debajo de EMT - Palma, qué app: Movilidad, o Movilidad/Control de
+           acceso con la opción puesta. En dos líneas no tapa el nombre. */
+        .app-header-app{font-size:12px;font-weight:700;opacity:0.92;line-height:1.25;}
         .app-header-right{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:0;flex:1;text-align:right;}
         .app-header-nombre{font-size:11.5px;font-weight:700;opacity:0.97;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
         .app-header-num{font-size:11px;font-weight:800;opacity:0.85;line-height:1.25;letter-spacing:0.3px;}
@@ -1091,7 +1094,8 @@ document.getElementById('splashScreen').addEventListener('click', function () {
         <div class="app-header" id="appHeader">
             <div class="app-header-top">
                 <div class="app-header-left">
-                    <span class="app-header-title" id="cabeceraTitulo">🚌 EMT - Movilidad</span>
+                    <span class="app-header-title" id="cabeceraTitulo">🚌 EMT - Palma</span>
+                    <span class="app-header-app" id="cabeceraApp">Movilidad</span>
                     <span class="app-header-date" id="fechaHoy"></span>
                 </div>
                 <div class="app-header-right">

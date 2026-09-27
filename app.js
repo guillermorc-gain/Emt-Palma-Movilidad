@@ -5434,9 +5434,12 @@ const app = {
         // cuál se está y con qué cuenta.
         const tit = document.getElementById('cabeceraTitulo');
         if (tit) {
-            tit.textContent = (this._soyElDesarrollador()
-                ? '⚙️ Desarrollador EMT - Movilidad' : '🚌 EMT - Movilidad')
-                + (this.controlAcceso ? '/Control de acceso' : '');
+            tit.textContent = this._soyElDesarrollador()
+                ? '⚙️ Desarrollador EMT - Palma' : '🚌 EMT - Palma';
+        }
+        const cual = document.getElementById('cabeceraApp');
+        if (cual) {
+            cual.textContent = 'Movilidad' + (this.controlAcceso ? '/Control de acceso' : '');
         }
 
         const a = this._asignacionDeHoy();
@@ -5702,7 +5705,7 @@ const app = {
         if (idx === 4 || idx === 5) {
             if (idx === 5) this._caRenderHistorial();
             // Al entrar se trae lo último, sin esperar al siguiente repaso
-            if (!this._caSinPermiso) this.caCargarRegistros(false, ...(idx === 4 ? [this._caDia, this._caDia] : []));
+            this.caCargarRegistros(false, ...(idx === 4 ? [this._caDia, this._caDia] : []));
         }
     },
 
@@ -6301,7 +6304,7 @@ const app = {
     _caSincronizarSolo() {
         if (this._caRelojSync) return;
         const traer = () => {
-            if (!this.controlAcceso || !this.usuarioActual || this._caSinPermiso) return;
+            if (!this.controlAcceso || !this.usuarioActual) return;
             if (document.visibilityState !== 'visible') return;
             if (this._activeTab !== 4 && this._activeTab !== 5) return;
             // Con un cuadro abierto no se repinta nada debajo
@@ -6315,7 +6318,7 @@ const app = {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible' || !this.controlAcceso || !this.usuarioActual) return;
             traer();
-            if (!this._caSinPermiso) this.caCargarVisitantes();
+            this.caCargarVisitantes();
         });
     },
 
@@ -6328,7 +6331,9 @@ const app = {
         try {
             const r = await this._caFetch(this._caUrl(new URLSearchParams({ desde, hasta })), { cache: 'no-store' });
             const lista = await this._caRespuesta(r);
-            this._caQuitarSinPermiso();
+            // Si antes no tenía acceso y ahora sí —le acaban de dar de alta—,
+            // fuera el aviso y a por lo que ya se sabe de cada matrícula
+            if (this._caSinPermiso) { this._caQuitarSinPermiso(); this.caCargarVisitantes(); }
             // Lo de esas fechas manda: lo que ya no está es que se ha borrado
             Object.values(this._caPorId).forEach(x => { if (x.fecha >= desde && x.fecha <= hasta) delete this._caPorId[x.id]; });
             (Array.isArray(lista) ? lista : []).forEach(x => { this._caPorId[x.id] = x; });
