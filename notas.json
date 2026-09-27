@@ -183,7 +183,12 @@
     "deEmail": "g.rioscorrea@gmail.com",
     "deNombre": "Desarrollador",
     "deConductor": "💻",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "guillermo.rc82@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-27T17:17:10.250Z"
+    }
   },
   "20260927170430308-2npeq-1": {
     "id": "20260927170430308-2npeq-1",
