@@ -1687,7 +1687,7 @@ const app = {
     // Nombre y número de trabajador de quien apuntó; en los de antes, que no
     // lo guardaban, el correo
     _quienApunto(email, nombre, num) {
-        return [nombre || email || '', num ? 'nº ' + num : ''].filter(Boolean).join(' · ');
+        return [nombre || email || '', num].filter(Boolean).join(' - ');
     },
 
     _tarjeta(r, conFecha) {
