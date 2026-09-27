@@ -296,7 +296,7 @@
         /* ── La bienvenida, con algo de vida ── */
         /* Una carretera con el autobús cruzándola; las rayas del centro se
            mueven para que parezca que avanza. */
-        .rol-carretera{position:relative;height:78px;margin:0 -22px 2px;overflow:hidden;}
+        .rol-carretera{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));height:78px;overflow:hidden;pointer-events:none;}
         .rol-carretera::before{content:'';position:absolute;left:0;right:0;bottom:10px;height:18px;
             background:rgba(0,0,0,0.22);border-top:2px solid rgba(255,255,255,0.18);border-bottom:2px solid rgba(255,255,255,0.18);}
         .rol-carretera::after{content:'';position:absolute;left:0;right:0;bottom:18px;height:2px;
@@ -881,11 +881,6 @@
     <!-- ── AUTH ── -->
     <div class="rol-screen" id="rolScreen" style="display:none;">
         <div class="rol-card">
-            <div class="rol-carretera" aria-hidden="true">
-                <div class="rol-humo"></div>
-                <div class="rol-humo" style="animation-delay:0.25s;"></div>
-                <div class="rol-bus"><span>🚌</span></div>
-            </div>
             <h1 class="rol-t">EMT Palma - Movilidad</h1>
             <p class="rol-s">¿Con cuál entras?</p>
             <button class="rol-btn" onclick="app.elegirRol('trabajador')">
@@ -901,6 +896,12 @@
                 <span class="rol-txt"><b>Gestión</b><span>Llevar la plantilla o el puesto</span></span>
             </button>
             <p class="rol-pie">Se abre aquí mismo, en el navegador. Si tienes la aplicación instalada, ábrela desde su icono.</p>
+        </div>
+        <!-- Abajo del todo, a lo ancho: la carretera con el autobús -->
+        <div class="rol-carretera" aria-hidden="true">
+            <div class="rol-humo"></div>
+            <div class="rol-humo" style="animation-delay:0.25s;"></div>
+            <div class="rol-bus"><span>🚌</span></div>
         </div>
     </div>
 
