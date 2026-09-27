@@ -5905,7 +5905,33 @@ const app = {
         }
         this.caCargarVisitantes();
         this.caCargarRegistros();
+        this._caCargarDirectorio();
         this._caSincronizarSolo();
+    },
+
+    // Quién apuntó cada registro: el servidor guarda el correo, y aquí se
+    // enseña el nombre y el número de la plantilla, que es como se conocen.
+    // Es el mismo directorio que el de escribir notas.
+    async _caCargarDirectorio() {
+        if (!this._directorio.length) {
+            try { this._directorio = JSON.parse(localStorage.getItem('directorio') || '[]'); } catch (_) {}
+        }
+        try {
+            const r = await fetch(`${this.USUARIOS_URL}?directorio=1`, { cache: 'no-store' });
+            if (!r.ok) return;
+            this._directorio = await r.json();
+            localStorage.setItem('directorio', JSON.stringify(this._directorio));
+            this._caRenderDia();
+            this._caRenderHistorial();
+        } catch (_) { /* sin red, el correo */ }
+    },
+
+    _caQuien(email) {
+        const e = String(email || '').toLowerCase();
+        if (!e) return '';
+        if (e === (this.usuarioActual?.email || '').toLowerCase()) return 'ti';
+        const u = (this._directorio || []).find(x => (x.email || '').toLowerCase() === e);
+        return u ? [u.nombre || e, u.conductor].filter(Boolean).join(' · ') : e;
     },
 
     _caHoyISO() {
@@ -6241,6 +6267,8 @@ const app = {
             </div>
             ${quien ? `<div class="ca-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="ca-que">${esc(que)}</div>` : ''}
+            ${r.creadoPor ? `<div class="ca-por">✍️ Apuntado por ${esc(this._caQuien(r.creadoPor))}${
+                r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${esc(this._caQuien(r.tocadoPor))}` : ''}</div>` : ''}
             ${!r.salida ? `<div class="ca-btns">${abierto
                 ? `<button class="ca-btn" onclick="event.stopPropagation();app.caMarcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
                 <button class="btn-secondary" onclick="event.stopPropagation();app.caPonerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
@@ -6376,7 +6404,8 @@ const app = {
         if (b) b.hidden = !(String(r.creadoPor || '').toLowerCase() === yo && r.fecha === hoy);
         const firma = document.getElementById('caeFirma');
         if (firma) firma.textContent = r.creadoPor
-            ? `Apuntado por ${r.creadoPor}` + (r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${r.tocadoPor}` : '')
+            ? `Apuntado por ${this._caQuien(r.creadoPor)}`
+              + (r.tocadoPor && r.tocadoPor !== r.creadoPor ? ` · corregido por ${this._caQuien(r.tocadoPor)}` : '')
             : '';
         document.getElementById('caRegModal').classList.add('show');
     },
