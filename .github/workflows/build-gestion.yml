@@ -1593,6 +1593,19 @@ jobs:
           gen_wav(R+'notif_doble.wav',   [(880, 0.30), (0, 0.12), (880, 0.30)])
           gen_wav(R+'notif_fanfare.wav', [(440, 0.20), (550, 0.20), (660, 0.20), (880, 0.60, 'bell')])
           gen_wav(R+'notif_suave.wav',   [(330, 1.2, 'bell')])
+          # Los de más, para elegir
+          gen_wav(R+'notif_xilofono.wav', [(523, 0.16, 'bell'), (659, 0.16, 'bell'), (784, 0.16, 'bell'), (1047, 0.5, 'bell')])
+          gen_wav(R+'notif_dingdong.wav', [(784, 0.55, 'bell'), (622, 0.9, 'bell')])
+          gen_wav(R+'notif_burbuja.wav', [(400, 0.12, 'sweep', 900), (0, 0.06), (500, 0.14, 'sweep', 1150)])
+          gen_wav(R+'notif_claxon.wav', [(392, 0.22), (0, 0.08), (392, 0.45)])
+          gen_wav(R+'notif_arpa.wav', [(1047, 0.14, 'bell'), (880, 0.14, 'bell'), (784, 0.14, 'bell'), (659, 0.14, 'bell'), (523, 0.6, 'bell')])
+          gen_wav(R+'notif_triple.wav', [(1200, 0.1), (0, 0.08), (1200, 0.1), (0, 0.08), (1200, 0.1)])
+          gen_wav(R+'notif_sirena.wav', [(600, 0.35, 'sweep', 1000), (1000, 0.35, 'sweep', 600), (600, 0.35, 'sweep', 1000), (1000, 0.35, 'sweep', 600)])
+          gen_wav(R+'notif_gota.wav', [(1500, 0.12, 'sweep', 500), (0, 0.05), (1200, 0.35, 'bell')])
+          gen_wav(R+'notif_marimba.wav', [(523, 0.22, 'bell'), (784, 0.22, 'bell'), (659, 0.5, 'bell')])
+          gen_wav(R+'notif_cristal.wav', [(2093, 0.9, 'bell')])
+          gen_wav(R+'notif_moneda.wav', [(988, 0.08), (1319, 0.45, 'bell')])
+          gen_wav(R+'notif_pajaro.wav', [(2000, 0.08, 'sweep', 2600), (0, 0.05), (2200, 0.08, 'sweep', 2800), (0, 0.05), (2400, 0.12, 'sweep', 3000)])
           print("Sound files OK")
           PYEOF
 

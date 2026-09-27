@@ -259,6 +259,17 @@
         .avatar-option{width:100%;aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;font-size:22px;
                        display:flex;align-items:center;justify-content:center;}
 
+        /* ── Personalizar (Opciones → Apariencia) ── */
+        /* Con el texto más grande todo va con zoom, y el zoom agranda también
+           las medidas de pantalla (vh): se divide para que los cuadros quepan */
+        html.p-zoom .modal-card{max-height:calc(88vh / var(--z)) !important;}
+        html.p-zoom [style*="max-height:80vh"]{max-height:calc(80vh / var(--z)) !important;}
+        html.p-cab-liso body:not(.vacaciones) .app-header{background:var(--c1) !important;}
+        
+        html.p-solo-iconos .tab-lbl{display:none;}
+        html.p-solo-iconos .tab-ico{font-size:25px;}
+        html.p-solo-iconos .tab-btn{padding-top:11px;padding-bottom:11px;}
+        html.p-sin-anim *,html.p-sin-anim *::before,html.p-sin-anim *::after{animation:none !important;transition:none !important;}
         /* ── Cuadros ── */
         .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:900;
                align-items:center;justify-content:center;padding:16px;}
@@ -512,6 +523,40 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
                         <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
                     </div>
                 </div>
+                <div class="ops-field">
+                    <b>🔠 Tamaño del texto</b>
+                    <select id="pTexto" onchange="app.cambiarPersonal('texto', this.value)">
+                        <option value="pequeno">Pequeño</option>
+                        <option value="normal">Normal</option>
+                        <option value="grande">Grande</option>
+                        <option value="muygrande">Muy grande</option>
+                    </select>
+                </div>
+                <div class="ops-field">
+                    <b>🖌️ Cabecera</b>
+                    <select id="pCabecera" onchange="app.cambiarPersonal('cabecera', this.value)">
+                        <option value="degradado">Degradado</option>
+                        <option value="liso">Color liso</option>
+                    </select>
+                </div>
+                <div class="ops-field">
+                    <b>🗂️ Pestañas de abajo</b>
+                    <select id="pPestanas" onchange="app.cambiarPersonal('pestanas', this.value)">
+                        <option value="todo">Icono y nombre</option>
+                        <option value="iconos">Solo icono</option>
+                    </select>
+                </div>
+                <div class="ops-field">
+                    <b>🚌 Pantalla de inicio</b>
+                    <select id="pInicio" onchange="app.cambiarPersonal('inicio', this.value)">
+                        <option value="normal">Con el autobús (1,5 s)</option>
+                        <option value="rapido">Rápida, directa a la app</option>
+                    </select>
+                </div>
+                <div class="ops-row">
+                    <div class="ops-row-t"><b>✨ Animaciones</b><span>Movimiento en la pantalla de inicio y al cambiar de pantalla</span></div>
+                    <label class="sw"><input type="checkbox" id="pAnim" onchange="app.cambiarPersonal('animaciones', this.checked)"><i></i></label>
+                </div>
                 </div>
             </div>
             <div class="ops-section">
@@ -528,6 +573,18 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
                         <option value="notif_doble">Doble pitido</option>
                         <option value="notif_fanfare">Fanfare</option>
                         <option value="notif_suave">Suave</option>
+                        <option value="notif_xilofono">Xilófono</option>
+                        <option value="notif_dingdong">Ding-dong</option>
+                        <option value="notif_burbuja">Burbuja</option>
+                        <option value="notif_claxon">Claxon</option>
+                        <option value="notif_arpa">Arpa</option>
+                        <option value="notif_triple">Triple pitido</option>
+                        <option value="notif_sirena">Sirena</option>
+                        <option value="notif_gota">Gota</option>
+                        <option value="notif_marimba">Marimba</option>
+                        <option value="notif_cristal">Cristal</option>
+                        <option value="notif_moneda">Moneda</option>
+                        <option value="notif_pajaro">Pájaro</option>
                     </select>
                     <span class="sub">Solo en Android. Los cambios aplican desde la próxima notificación.</span>
                 </div>
