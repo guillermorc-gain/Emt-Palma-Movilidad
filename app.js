@@ -8357,9 +8357,8 @@ function _enLaApp() {
 
 function _puedeOfrecerInstalar() {
     if (_enLaApp()) return false;
-    // Ha dicho que ya la tiene: no se le vuelve a ofrecer
+    // Cerrada con la ×: se aparta un tiempo
     try {
-        if (localStorage.getItem('modoUso') === 'instalada') return false;
         if (Date.now() < parseInt(localStorage.getItem('bannerCerradoHasta') || '0', 10)) return false;
     } catch (_) {}
     if (_isStandalone) return false;
@@ -8369,6 +8368,11 @@ function _puedeOfrecerInstalar() {
     }
     return !!(typeof app !== 'undefined' && app?.usuarioActual?.email);
 }
+
+// En el navegador, Ajustes → Aplicación deja descargar la última versión
+// siempre; dentro de la aplicación instalada no sale (allí está "Comprobar
+// actualizaciones")
+if (!_enLaApp()) { const sec = document.getElementById('installSection'); if (sec) sec.style.display = ''; }
 
 window._ofrecerInstalarSiToca = function() {
     _showInstallBanner(_isIOS);
