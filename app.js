@@ -192,6 +192,9 @@ const app = {
         ver('gestionScreen', enGestion);
         // En la bienvenida no pinta nada la franja de descargar la de conductores
         if (!elegida) document.getElementById('installBanner')?.classList.remove('show');
+        // Elegida la app, fuera la marca que escondía la entrada mientras se
+        // elegía: si no, la pantalla de entrar se quedaba oculta y todo negro
+        if (elegida) document.documentElement.classList.remove('eligiendo');
     },
 
     // Esto se abre desde el navegador, así que lo que hace es llevar a la web
