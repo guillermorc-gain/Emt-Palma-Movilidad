@@ -32,7 +32,7 @@ jobs:
         include:
           - rol: gestion
             appid: com.guillermorc.gestionemt
-            nombre: Gestión EMT - Movilidad
+            nombre: Gestión EMT - Palma (Movilidad)
             emoji: "✏️"
             bg: "108,52,131"
             chapa: "108,52,131"
@@ -44,7 +44,7 @@ jobs:
             apk: gestion-emt
           - rol: desarrollador
             appid: com.guillermorc.devemt
-            nombre: Desarrollador EMT - Movilidad
+            nombre: Desarrollador EMT - Palma (Movilidad)
             emoji: "⚙️"
             bg: "44,62,80"
             chapa: "232,89,12"
@@ -368,7 +368,7 @@ jobs:
                           PendingIntent openPI = PendingIntent.getActivity(ctx, 1, oi, flags);
                           nm.notify(1001, new NotificationCompat.Builder(ctx, CHANNEL_ID)
                               .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                              .setContentTitle("📍 Gestión EMT - Movilidad")
+                              .setContentTitle("📍 Gestión EMT - Palma (Movilidad)")
                               .setContentText("Parece que estás en el trabajo. ¿Registras la jornada?")
                               .setPriority(NotificationCompat.PRIORITY_HIGH)
                               .setContentIntent(openPI)
@@ -883,7 +883,7 @@ jobs:
                       PendingIntent openPI = PendingIntent.getActivity(ctx, 1, oi, flags);
                       nm.notify(1001, new NotificationCompat.Builder(ctx, CHANNEL_ID)
                           .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                          .setContentTitle("📍 Gestión EMT - Movilidad")
+                          .setContentTitle("📍 Gestión EMT - Palma (Movilidad)")
                           .setContentText("Parece que estás en el trabajo. ¿Registras la jornada?")
                           .setPriority(NotificationCompat.PRIORITY_HIGH)
                           .setContentIntent(openPI)
