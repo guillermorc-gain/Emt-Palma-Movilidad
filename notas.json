@@ -230,5 +230,25 @@
     "deNombre": "Desarrollador",
     "deConductor": "💻",
     "estado": "pendiente"
+  },
+  "20260927170431175-1qgls-0": {
+    "id": "20260927170431175-1qgls-0",
+    "email": "g.rioscorrea@gmail.com",
+    "creado": "2026-09-27T17:04:31.175Z",
+    "nombre": "Desarrollador",
+    "conductor": "💻",
+    "mensajes": [
+      {
+        "de": "trabajador",
+        "autor": "Desarrollador",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-27T17:04:31.175Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "gestion",
+    "estado": "pendiente"
   }
 }
