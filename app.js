@@ -190,6 +190,8 @@ const app = {
         const enGestion = !elegida && history.state?.pantalla === 'gestion';
         ver('rolScreen', !elegida && !enGestion);
         ver('gestionScreen', enGestion);
+        // En la bienvenida no pinta nada la franja de descargar la de conductores
+        if (!elegida) document.getElementById('installBanner')?.classList.remove('show');
     },
 
     // Esto se abre desde el navegador, así que lo que hace es llevar a la web
@@ -8353,9 +8355,12 @@ function _enLaApp() {
 function _puedeOfrecerInstalar() {
     if (_enLaApp()) return false;
     // Ha dicho que ya la tiene: no se le vuelve a ofrecer
-    try { if (localStorage.getItem('modoUso') === 'instalada') return false; } catch (_) {}
+    try {
+        if (localStorage.getItem('modoUso') === 'instalada') return false;
+        if (Date.now() < parseInt(localStorage.getItem('bannerCerradoHasta') || '0', 10)) return false;
+    } catch (_) {}
     if (_isStandalone) return false;
-    for (const id of ['rolScreen', 'modoScreen']) {
+    for (const id of ['rolScreen', 'gestionScreen', 'modoScreen']) {
         const p = document.getElementById(id);
         if (p && getComputedStyle(p).display !== 'none') return false;
     }
@@ -8405,4 +8410,13 @@ app.instalarApp = async function() {
     // sacarle de la página.
     window.location.href = apk.url;
 };
-app.ocultarInstallBanner = function() { const b = document.getElementById('installBanner'); if (b) b.classList.remove('show'); };
+// Cerrarlo con la × lo aparta una semana; decir que ya se tiene, para siempre
+app.ocultarInstallBanner = function() {
+    const b = document.getElementById('installBanner'); if (b) b.classList.remove('show');
+    try { localStorage.setItem('bannerCerradoHasta', String(Date.now() + 7 * 24 * 3600 * 1000)); } catch (_) {}
+};
+app.yaLaTengo = function() {
+    try { localStorage.setItem('modoUso', 'instalada'); } catch (_) {}
+    const b = document.getElementById('installBanner'); if (b) b.classList.remove('show');
+    app._mostrarToast?.('👍 No se te volverá a ofrecer. Ábrela desde su icono.', 3500);
+};

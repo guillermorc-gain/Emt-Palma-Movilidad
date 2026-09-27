@@ -1647,6 +1647,8 @@
             <span id="installBannerMsg" style="font-size:11px;opacity:0.9;">Descarga el APK: avisa aunque esté cerrada</span>
         </div>
         <button id="installBannerBtn" onclick="app.instalarApp()" style="background:white;color:#0052CC;border:none;border-radius:6px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">Descargar</button>
+        <!-- Quien ya la tiene lo dice aquí y no se le vuelve a ofrecer -->
+        <button onclick="app.yaLaTengo()" style="background:transparent;color:white;border:1.5px solid rgba(255,255,255,0.7);border-radius:6px;padding:7px 10px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">Ya la tengo</button>
         <button class="install-banner-close" onclick="app.ocultarInstallBanner()">×</button>
     </div>
 </div>
