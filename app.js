@@ -1796,6 +1796,9 @@ const app = {
     _hideSplash() {
         const el = document.getElementById('splashScreen');
         if (!el) return;
+        // Que dé tiempo a ver la bienvenida con el autobús
+        const falta = 2800 - (Date.now() - (window._splashDesde || 0));
+        if (falta > 0) { setTimeout(() => this._hideSplash(), falta); return; }
         el.classList.add('fade-out');
         setTimeout(() => el.remove(), 380);
     },

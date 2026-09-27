@@ -165,14 +165,14 @@ const app = {
             const el = document.getElementById(id);
             if (el) el.textContent = texto;
         };
-        poner('authTitulo', 'Desarrollador EMT - Movilidad');
+        poner('authTitulo', 'Desarrollador EMT - Palma (Movilidad)');
         poner('authSub', 'Pruebas y mantenimiento · EMT Palma');
         poner('splashRol', '⚙️ Desarrollador');
         const btn = document.getElementById('tabBtnPartes');
         if (btn) btn.style.display = '';
         const logo = document.getElementById('authLogo');
         if (logo) logo.src = 'icons/icon-dev-192.png';
-        document.title = 'Desarrollador EMT - Movilidad';
+        document.title = 'Desarrollador EMT - Palma (Movilidad)';
     },
 
     async init() {
@@ -1560,6 +1560,9 @@ const app = {
     _hideSplash() {
         const el = document.getElementById('splashScreen');
         if (!el) return;
+        // Que dé tiempo a ver la bienvenida con el autobús
+        const falta = 2800 - (Date.now() - (window._splashDesde || 0));
+        if (falta > 0) { setTimeout(() => this._hideSplash(), falta); return; }
         el.classList.add('fade-out');
         setTimeout(() => el.remove(), 380);
     },
