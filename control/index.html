@@ -299,7 +299,11 @@
     <div class="splash-m" id="splashMsg">Iniciando...</div>
     <div class="sp-carretera" aria-hidden="true"><div class="sp-bus"><span>🚌</span></div></div>
 </div>
-<script>window._splashDesde = Date.now();</script>
+<script>window._splashDesde = Date.now();
+document.getElementById('splashScreen').addEventListener('click', function () {
+    window._splashTocado = true;
+    if (window._splashPend) window._splashPend();
+});</script>
 <script>
 // En el navegador, sin pantalla de arranque: directo a la de entrar
 if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElementById('splashScreen').remove();

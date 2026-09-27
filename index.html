@@ -883,7 +883,11 @@
     <div class="splash-sub" id="splashMsg">Iniciando...</div>
     <div class="sp-carretera" aria-hidden="true"><div class="sp-bus"><span>🚌</span></div></div>
 </div>
-<script>window._splashDesde = Date.now();</script>
+<script>window._splashDesde = Date.now();
+document.getElementById('splashScreen').addEventListener('click', function () {
+    window._splashTocado = true;
+    if (window._splashPend) window._splashPend();
+});</script>
 <script>
 (function(){var t=localStorage.getItem('tema');var g={verde:'linear-gradient(135deg,#00897B,#004D40)',fuego:'linear-gradient(135deg,#F4511E,#BF360C)',acero:'linear-gradient(135deg,#546E7A,#263238)',rojo:'linear-gradient(135deg,#E53935,#B71C1C)'};var el=document.getElementById('splashScreen');if(el&&t&&g[t])el.style.background=g[t];})();
 </script>
