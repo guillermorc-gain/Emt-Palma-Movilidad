@@ -134,5 +134,26 @@
     "deNombre": "Guillermo Ríos Correa",
     "deConductor": "1418-3",
     "estado": "pendiente"
+  },
+  "20260927141935277-vavve-0": {
+    "id": "20260927141935277-vavve-0",
+    "email": "g.rioscorrea@gmail.com",
+    "creado": "2026-09-27T14:19:35.277Z",
+    "nombre": "Desarrollador",
+    "conductor": "💻",
+    "mensajes": [
+      {
+        "de": "gestor",
+        "autor": "Guillermo Rios",
+        "texto": "No me sale la foto de google de algunos trabajadores",
+        "adjuntos": [],
+        "en": "2026-09-27T14:19:35.277Z"
+      }
+    ],
+    "archivada": false,
+    "de": "gestor",
+    "tipo": "gestion",
+    "gestor": "Guillermo Rios",
+    "estado": "pendiente"
   }
 }
