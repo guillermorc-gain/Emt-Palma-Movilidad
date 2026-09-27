@@ -1332,10 +1332,10 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div id="ctList" class="ct-list"></div>
         </div>
 
-        <!-- ── TAB: Notas ── -->
+        <!-- ── TAB: Chat (las notas) ── -->
         <div class="tab-panel" id="tabPanel2">
             <div class="sec-head" style="cursor:default;">
-                <span class="cond-title">📝 Notas de los trabajadores</span>
+                <span class="cond-title">💬 Chat con los trabajadores</span>
                 <span class="sec-cnt" id="ntCnt"></span>
                 <button class="cond-refresh" onclick="app.nuevaNotaGestor()" title="Escribir a un trabajador">＋</button>
                 <button class="cond-refresh" onclick="app._cargarNotasGestor()" title="Actualizar">⟳</button>
@@ -1374,7 +1374,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                     ondragstart="app._tabDragStart(event)" ondragend="app._tabDragEnd(event)"
                     ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
                     ondrop="app._tabDrop(event)">
-                <span class="tab-ico">📝</span><span class="tab-lbl">Notas</span>
+                <span class="tab-ico">💬</span><span class="tab-lbl">Chat</span>
             </button>
             <!-- Solo en la de desarrollador; la enciende _pintarIdentidadApp -->
             <button class="tab-btn" data-tab="4" id="tabBtnPartes" style="display:none" draggable="true"

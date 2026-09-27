@@ -1330,10 +1330,10 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <ul id="historialModalList" class="hist-lista" style="list-style:none;padding:0;margin:0;"></ul>
         </div>
 
-        <!-- ── TAB: Notas ── -->
+        <!-- ── TAB: Chat (las notas) ── -->
         <div class="tab-panel" id="tabPanel2">
             <div class="sec-head" style="cursor:default;">
-                <span class="cond-title">📝 Notas</span>
+                <span class="cond-title">💬 Chat</span>
                 <span class="sec-cnt" id="ntCnt"></span>
                 <button class="cond-refresh" onclick="app.elegirDestinatario()" title="Escribir">＋</button>
                 <button class="cond-refresh" onclick="app._cargarNotas()" title="Actualizar">⟳</button>
@@ -1441,7 +1441,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                     ondragstart="app._tabDragStart(event)" ondragend="app._tabDragEnd(event)"
                     ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
                     ondrop="app._tabDrop(event)">
-                <span class="tab-ico">📝</span><span class="tab-lbl">Notas</span>
+                <span class="tab-ico">💬</span><span class="tab-lbl">Chat</span>
             </button>
             <button class="tab-btn" data-tab="3" draggable="true"
                     onclick="app.switchTab(3)"
@@ -2207,7 +2207,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
         </div>
         <div class="modal-body">
             <div id="notaQuien" class="pm-quien" style="margin:-16px -16px 12px;"></div>
-            <div class="edit-field"><label>Tu nota</label>
+            <div class="edit-field"><label>Tu mensaje</label>
                 <textarea id="ntTexto" rows="3" maxlength="500"
                     placeholder="Escribe aquí lo que quieras contar…"
                     style="border:1.5px solid #dfe4ea;border-radius:8px;padding:8px;font-family:inherit;font-size:13.5px;resize:vertical;"></textarea></div>

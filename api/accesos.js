@@ -260,6 +260,11 @@ export default async function handler(req, res) {
     const varios = Array.isArray(req.body?.registros);
     const entrada = varios ? req.body.registros.slice(0, 2000) : [req.body || {}];
     const ahora = new Date().toISOString();
+    // Quién es, con su nombre y su número de trabajador, que es como se le
+    // conoce en el puesto: el correo lo dice el token; esto lo manda la app.
+    const autor = req.body?.autor || {};
+    const autorNombre = texto(autor.nombre, 80);
+    const autorNum    = texto(autor.num, 20);
     let guardados = [];
     await guardarConReintento(F_ACCESOS, data => {
       const out = { ...data };
@@ -267,7 +272,8 @@ export default async function handler(req, res) {
       for (const b of entrada) {
         const previo = b?.id ? out[texto(b.id, 40)] : null;
         if (varios && previo) continue;
-        const r = limpiarRegistro(b || {}, previo);
+        const { autor: _a, ...sinAutor } = b || {};
+        const r = limpiarRegistro(sinAutor, previo);
         if (!esFecha(r.fecha) || !esHora(r.entrada)) {
           if (varios) continue;
           throw Object.assign(new Error('Falta el día o la hora de entrada'), { status: 400 });
@@ -280,8 +286,12 @@ export default async function handler(req, res) {
           ...r,
           creado:     previo?.creado || (varios && texto(b.creado, 40)) || ahora,
           creadoPor:  previo?.creadoPor || (varios && texto(b.creadoPor, 80)) || quien,
+          creadoNombre: previo ? (previo.creadoNombre || '') : ((varios && texto(b.creadoNombre, 80)) || autorNombre),
+          creadoNum:    previo ? (previo.creadoNum || '')    : ((varios && texto(b.creadoNum, 20)) || autorNum),
           actualizado: ahora,
           tocadoPor:  quien,
+          tocadoNombre: autorNombre,
+          tocadoNum:    autorNum,
         };
         out[final.id] = final;
         guardados.push(final);

@@ -3132,7 +3132,7 @@ const app = {
         document.getElementById('respTitulo').textContent = '✉️ Escribir a';
         document.getElementById('respQuien').textContent = lista.length === 1
             ? this._quienEs(u, lista[0])
-            : `${lista.length} trabajadores · cada uno recibirá su propia nota`;
+            : `${lista.length} trabajadores · cada uno recibirá su propio mensaje`;
         document.getElementById('respOriginal').textContent = '';
         document.getElementById('respTexto').value = '';
         document.getElementById('respFirma').textContent = this._soyElDesarrollador()
@@ -3185,8 +3185,8 @@ const app = {
             // trabajadores, como cualquier conversación entre dos.
             this._notas = [...nuevas.filter(x => x.tipo !== 'companero'), ...this._notas];
             this._renderNotasGestor();
-            this._mostrarToast(nuevas.length === 1 ? '📨 Nota enviada'
-                : `📨 Nota enviada a ${nuevas.length}`, 2500);
+            this._mostrarToast(nuevas.length === 1 ? '📨 Mensaje enviado'
+                : `📨 Mensaje enviado a ${nuevas.length}`, 2500);
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
 
