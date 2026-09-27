@@ -109,17 +109,19 @@
         "texto": "No me sale la foto de google de algunos trabajadores",
         "adjuntos": [],
         "en": "2026-09-27T14:19:35.277Z"
+      },
+      {
+        "de": "gestor",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Este mensaje es de gestion y sale que es de desarrollador",
+        "adjuntos": [],
+        "en": "2026-09-27T14:21:56.271Z"
       }
     ],
     "archivada": false,
     "de": "gestor",
     "tipo": "gestion",
     "gestor": "Guillermo Rios",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-27T14:20:44.603Z"
-    }
+    "estado": "pendiente"
   }
 }
