@@ -429,10 +429,22 @@ const app = {
                 headers: { Authorization: `Bearer ${this.accessToken}` },
             });
             if (!resp.ok) {
+                // Sesión caducada o de antes de actualizar: se renueva por
+                // detrás y se prueba otra vez; si no se puede, a entrar de
+                // nuevo, sin asustar con un error
+                if (resp.status === 401 && !this._reintentoPerfil && this.refreshToken) {
+                    this._reintentoPerfil = true;
+                    const antes = this.accessToken;
+                    await this._silentReauth();
+                    if (this.accessToken && this.accessToken !== antes) return this._loadUserAndStart();
+                }
+                this._reintentoPerfil = false;
+                if (resp.status === 401) { this._olvidarSesion(); this.mostrarAuth(); return; }
                 this.mostrarAuth();
                 this.mostrarMensaje('No se ha podido leer el perfil (' + resp.status + ')', 'error');
                 return;
             }
+            this._reintentoPerfil = false;
             this.usuarioActual = await resp.json();
             const antes = localStorage.getItem('cUserEmail');
             if (antes && antes.toLowerCase() !== this.usuarioActual.email.toLowerCase()) {
