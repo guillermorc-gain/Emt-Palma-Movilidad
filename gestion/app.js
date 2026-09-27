@@ -1561,8 +1561,13 @@ const app = {
         const el = document.getElementById('splashScreen');
         if (!el) return;
         // Que dé tiempo a ver la bienvenida con el autobús
-        const falta = 2800 - (Date.now() - (window._splashDesde || 0));
-        if (falta > 0) { setTimeout(() => this._hideSplash(), falta); return; }
+        // (al tocarla se pasa ya a la app)
+        const falta = 1500 - (Date.now() - (window._splashDesde || 0));
+        if (falta > 0 && !window._splashTocado) {
+            window._splashPend = () => this._hideSplash();
+            setTimeout(window._splashPend, falta);
+            return;
+        }
         el.classList.add('fade-out');
         setTimeout(() => el.remove(), 380);
     },
