@@ -1600,7 +1600,8 @@
       "20260924": "Anselmo Clavé",
       "20260925": "Anselmo Clavé",
       "20260926": "Anselmo Clavé",
-      "20260927": "Anselmo Clavé"
+      "20260927": "Anselmo Clavé",
+      "20260928": "Control"
     },
     "horarios": {
       "202609": {
@@ -1618,6 +1619,10 @@
       "20260921": {
         "i": "20:00",
         "f": "03:00"
+      },
+      "20260928": {
+        "i": "06:00",
+        "f": "09:30"
       }
     },
     "tramosDia": {},
@@ -1629,7 +1634,10 @@
     "oculto": false,
     "apps": [
       "trabajador"
-    ]
+    ],
+    "asignadoDia": {
+      "20260928": 1790517621940
+    }
   },
   "prueba-1789758756867@prueba.local": {
     "nombre": "Toni Rodríguez",
