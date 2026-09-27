@@ -27,66 +27,6 @@
     "gestor": "Guillermo Ríos Correa",
     "estado": "pendiente"
   },
-  "20260926083016159-7630o-0": {
-    "id": "20260926083016159-7630o-0",
-    "email": "guillermo.rc82@gmail.com",
-    "creado": "2026-09-26T08:30:16.159Z",
-    "nombre": "Guillermo Ríos Correa",
-    "conductor": "1418-3",
-    "mensajes": [
-      {
-        "de": "trabajador",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-26T08:30:16.159Z"
-      },
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-26T08:30:33.521Z"
-      },
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Necesito 30 libre",
-        "adjuntos": [],
-        "en": "2026-09-26T08:31:24.489Z"
-      },
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Vale",
-        "adjuntos": [],
-        "en": "2026-09-26T08:32:57.747Z"
-      },
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-26T08:54:28.669Z"
-      },
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Cara",
-        "adjuntos": [],
-        "en": "2026-09-26T08:58:19.111Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "guillermo.rcvpn@gmail.com",
-      "nombre": "Guillermo Rios",
-      "en": "2026-09-26T08:58:25.546Z"
-    }
-  },
   "20260926093407724-aliww-0": {
     "id": "20260926093407724-aliww-0",
     "email": "guillermo.rcxx@gmail.com",
