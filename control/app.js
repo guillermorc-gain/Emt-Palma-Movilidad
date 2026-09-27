@@ -85,6 +85,82 @@ const FICHERO_COPIA = (ES_GC ? 'Gestión control de acceso' : 'Control de acceso
 
 const esc = t => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
+// Los sonidos para elegir. Cada uno son tramos seguidos: [Hz, segundos,
+// forma, Hz final]; con Hz 0 es un silencio. El montaje del APK hace los
+// ficheros con los mismos tramos, así que la prueba suena igual que el aviso.
+// Personalizar la app más allá del color y el modo oscuro: el tamaño del
+// texto, la cabecera, las pestañas, las animaciones y la pantalla de inicio.
+// Se guarda junto y se aplica como clases en <html>, antes de pintar nada.
+const PERSONAL_DEF = { texto: 'normal', cabecera: 'degradado', pestanas: 'todo',
+                       animaciones: true, inicio: 'normal', pestanaInicio: '0' };
+const ZOOM_TEXTO = { pequeno: 0.9, normal: 1, grande: 1.12, muygrande: 1.25 };
+function leerPersonal() {
+    try { return { ...PERSONAL_DEF, ...JSON.parse(localStorage.getItem('personal') || '{}') }; }
+    catch (_) { return { ...PERSONAL_DEF }; }
+}
+function aplicarPersonal(p) {
+    const h = document.documentElement;
+    const z = ZOOM_TEXTO[p.texto] || 1;
+    // El texto crece con todo lo demás: la app está medida en píxeles
+    h.style.zoom = z === 1 ? '' : String(z);
+    h.style.setProperty('--z', String(z));
+    h.classList.toggle('p-zoom', z !== 1);
+    h.classList.toggle('p-cab-liso', p.cabecera === 'liso');
+    h.classList.toggle('p-solo-iconos', p.pestanas === 'iconos');
+    h.classList.toggle('p-sin-anim', p.animaciones === false);
+    h.classList.toggle('p-inicio-rapido', p.inicio === 'rapido');
+}
+try { aplicarPersonal(leerPersonal()); } catch (_) {}
+
+const SONIDOS = [
+    { id: 'notif_ding', nombre: 'Ding', tramos: [[880, 1.0, 'bell']] },
+    { id: 'notif_campana', nombre: 'Campana', tramos: [[660, 0.5, 'bell'], [880, 0.75, 'bell']] },
+    { id: 'notif_alerta', nombre: 'Alerta', tramos: [[440, 0.2], [0, 0.05], [660, 0.2], [0, 0.05], [880, 0.3]] },
+    { id: 'notif_silbido', nombre: 'Silbido', tramos: [[800, 0.42, 'sweep', 1400], [1400, 0.38, 'sweep', 800]] },
+    { id: 'notif_doble', nombre: 'Doble pitido', tramos: [[880, 0.3], [0, 0.12], [880, 0.3]] },
+    { id: 'notif_fanfare', nombre: 'Fanfare', tramos: [[440, 0.2], [550, 0.2], [660, 0.2], [880, 0.6, 'bell']] },
+    { id: 'notif_suave', nombre: 'Suave', tramos: [[330, 1.2, 'bell']] },
+    { id: 'notif_xilofono', nombre: 'Xilófono', tramos: [[523, 0.16, 'bell'], [659, 0.16, 'bell'], [784, 0.16, 'bell'], [1047, 0.5, 'bell']] },
+    { id: 'notif_dingdong', nombre: 'Ding-dong', tramos: [[784, 0.55, 'bell'], [622, 0.9, 'bell']] },
+    { id: 'notif_burbuja', nombre: 'Burbuja', tramos: [[400, 0.12, 'sweep', 900], [0, 0.06], [500, 0.14, 'sweep', 1150]] },
+    { id: 'notif_claxon', nombre: 'Claxon', tramos: [[392, 0.22], [0, 0.08], [392, 0.45]] },
+    { id: 'notif_arpa', nombre: 'Arpa', tramos: [[1047, 0.14, 'bell'], [880, 0.14, 'bell'], [784, 0.14, 'bell'], [659, 0.14, 'bell'], [523, 0.6, 'bell']] },
+    { id: 'notif_triple', nombre: 'Triple pitido', tramos: [[1200, 0.1], [0, 0.08], [1200, 0.1], [0, 0.08], [1200, 0.1]] },
+    { id: 'notif_sirena', nombre: 'Sirena', tramos: [[600, 0.35, 'sweep', 1000], [1000, 0.35, 'sweep', 600], [600, 0.35, 'sweep', 1000], [1000, 0.35, 'sweep', 600]] },
+    { id: 'notif_gota', nombre: 'Gota', tramos: [[1500, 0.12, 'sweep', 500], [0, 0.05], [1200, 0.35, 'bell']] },
+    { id: 'notif_marimba', nombre: 'Marimba', tramos: [[523, 0.22, 'bell'], [784, 0.22, 'bell'], [659, 0.5, 'bell']] },
+    { id: 'notif_cristal', nombre: 'Cristal', tramos: [[2093, 0.9, 'bell']] },
+    { id: 'notif_moneda', nombre: 'Moneda', tramos: [[988, 0.08], [1319, 0.45, 'bell']] },
+    { id: 'notif_pajaro', nombre: 'Pájaro', tramos: [[2000, 0.08, 'sweep', 2600], [0, 0.05], [2200, 0.08, 'sweep', 2800], [0, 0.05], [2400, 0.12, 'sweep', 3000]] },
+];
+// Suena un sonido de la tabla en el navegador, para probarlo al elegirlo
+function sonarTramos(id) {
+    const s = SONIDOS.find(x => x.id === id);
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!s || !AC) return false;
+    const ctx = new AC();
+    let t = ctx.currentTime + 0.05;
+    s.tramos.forEach(([f, d, forma, f2]) => {
+        if (f) {
+            const osc = ctx.createOscillator(); const g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.frequency.setValueAtTime(f, t);
+            if (forma === 'sweep') osc.frequency.linearRampToValueAtTime(f2 || f, t + d);
+            const sube = Math.min(0.012, d / 4);
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(0.5, t + sube);
+            if (forma === 'bell') g.gain.exponentialRampToValueAtTime(0.001, t + d);
+            else {
+                g.gain.setValueAtTime(0.5, t + Math.max(sube, d - Math.min(0.07, d / 3)));
+                g.gain.linearRampToValueAtTime(0, t + d);
+            }
+            osc.start(t); osc.stop(t + d + 0.02);
+        }
+        t += d;
+    });
+    return true;
+}
+
 const app = {
     accessToken: localStorage.getItem('cAccessToken') || null,
     tokenExpiry: parseInt(localStorage.getItem('cTokenExpiry') || '0'),
@@ -564,7 +640,8 @@ const app = {
         if (!el) return;
         // Que dé tiempo a ver la bienvenida con el autobús
         // (al tocarla se pasa ya a la app)
-        const falta = 1500 - (Date.now() - (window._splashDesde || 0));
+        const minimo = document.documentElement.classList.contains('p-inicio-rapido') ? 0 : 1500;
+        const falta = minimo - (Date.now() - (window._splashDesde || 0));
         if (falta > 0 && !window._splashTocado) {
             window._splashPend = () => this._hideSplash();
             setTimeout(window._splashPend, falta);
@@ -865,6 +942,7 @@ const app = {
     },
 
     _actualizarTemaUI() {
+        this._pintarPersonal();
         const propio = document.getElementById('dot-propio');
         if (propio) propio.style.background = ES_GC
             ? 'linear-gradient(135deg,#943126,#7B241C)' : 'linear-gradient(135deg,#1E8449,#186A3B)';
@@ -880,6 +958,8 @@ const app = {
         this.notifSound = sonido || 'default';
         localStorage.setItem('notifSound', this.notifSound);
         this._crearCanalesNotificacion();
+        // Que se oiga al elegirlo, como en las otras
+        try { sonarTramos(this.notifSound); } catch (_) {}
     },
 
     // Un canal por sonido: en Android el sonido va con el canal y no con cada
@@ -887,10 +967,8 @@ const app = {
     _crearCanalesNotificacion() {
         const LN = window.Capacitor?.Plugins?.LocalNotifications;
         if (!LN?.createChannel) return;
-        [['notif_ding', 'Ding'], ['notif_campana', 'Campana'], ['notif_alerta', 'Alerta'],
-         ['notif_silbido', 'Silbido'], ['notif_doble', 'Doble pitido'], ['notif_fanfare', 'Fanfare'],
-         ['notif_suave', 'Suave']].forEach(([id, name]) => {
-            LN.createChannel({ id, name, sound: id, importance: 5, visibility: 1 }).catch(() => {});
+        SONIDOS.forEach(({ id, nombre }) => {
+            LN.createChannel({ id, name: nombre, sound: id, importance: 5, visibility: 1 }).catch(() => {});
         });
     },
 
@@ -1220,6 +1298,27 @@ const app = {
     },
 
     toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },
+
+    // ── Personalizar ─────────────────────────────────────────────────────────
+
+    cambiarPersonal(clave, valor) {
+        const p = leerPersonal();
+        p[clave] = valor;
+        try { localStorage.setItem('personal', JSON.stringify(p)); } catch (_) {}
+        aplicarPersonal(p);
+        this._pintarPersonal();
+        
+    },
+
+    _pintarPersonal() {
+        const p = leerPersonal();
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('pTexto', p.texto); v('pCabecera', p.cabecera); v('pPestanas', p.pestanas);
+        v('pInicio', p.inicio); v('pPestanaInicio', p.pestanaInicio);
+        const a = document.getElementById('pAnim');
+        if (a) a.checked = p.animaciones !== false;
+    },
+
 
     irA(n) {
         this._tab = n;

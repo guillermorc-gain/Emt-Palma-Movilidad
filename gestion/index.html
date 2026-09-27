@@ -833,6 +833,17 @@
         .cuad-visor-ayuda{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:rgba(255,255,255,.65);font-size:11.5px;pointer-events:none;}
         .cuad-visor-x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;border:none;font-size:22px;cursor:pointer;}
 
+        /* ── Personalizar (Opciones → Apariencia) ── */
+        /* Con el texto más grande todo va con zoom, y el zoom agranda también
+           las medidas de pantalla (vh): se divide para que los cuadros quepan */
+        html.p-zoom .modal-card{max-height:calc(90vh / var(--z)) !important;}
+        html.p-zoom [style*="max-height:80vh"]{max-height:calc(80vh / var(--z)) !important;}
+        html.p-cab-liso body:not(.vacaciones) .app-header{background:var(--g1) !important;}
+        html.p-cab-liso body:not(.vacaciones) .app-header.dark{background:var(--gdark1) !important;}
+        html.p-solo-iconos .tab-lbl{display:none;}
+        html.p-solo-iconos .tab-ico{font-size:25px;}
+        html.p-solo-iconos .tab-btn{padding-top:11px;padding-bottom:11px;}
+        html.p-sin-anim *,html.p-sin-anim *::before,html.p-sin-anim *::after{animation:none !important;transition:none !important;}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}
@@ -1432,6 +1443,40 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                             <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
                         </div>
                     </div>
+                    <div class="ops-field" style="gap:6px;">
+                        <span class="ops-field-label">🔠 Tamaño del texto</span>
+                        <select id="pTexto" class="ops-input" onchange="app.cambiarPersonal('texto', this.value)">
+                            <option value="pequeno">Pequeño</option>
+                            <option value="normal">Normal</option>
+                            <option value="grande">Grande</option>
+                            <option value="muygrande">Muy grande</option>
+                        </select>
+                    </div>
+                    <div class="ops-field" style="gap:6px;">
+                        <span class="ops-field-label">🖌️ Cabecera</span>
+                        <select id="pCabecera" class="ops-input" onchange="app.cambiarPersonal('cabecera', this.value)">
+                            <option value="degradado">Degradado</option>
+                            <option value="liso">Color liso</option>
+                        </select>
+                    </div>
+                    <div class="ops-field" style="gap:6px;">
+                        <span class="ops-field-label">🗂️ Pestañas de abajo</span>
+                        <select id="pPestanas" class="ops-input" onchange="app.cambiarPersonal('pestanas', this.value)">
+                            <option value="todo">Icono y nombre</option>
+                            <option value="iconos">Solo icono</option>
+                        </select>
+                    </div>
+                    <div class="ops-field" style="gap:6px;">
+                        <span class="ops-field-label">🚌 Pantalla de inicio</span>
+                        <select id="pInicio" class="ops-input" onchange="app.cambiarPersonal('inicio', this.value)">
+                            <option value="normal">Con el autobús (1,5 s)</option>
+                            <option value="rapido">Rápida, directa a la app</option>
+                        </select>
+                    </div>
+                    <div class="ops-row">
+                        <span class="ops-row-label">✨ Animaciones</span>
+                        <input type="checkbox" id="pAnim" onchange="app.cambiarPersonal('animaciones', this.checked)">
+                    </div>
                 </div>
             </div>
 
@@ -1454,6 +1499,18 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                             <option value="notif_doble">Doble pitido</option>
                             <option value="notif_fanfare">Fanfare</option>
                             <option value="notif_suave">Suave</option>
+                            <option value="notif_xilofono">Xilófono</option>
+                            <option value="notif_dingdong">Ding-dong</option>
+                            <option value="notif_burbuja">Burbuja</option>
+                            <option value="notif_claxon">Claxon</option>
+                            <option value="notif_arpa">Arpa</option>
+                            <option value="notif_triple">Triple pitido</option>
+                            <option value="notif_sirena">Sirena</option>
+                            <option value="notif_gota">Gota</option>
+                            <option value="notif_marimba">Marimba</option>
+                            <option value="notif_cristal">Cristal</option>
+                            <option value="notif_moneda">Moneda</option>
+                            <option value="notif_pajaro">Pájaro</option>
                         </select>
                         <span class="ops-row-sub">Solo en Android. Los cambios aplican desde la próxima notificación.</span>
                     </div>
@@ -1469,6 +1526,18 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                             <option value="notif_doble">Doble pitido</option>
                             <option value="notif_fanfare">Fanfare</option>
                             <option value="notif_suave">Suave</option>
+                            <option value="notif_xilofono">Xilófono</option>
+                            <option value="notif_dingdong">Ding-dong</option>
+                            <option value="notif_burbuja">Burbuja</option>
+                            <option value="notif_claxon">Claxon</option>
+                            <option value="notif_arpa">Arpa</option>
+                            <option value="notif_triple">Triple pitido</option>
+                            <option value="notif_sirena">Sirena</option>
+                            <option value="notif_gota">Gota</option>
+                            <option value="notif_marimba">Marimba</option>
+                            <option value="notif_cristal">Cristal</option>
+                            <option value="notif_moneda">Moneda</option>
+                            <option value="notif_pajaro">Pájaro</option>
                         </select>
                         <span class="ops-row-sub">Suena al llegar un mensaje nuevo con la app abierta.</span>
                     </div>
