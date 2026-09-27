@@ -143,7 +143,7 @@ const app = {
         if (ES_GC) {
             poner('authTitulo', 'Gestión EMT - Palma (Control de acceso)');
             poner('authSub', 'Los registros del puesto · EMT Palma');
-            poner('splashRol', '🗝️ Gestión del puesto');
+            poner('splashRol', '🗝️ Gestión control de acceso');
             poner('cabeceraTitulo', '🗝️ Gestión control de acceso');
 
             const logo = document.getElementById('authLogo');
@@ -562,6 +562,9 @@ const app = {
     _hideSplash() {
         const el = document.getElementById('splashScreen');
         if (!el) return;
+        // Que dé tiempo a ver la bienvenida con el autobús
+        const falta = 2800 - (Date.now() - (window._splashDesde || 0));
+        if (falta > 0) { setTimeout(() => this._hideSplash(), falta); return; }
         el.classList.add('fade-out');
         setTimeout(() => el.remove(), 380);
     },

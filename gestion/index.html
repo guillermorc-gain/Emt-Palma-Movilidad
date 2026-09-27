@@ -951,6 +951,16 @@
         .options-content.dark .access-user-email{color:#e0e0e0;}
         .access-user-remove{background:transparent;border:none;color:#e74c3c;font-size:16px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;}
         /* ── SPLASH SCREEN ── */
+        /* El autobús cruzando la carretera, como en la bienvenida de la web */
+        .sp-carretera{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));height:78px;overflow:hidden;pointer-events:none;}
+        .sp-carretera::before{content:'';position:absolute;left:0;right:0;bottom:10px;height:18px;background:rgba(0,0,0,0.22);border-top:2px solid rgba(255,255,255,0.18);border-bottom:2px solid rgba(255,255,255,0.18);}
+        .sp-carretera::after{content:'';position:absolute;left:0;right:0;bottom:18px;height:2px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.75) 0 18px,transparent 18px 36px);animation:sp-rayas 0.6s linear infinite;}
+        @keyframes sp-rayas{from{background-position:0 0;}to{background-position:-36px 0;}}
+        .sp-bus{position:absolute;bottom:20px;left:105%;font-size:46px;line-height:1;animation:sp-cruza 3.2s linear infinite;}
+        .sp-bus span{display:inline-block;animation:sp-bache 0.35s ease-in-out infinite alternate;}
+        @keyframes sp-cruza{from{left:105%;}to{left:-25%;}}
+        @keyframes sp-bache{from{transform:translateY(0);}to{transform:translateY(-3px);}}
+
         #splashScreen{position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:linear-gradient(135deg,#1565C0 0%,#003A99 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:opacity 0.35s ease;}
         #splashScreen.fade-out{opacity:0;pointer-events:none;}
         .splash-bus{font-size:72px;line-height:1;animation:splash-pulse 1.6s ease-in-out infinite;}
@@ -983,10 +993,12 @@
 
 <!-- Splash Screen -->
 <div id="splashScreen">
-    <div class="splash-title" id="splashTit">EMT · Movilidad</div>
+    <div class="splash-title" id="splashTit">EMT - Palma (Movilidad)</div>
     <div class="splash-rol" id="splashRol">✏️ Gestión</div>
     <div class="splash-sub" id="splashMsg">Iniciando...</div>
+    <div class="sp-carretera" aria-hidden="true"><div class="sp-bus"><span>🚌</span></div></div>
 </div>
+<script>window._splashDesde = Date.now();</script>
 <script>
 (function(){var t=localStorage.getItem('tema');var g={verde:'linear-gradient(135deg,#00897B,#004D40)',fuego:'linear-gradient(135deg,#F4511E,#BF360C)',acero:'linear-gradient(135deg,#546E7A,#263238)',rojo:'linear-gradient(135deg,#E53935,#B71C1C)'};var el=document.getElementById('splashScreen');if(el&&t&&g[t])el.style.background=g[t];})();
 </script>
