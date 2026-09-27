@@ -159,9 +159,44 @@
           "value": "public, max-age=0, must-revalidate"
         }
       ]
+    },
+    {
+      "source": "/bienvenida.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/",
+      "missing": [
+        {
+          "type": "query",
+          "key": "app"
+        },
+        {
+          "type": "query",
+          "key": "code"
+        },
+        {
+          "type": "query",
+          "key": "error"
+        },
+        {
+          "type": "query",
+          "key": "state"
+        },
+        {
+          "type": "query",
+          "key": "access_token"
+        }
+      ],
+      "destination": "/bienvenida.html"
+    },
     {
       "source": "/gestion",
       "destination": "/gestion/index.html"
