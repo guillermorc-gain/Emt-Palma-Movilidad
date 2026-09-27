@@ -5938,7 +5938,7 @@ const app = {
         const u = (this._directorio || []).find(x => (x.email || '').toLowerCase() === e);
         nombre = nombre || u?.nombre;
         num = num || u?.conductor;
-        return [nombre || e, num ? 'nº ' + num : ''].filter(Boolean).join(' · ');
+        return [nombre || e, num].filter(Boolean).join(' - ');
     },
 
     _caHoyISO() {
