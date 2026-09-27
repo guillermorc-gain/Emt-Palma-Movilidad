@@ -1219,40 +1219,77 @@ jobs:
                       try { mirarSinRegistrar(ctx); } catch (Exception ignored) {}
                   }
 
-                  // Media hora después de acabar la jornada de hoy, si no se ha
-                  // registrado nada, un aviso para registrarla. Una vez al día,
-                  // y se puede quitar en Opciones → Notificaciones. No se avisa
-                  // de baja, de vacaciones ni libre, ni sin horario asignado.
-                  // El turno que acaba pasada la medianoche no entra: su día
-                  // ya no es el de hoy cuando termina.
+                  // Media hora después de acabar la jornada, si no se ha
+                  // registrado nada, un aviso para registrarla. Una vez por
+                  // jornada, y se puede quitar en Opciones → Notificaciones. No
+                  // se avisa de baja, de vacaciones ni libre, ni sin horario.
+                  //
+                  // El turno de noche acaba al día siguiente, y para entonces
+                  // la jornada "de hoy" ya es otra: por eso, mientras es la de
+                  // hoy, se guarda aparte y se mira también pasada la medianoche.
                   static void mirarSinRegistrar(Context ctx) {
                       SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                       if ("0".equals(prefs.getString("avisoRegistrar", "1"))) return;
-                      java.util.Calendar c = java.util.Calendar.getInstance();
-                      String hoy = String.format(java.util.Locale.US, "%04d%02d%02d",
+                      String vista = prefs.getString("jornadaVista", "");
+                      String[] v = vista.split("\\|", -1);
+                      if (v.length >= 3 && v[2].trim().length() >= 11) {
+                          int[] h = horasDe(v[2].trim());
+                          if (h != null && h[1] <= h[0]) prefs.edit().putString("turnoNoche", vista).apply();
+                      }
+                      if (avisarSiToca(ctx, prefs, vista)) return;
+                      String noche = prefs.getString("turnoNoche", "");
+                      if (!noche.isEmpty() && !noche.equals(vista)) avisarSiToca(ctx, prefs, noche);
+                  }
+
+                  // "09:00-12:30" → {540, 750}; null si no se entiende
+                  static int[] horasDe(String horas) {
+                      try {
+                          return new int[]{
+                              Integer.parseInt(horas.substring(0, 2)) * 60 + Integer.parseInt(horas.substring(3, 5)),
+                              Integer.parseInt(horas.substring(6, 8)) * 60 + Integer.parseInt(horas.substring(9, 11)) };
+                      } catch (Exception e) { return null; }
+                  }
+
+                  static String diaId(java.util.Calendar c) {
+                      return String.format(java.util.Locale.US, "%04d%02d%02d",
                           c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH) + 1,
                           c.get(java.util.Calendar.DAY_OF_MONTH));
-                      if (hoy.equals(prefs.getString("recordatorioAvisado", ""))) return;
-                      if (hoy.equals(prefs.getString("lastRegisteredDate", ""))) return;
-                      if (hoy.equals(prefs.getString("jornadaCompleta", ""))) return;
-                      if (hoy.equals(prefs.getString("jornadaMuda", ""))) return;
-                      String[] t = prefs.getString("jornadaVista", "").split("\\|", -1);
-                      if (t.length < 3 || !t[0].equals(hoy)) return;
+                  }
+
+                  // Una jornada guardada como fecha|lugar|HH:MM-HH:MM|rev. Avisa
+                  // si hace media hora que acabó (y no más de doce: una de hace
+                  // días ya no se recuerda) y ese día no se ha registrado.
+                  static boolean avisarSiToca(Context ctx, SharedPreferences prefs, String jornada) {
+                      String[] t = jornada.split("\\|", -1);
+                      if (t.length < 3 || t[0].length() != 8) return false;
+                      String fecha = t[0];
                       String horas = t[2].trim();
-                      if (horas.length() < 11) return;
-                      int ini, fin;
+                      if (horas.length() < 11) return false;
+                      int[] h = horasDe(horas);
+                      if (h == null) return false;
+                      boolean deNoche = h[1] <= h[0];
+                      java.util.Calendar fin = java.util.Calendar.getInstance();
                       try {
-                          ini = Integer.parseInt(horas.substring(0, 2)) * 60 + Integer.parseInt(horas.substring(3, 5));
-                          fin = Integer.parseInt(horas.substring(6, 8)) * 60 + Integer.parseInt(horas.substring(9, 11));
-                      } catch (Exception e) { return; }
-                      if (fin <= ini) return;
-                      int ahora = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
-                      if (ahora < fin + 30) return;
-                      prefs.edit().putString("recordatorioAvisado", hoy).apply();
+                          fin.clear();
+                          fin.set(Integer.parseInt(fecha.substring(0, 4)), Integer.parseInt(fecha.substring(4, 6)) - 1,
+                                  Integer.parseInt(fecha.substring(6, 8)), h[1] / 60, h[1] % 60, 0);
+                      } catch (Exception e) { return false; }
+                      if (deNoche) fin.add(java.util.Calendar.DAY_OF_MONTH, 1);
+                      long desde = fin.getTimeInMillis() + 30 * 60 * 1000L;
+                      long ahora = System.currentTimeMillis();
+                      if (ahora < desde || ahora > desde + 12 * 3600 * 1000L) return false;
+                      if (fecha.equals(prefs.getString("recordatorioAvisado", ""))) return false;
+                      if (fecha.equals(prefs.getString("jornadaCompleta", ""))) return false;
+                      if (fecha.equals(prefs.getString("jornadaMuda", ""))) return false;
+                      String registrado = prefs.getString("lastRegisteredDate", "");
+                      // La de noche puede haberse apuntado con el día en que empezó
+                      // o con el de después, que es cuando se termina
+                      if (registrado.equals(fecha) || (deNoche && registrado.equals(diaId(fin)))) return false;
+                      prefs.edit().putString("recordatorioAvisado", fecha).apply();
 
                       NotificationManager nm =
                           (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-                      if (nm == null) return;
+                      if (nm == null) return true;
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                           nm.createNotificationChannel(new NotificationChannel(
                               CHANNEL_ID, "Trabajo cercano", NotificationManager.IMPORTANCE_HIGH));
@@ -1275,6 +1312,7 @@ jobs:
                           .setAutoCancel(true)
                           .addAction(0, "\u270F\uFE0F Registrar", openPI)
                           .build());
+                      return true;
                   }
 
 
