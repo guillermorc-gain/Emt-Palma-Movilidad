@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>EMT Palma - Movilidad</title>
+    <meta name="theme-color" content="#0d47a1">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <!-- La bienvenida de la página: con qué app se entra. Va aparte de la
+         app de Trabajador para que retocarla no saque versiones nuevas de su
+         APK, donde esta pantalla no sale nunca. -->
+    <style>
+        *{box-sizing:border-box;}
+        html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d47a1;}
+        .rol-screen{position:fixed;inset:0;z-index:2000;background:linear-gradient(160deg,#0d47a1,#1565C0);display:flex;align-items:center;justify-content:center;padding:22px;}
+        .rol-card{width:100%;max-width:400px;display:flex;flex-direction:column;gap:12px;text-align:center;color:#fff;}
+        .rol-logo{font-size:52px;line-height:1;}
+
+        /* ── La bienvenida, con algo de vida ── */
+        /* Una carretera con el autobús cruzándola; las rayas del centro se
+           mueven para que parezca que avanza. */
+        .rol-carretera{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));height:78px;overflow:hidden;pointer-events:none;}
+        .rol-carretera::before{content:'';position:absolute;left:0;right:0;bottom:10px;height:18px;
+            background:rgba(0,0,0,0.22);border-top:2px solid rgba(255,255,255,0.18);border-bottom:2px solid rgba(255,255,255,0.18);}
+        .rol-carretera::after{content:'';position:absolute;left:0;right:0;bottom:18px;height:2px;
+            background:repeating-linear-gradient(90deg,rgba(255,255,255,0.75) 0 18px,transparent 18px 36px);
+            animation:rol-rayas 0.6s linear infinite;}
+        @keyframes rol-rayas{from{background-position:0 0;}to{background-position:-36px 0;}}
+        .rol-bus{position:absolute;bottom:20px;left:100%;font-size:46px;line-height:1;z-index:1;
+            animation:rol-cruza 7s linear infinite;}
+        .rol-bus span{display:inline-block;animation:rol-bache 0.35s ease-in-out infinite alternate;}
+        @keyframes rol-cruza{from{left:105%;}to{left:-25%;}}
+        @keyframes rol-bache{from{transform:translateY(0);}to{transform:translateY(-3px);}}
+        .rol-humo{position:absolute;bottom:26px;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.55);
+            animation:rol-humo 7s linear infinite;}
+        @keyframes rol-humo{
+            0%{left:calc(105% + 50px);opacity:0;transform:scale(0.4);}
+            5%{opacity:0.8;}
+            100%{left:calc(-25% + 50px);opacity:0;transform:scale(1.8) translateY(-14px);}}
+        /* La herramienta de Gestión, girando de vez en cuando */
+        .rol-gira{display:inline-block;animation:rol-gira 3s ease-in-out infinite;}
+        @keyframes rol-gira{0%,70%{transform:rotate(0);}80%{transform:rotate(-18deg);}90%{transform:rotate(14deg);}100%{transform:rotate(0);}}
+        /* Los botones entran uno detrás de otro */
+        .rol-card>*{animation:rol-entra 0.5s ease both;}
+        .rol-card>*:nth-child(2){animation-delay:0.05s;} .rol-card>*:nth-child(3){animation-delay:0.1s;}
+        .rol-card>*:nth-child(4){animation-delay:0.18s;} .rol-card>*:nth-child(5){animation-delay:0.26s;}
+        .rol-card>*:nth-child(6){animation-delay:0.34s;} .rol-card>*:nth-child(7){animation-delay:0.42s;}
+        @keyframes rol-entra{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+        /* Y al pulsarlos, una onda desde el dedo y un pequeño hundimiento */
+        .rol-btn{position:relative;overflow:hidden;transition:transform 0.12s ease,box-shadow 0.2s ease;}
+        .rol-btn:active{transform:scale(0.965);box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+        .rol-btn.pulsado{box-shadow:0 0 0 4px rgba(255,255,255,0.45),0 2px 10px rgba(0,0,0,0.18);}
+        .rol-btn .rol-ico{transition:transform 0.25s ease;}
+        .rol-btn.pulsado .rol-ico{transform:scale(1.25) rotate(-8deg);}
+        .rol-onda{position:absolute;border-radius:50%;background:rgba(21,101,192,0.28);transform:scale(0);
+            pointer-events:none;animation:rol-onda 0.55s ease-out forwards;}
+        @keyframes rol-onda{to{transform:scale(1);opacity:0;}}
+        @media (prefers-reduced-motion: reduce){
+            .rol-bus,.rol-bus span,.rol-humo,.rol-carretera::after,.rol-gira,.rol-card>*{animation:none !important;}
+            .rol-bus{left:40%;}
+            .rol-humo{display:none;}
+        }
+        .rol-logo-img{width:74px;height:74px;border-radius:18px;margin:0 auto;display:block;}
+        .rol-t{font-size:21px;font-weight:800;margin:0;}
+        .rol-s{font-size:13.5px;opacity:0.85;margin:0 0 6px;}
+        .rol-btn{display:flex;align-items:center;gap:13px;width:100%;padding:15px 16px;border:none;border-radius:14px;background:#fff;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,0.18);}
+        .rol-btn:active{transform:scale(0.985);}
+        .rol-ico{font-size:27px;flex:none;}
+        .rol-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+        .rol-txt b{font-size:16px;font-weight:800;color:#1a2b3c;}
+        .rol-txt span{font-size:12px;color:#7f8c8d;}
+        .rol-pie{font-size:11.5px;line-height:1.5;opacity:0.8;margin:6px 2px 0;}
+        .rol-volver{background:none;border:none;color:#fff;opacity:0.85;font-size:13.5px;font-family:inherit;cursor:pointer;padding:8px;margin-top:2px;}
+    </style>
+    <script>
+    // La vuelta de Google con el token en el hash es de la app de Trabajador
+    if (location.hash.indexOf('access_token') >= 0) location.replace('/?app=trabajador' + location.hash);
+    </script>
+</head>
+<body>
+<div class="rol-screen" id="rolScreen">
+        <div class="rol-card">
+            <h1 class="rol-t">EMT Palma - Movilidad</h1>
+            <p class="rol-s">¿Con cuál entras?</p>
+            <button class="rol-btn" onclick="elegir('trabajador')">
+                <span class="rol-ico">🕐</span>
+                <span class="rol-txt"><b>Trabajador</b><span>Registrar mis jornadas</span></span>
+            </button>
+            <button class="rol-btn" onclick="elegir('control')">
+                <span class="rol-ico">🛡️</span>
+                <span class="rol-txt"><b>Control de acceso</b><span>El parte del turno en la garita</span></span>
+            </button>
+            <button class="rol-btn" onclick="elegir('gestion')">
+                <span class="rol-ico">🛠️</span>
+                <span class="rol-txt"><b>Gestión</b><span>Llevar la plantilla o el puesto</span></span>
+            </button>
+            <p class="rol-pie">Se abre aquí mismo, en el navegador. Si tienes la aplicación instalada, ábrela desde su icono.</p>
+        </div>
+        <!-- Abajo del todo, a lo ancho: la carretera con el autobús -->
+        <div class="rol-carretera" aria-hidden="true">
+            <div class="rol-humo"></div>
+            <div class="rol-humo" style="animation-delay:0.25s;"></div>
+            <div class="rol-bus"><span>🚌</span></div>
+        </div>
+    </div>
+
+    <!-- Gestión son dos: la de la plantilla y la del puesto de control de
+         acceso. Se elige aquí, antes de entrar, porque cada una tiene su web. -->
+    <div class="rol-screen" id="gestionScreen" style="display:none;">
+        <div class="rol-card">
+            <div class="rol-logo"><span class="rol-gira">🛠️</span></div>
+            <h1 class="rol-t">Gestión</h1>
+            <p class="rol-s">¿Qué quieres gestionar?</p>
+            <button class="rol-btn" onclick="elegir('gestion-emt')">
+                <span class="rol-ico">✏️</span>
+                <span class="rol-txt"><b>Gestión EMT - Palma (Movilidad)</b><span>Llevar la plantilla de los trabajadores</span></span>
+            </button>
+            <button class="rol-btn" onclick="elegir('gestion-control')">
+                <span class="rol-ico">🗝️</span>
+                <span class="rol-txt"><b>Gestión EMT - Palma (Control de acceso)</b><span>Llevar el puesto: ver, corregir y exportar los partes</span></span>
+            </button>
+            <button class="rol-volver" onclick="elegir('volver')">‹ Volver</button>
+        </div>
+    </div>
+
+    <!-- Al pulsar un botón de la bienvenida, una onda desde donde se toca -->
+    <script>
+    (function () {
+        document.addEventListener('pointerdown', function (e) {
+            var b = e.target.closest && e.target.closest('.rol-btn');
+            if (!b) return;
+            var r = b.getBoundingClientRect();
+            var lado = Math.max(r.width, r.height) * 2.2;
+            var o = document.createElement('span');
+            o.className = 'rol-onda';
+            o.style.width = o.style.height = lado + 'px';
+            o.style.left = (e.clientX - r.left - lado / 2) + 'px';
+            o.style.top = (e.clientY - r.top - lado / 2) + 'px';
+            b.appendChild(o);
+            b.classList.add('pulsado');
+            setTimeout(function () { o.remove(); b.classList.remove('pulsado'); }, 600);
+        });
+    })();
+    </script>
+
+<script>
+// Gestión son dos, y se pregunta cuál antes de entrar. Cada paso deja su
+// huella en el historial para que atrás vuelva a la pantalla de antes.
+function pintar() {
+    var g = history.state && history.state.pantalla === 'gestion';
+    document.getElementById('rolScreen').style.display = g ? 'none' : 'flex';
+    document.getElementById('gestionScreen').style.display = g ? 'flex' : 'none';
+}
+function elegir(rol) {
+    if (rol === 'gestion') { history.pushState({ pantalla: 'gestion' }, '', '/'); pintar(); return; }
+    if (rol === 'volver') { if (history.state && history.state.pantalla === 'gestion') history.back(); else pintar(); return; }
+    var webs = { trabajador: '/?app=trabajador', control: '/control/', 'gestion-emt': '/gestion/',
+                 'gestion-control': '/control/?app=gestion-control' };
+    if (webs[rol]) location.href = webs[rol];
+}
+window.addEventListener('popstate', pintar);
+window.addEventListener('pageshow', pintar);
+pintar();
+</script>
+</body>
+</html>
