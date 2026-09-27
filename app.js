@@ -510,6 +510,7 @@ const app = {
                 return;
             }
             this.mostrarApp();
+            this._sincronizarAvisosNativos();
             this._caArrancar();
             this._pedirBateriaSiHaceFalta();
             this._pintarAvisoCambio();
@@ -1838,6 +1839,10 @@ const app = {
         document.getElementById('darkModeToggle').checked = this.darkMode;
         const caToggle = document.getElementById('controlAccesoToggle');
         if (caToggle) caToggle.checked = !!this.controlAcceso;
+        const turnoT = document.getElementById('avisoTurnoToggle');
+        if (turnoT) turnoT.checked = !!this.avisoTurno;
+        const regT = document.getElementById('avisoRegistrarToggle');
+        if (regT) regT.checked = !!this.avisoRegistrar;
         document.getElementById('horasAnualesDisplay').textContent = this.horasAnualesCustom + 'h';
         this._actualizarJornadaDisplay();
         this._actualizarConductorDisplay();
@@ -5414,6 +5419,7 @@ const app = {
             // Lo que ya ha visto la app no se lo tiene que volver a decir el
             // aviso nativo cuando despierte dentro de un rato.
             window.AndroidBridge?.saveToPrefs?.('jornadaVista', this._claveJornada(a));
+            this._sincronizarAvisosNativos();
             this._actualizarCabeceraUsuario();
             // Si lo que propone el formulario ha cambiado, se repinta; si no,
             // se deja en paz por si está a medio rellenar.
@@ -5819,6 +5825,43 @@ const app = {
     // estar dada de alta en el puesto. Si no lo está, las pestañas lo dicen.
 
     controlAcceso: localStorage.getItem('controlAcceso') === '1',
+    // Opciones → Notificaciones. Las dos vienen puestas.
+    avisoTurno: localStorage.getItem('avisoTurno') !== '0',
+    avisoRegistrar: localStorage.getItem('avisoRegistrar') !== '0',
+
+    // El turno de hoy en la barra de notificaciones, con lo que queda
+    toggleAvisoTurno(activo) {
+        this.avisoTurno = !!activo;
+        try { localStorage.setItem('avisoTurno', activo ? '1' : '0'); } catch (_) {}
+        this._sincronizarAvisosNativos();
+        this._guardarPreferencias();
+    },
+
+    // El aviso de registrar la jornada media hora después de acabarla
+    toggleAvisoRegistrar(activo) {
+        this.avisoRegistrar = !!activo;
+        try { localStorage.setItem('avisoRegistrar', activo ? '1' : '0'); } catch (_) {}
+        this._sincronizarAvisosNativos();
+        this._guardarPreferencias();
+    },
+
+    // Lo que necesita saber el móvil para avisar con la app cerrada: si se
+    // quieren los dos avisos y si hoy es un día sin jornada (de baja, de
+    // vacaciones o libre), que no tiene nada que registrar.
+    _sincronizarAvisosNativos() {
+        const br = window.AndroidBridge;
+        if (!br) return;
+        try {
+            if (br.ponerAvisoTurno) br.ponerAvisoTurno(!!this.avisoTurno);
+            else br.saveToPrefs?.('avisoTurno', this.avisoTurno ? '1' : '0');
+            br.saveToPrefs?.('avisoRegistrar', this.avisoRegistrar ? '1' : '0');
+            const a = this._asignacion;
+            const hoy = this._hoyId();
+            const muda = (a && a.fecha === hoy && (a.baja || a.vacaciones || a.libre))
+                || !!this._periodoVacacionesActivo();
+            br.saveToPrefs?.('jornadaMuda', muda ? hoy : '');
+        } catch (_) {}
+    },
     _caPorId: {},
     _caVisitantes: {},
     _caDia: '',
@@ -5905,40 +5948,7 @@ const app = {
         }
         this.caCargarVisitantes();
         this.caCargarRegistros();
-        this._caCargarDirectorio();
         this._caSincronizarSolo();
-    },
-
-    // Quién apuntó cada registro: el servidor guarda el correo, y aquí se
-    // enseña el nombre y el número de la plantilla, que es como se conocen.
-    // Es el mismo directorio que el de escribir notas.
-    async _caCargarDirectorio() {
-        if (!this._directorio.length) {
-            try { this._directorio = JSON.parse(localStorage.getItem('directorio') || '[]'); } catch (_) {}
-        }
-        try {
-            const r = await fetch(`${this.USUARIOS_URL}?directorio=1`, { cache: 'no-store' });
-            if (!r.ok) return;
-            this._directorio = await r.json();
-            localStorage.setItem('directorio', JSON.stringify(this._directorio));
-            this._caRenderDia();
-            this._caRenderHistorial();
-        } catch (_) { /* sin red, el correo */ }
-    },
-
-    // Nombre y número de trabajador: lo que guardó el registro al apuntarse
-    // y, en los de antes, lo de la plantilla. Si no hay nada, el correo.
-    _caQuien(email, nombre, num) {
-        const e = String(email || '').toLowerCase();
-        if (!e && !nombre) return '';
-        if (e && e === (this.usuarioActual?.email || '').toLowerCase()) {
-            nombre = nombre || this.usuarioActual?.name;
-            num = num || this.numConductor;
-        }
-        const u = (this._directorio || []).find(x => (x.email || '').toLowerCase() === e);
-        nombre = nombre || u?.nombre;
-        num = num || u?.conductor;
-        return [nombre || e, num].filter(Boolean).join(' - ');
     },
 
     _caHoyISO() {
@@ -6275,8 +6285,6 @@ const app = {
             </div>
             ${quien ? `<div class="ca-quien">${esc(quien)}</div>` : ''}
             ${que ? `<div class="ca-que">${esc(que)}</div>` : ''}
-            ${r.creadoPor ? `<div class="ca-por">✍️ Apuntado por ${esc(this._caQuien(r.creadoPor, r.creadoNombre, r.creadoNum))}${
-                r.tocadoPor && r.tocadoPor !== r.creadoPor ? `<br>✏️ Corregido por ${esc(this._caQuien(r.tocadoPor, r.tocadoNombre, r.tocadoNum))}` : ''}</div>` : ''}
             ${!r.salida ? `<div class="ca-btns">${abierto
                 ? `<button class="ca-btn" onclick="event.stopPropagation();app.caMarcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
                 <button class="btn-secondary" onclick="event.stopPropagation();app.caPonerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
@@ -6410,12 +6418,6 @@ const app = {
         const yo = (this.usuarioActual?.email || '').toLowerCase();
         const b = document.getElementById('caeBorrar');
         if (b) b.hidden = !(String(r.creadoPor || '').toLowerCase() === yo && r.fecha === hoy);
-        const firma = document.getElementById('caeFirma');
-        if (firma) firma.textContent = r.creadoPor
-            ? `Apuntado por ${this._caQuien(r.creadoPor, r.creadoNombre, r.creadoNum)}`
-              + (r.tocadoPor && r.tocadoPor !== r.creadoPor
-                  ? ` · corregido por ${this._caQuien(r.tocadoPor, r.tocadoNombre, r.tocadoNum)}` : '')
-            : '';
         document.getElementById('caRegModal').classList.add('show');
     },
 
@@ -7003,6 +7005,7 @@ const app = {
         if (this._hayRegistroEnFecha(_todayId)) {
             document.getElementById('workBanner')?.classList.remove('show');
             localStorage.setItem('lastRegisteredDate', _todayId);
+            window.AndroidBridge?.saveToPrefs?.('lastRegisteredDate', _todayId);
         }
         document.getElementById('horasTrabajadas').textContent = horas.toFixed(1);
         document.getElementById('horasRestantes').textContent  = restantes.toFixed(1);
@@ -8360,11 +8363,24 @@ const app = {
             workLocations: this._getWorkLocations(),
             notifSound: this.notifSound,
             notifSoundChat: this.notifSoundChat,
-            controlAcceso: !!this.controlAcceso
+            controlAcceso: !!this.controlAcceso,
+            avisoTurno: !!this.avisoTurno,
+            avisoRegistrar: !!this.avisoRegistrar
         };
     },
 
     _aplicarPreferenciasDesde(prefs) {
+        if (typeof prefs.avisoTurno === 'boolean' || typeof prefs.avisoRegistrar === 'boolean') {
+            if (typeof prefs.avisoTurno === 'boolean') {
+                this.avisoTurno = prefs.avisoTurno;
+                localStorage.setItem('avisoTurno', prefs.avisoTurno ? '1' : '0');
+            }
+            if (typeof prefs.avisoRegistrar === 'boolean') {
+                this.avisoRegistrar = prefs.avisoRegistrar;
+                localStorage.setItem('avisoRegistrar', prefs.avisoRegistrar ? '1' : '0');
+            }
+            this._sincronizarAvisosNativos();
+        }
         if (typeof prefs.controlAcceso === 'boolean' && prefs.controlAcceso !== this.controlAcceso) {
             this._ponerControlAcceso(prefs.controlAcceso, false);
         }

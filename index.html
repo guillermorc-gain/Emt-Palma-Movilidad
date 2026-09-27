@@ -699,8 +699,6 @@
         .ca-quien{font-size:13px;font-weight:700;margin-top:4px;}
         .ca-que{font-size:12px;color:#7f8c8d;margin-top:2px;}
         .app-content.dark .ca-que{color:#a0a0a0;}
-        .ca-por{font-size:11.5px;font-weight:700;color:var(--g1);margin-top:4px;}
-        .app-content.dark .ca-por{color:#8fb8f5;}
         .ca-btns{display:flex;gap:8px;margin-top:8px;}
         .ca-btns button{flex:1;padding:9px;font-size:13px;}
         .ca-btns .ca-btn{padding:9px;font-size:13px;}
@@ -1572,6 +1570,16 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                         </select>
                         <span class="ops-row-sub">Suena al llegar un mensaje nuevo con la app abierta.</span>
                     </div>
+                    <div class="ops-row">
+                        <span class="ops-row-label" style="flex:1;min-width:0;"><span>🕐 Turno en la barra de notificaciones
+                            <span class="ops-row-sub">Tu jornada de hoy y lo que te queda, fija en la barra. Quitándolo, los mensajes pueden tardar unos minutos más en avisar con la app cerrada.</span></span></span>
+                        <input type="checkbox" id="avisoTurnoToggle" onchange="app.toggleAvisoTurno(this.checked)">
+                    </div>
+                    <div class="ops-row">
+                        <span class="ops-row-label" style="flex:1;min-width:0;"><span>⏰ Recordar registrar la jornada
+                            <span class="ops-row-sub">Si a la media hora de acabar tu jornada no has registrado nada, te avisa para registrarla.</span></span></span>
+                        <input type="checkbox" id="avisoRegistrarToggle" onchange="app.toggleAvisoRegistrar(this.checked)">
+                    </div>
                     <button class="ops-btn" onclick="app.probarNotificacion()">🔔 Probar notificación <span class="ops-arrow">›</span></button>
                     <button class="ops-btn" onclick="app.diagnosticarAvisos()">🩺 ¿Por qué no me llegan los avisos? <span class="ops-arrow">›</span></button>
                 </div>
@@ -1869,7 +1877,6 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div class="edit-field"><label for="caeEmpresa">Empresa</label><input type="text" id="caeEmpresa" maxlength="80" autocomplete="off"></div>
             <div class="edit-field"><label for="caeVehiculo">Vehículo</label><input type="text" id="caeVehiculo" maxlength="80" autocomplete="off"></div>
             <div class="edit-field"><label for="caeDepartamento">Departamento</label><input type="text" id="caeDepartamento" maxlength="60" autocomplete="off"></div>
-            <p class="ca-sub" id="caeFirma" style="margin-top:6px;"></p>
         </div>
         <div class="modal-footer">
             <button class="modal-btn modal-btn-danger" id="caeBorrar" style="flex:0 0 auto;padding:11px 14px;" onclick="app.caBorrarRegistro()">🗑️</button>
