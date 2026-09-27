@@ -2188,11 +2188,22 @@ const app = {
         }).catch(() => {});
     },
 
+    // Quien ya tiene la aplicación: se abre —por el mismo enlace por el que
+    // vuelve de Google— y no se le vuelve a ofrecer. La web no tiene forma de
+    // saber por sí sola si está instalada. Si no lo estuviera, Chrome se queda
+    // en esta misma página.
+    _abrirAppInstalada() {
+        if (!/Android/i.test(navigator.userAgent)) return;
+        const vuelta = encodeURIComponent(window.location.href);
+        window.location.href = `intent://localhost/#Intent;scheme=https;package=${ANDROID_PACKAGE};S.browser_fallback_url=${vuelta};end`;
+    },
+
     elegirModo(modo) {
         try { localStorage.setItem('modoUso', modo); } catch (_) {}
         const pant = document.getElementById('modoScreen');
         if (pant) pant.style.display = 'none';
-        if (modo === 'apk') this.instalarApp();
+        if (modo === 'instalada') this._abrirAppInstalada();
+        else if (modo === 'apk') this.instalarApp();
     },
 
     async instalarApp() {

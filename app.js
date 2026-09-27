@@ -8158,6 +8158,16 @@ const app = {
         }).catch(() => {});
     },
 
+    // Quien ya tiene la aplicación: se abre —por el mismo enlace por el que
+    // vuelve de Google— y no se le vuelve a ofrecer. La web no tiene forma de
+    // saber por sí sola si está instalada. Si no lo estuviera, Chrome se queda
+    // en esta misma página.
+    _abrirAppInstalada() {
+        if (!/Android/i.test(navigator.userAgent)) return;
+        const vuelta = encodeURIComponent(window.location.href);
+        window.location.href = `intent://localhost/#Intent;scheme=https;package=${ANDROID_PACKAGE};S.browser_fallback_url=${vuelta};end`;
+    },
+
     elegirModo(modo) {
         try { localStorage.setItem('modoUso', modo); } catch (_) {}
         const pant = document.getElementById('modoScreen');
@@ -8165,7 +8175,8 @@ const app = {
         // El cartel de abajo se queda en los dos casos: si se ha descargado
         // el APK y algo ha fallado, sigue teniendo el botón a mano.
         try { window._ofrecerInstalarSiToca?.(); } catch (_) {}
-        if (modo === 'apk') this.instalarApp();
+        if (modo === 'instalada') this._abrirAppInstalada();
+        else if (modo === 'apk') this.instalarApp();
     },
 
     async _checkForUpdates(showFeedback = false) {
@@ -8341,6 +8352,8 @@ function _enLaApp() {
 
 function _puedeOfrecerInstalar() {
     if (_enLaApp()) return false;
+    // Ha dicho que ya la tiene: no se le vuelve a ofrecer
+    try { if (localStorage.getItem('modoUso') === 'instalada') return false; } catch (_) {}
     if (_isStandalone) return false;
     for (const id of ['rolScreen', 'modoScreen']) {
         const p = document.getElementById(id);
