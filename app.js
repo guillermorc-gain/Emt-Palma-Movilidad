@@ -8408,6 +8408,9 @@ app.instalarApp = async function() {
     app._mostrarToast?.('⬇️ Descargando ' + apk.version + '…', 4000);
     // Los APK de GitHub vienen con Content-Disposition: se descargan sin
     // sacarle de la página.
+    // Quien ya la ha descargado no necesita que se le siga ofreciendo
+    try { localStorage.setItem('bannerCerradoHasta', String(Date.now() + 30 * 24 * 3600 * 1000)); } catch (_) {}
+    document.getElementById('installBanner')?.classList.remove('show');
     window.location.href = apk.url;
 };
 // Cerrarlo con la × lo aparta una semana; decir que ya se tiene, para siempre
