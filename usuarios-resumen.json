@@ -1542,7 +1542,7 @@
     "apps": [
       "trabajador"
     ],
-    "oculto": true
+    "oculto": false
   },
   "guillermo.rcxx@gmail.com": {
     "email": "guillermo.rcxx@gmail.com",
