@@ -1,6 +1,6 @@
 {
   "appId": "com.guillermorc.controlemt",
-  "appName": "Control de acceso EMT - Movilidad",
+  "appName": "EMT - Palma (Control de acceso)",
   "webDir": "www-control",
   "server": {
     "androidScheme": "https"

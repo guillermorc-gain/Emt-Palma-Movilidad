@@ -73,8 +73,8 @@ const RELEASE_PREFIX  = ES_GC ? 'gcontrol-build-' : 'control-build-';
 // Cada aplicación lleva su propio número de versión publicada
 const VERSION_KEY     = ES_GC ? 'gestionControl' : 'control';
 
-const NOMBRE_APP = ES_GC ? 'Gestión control de acceso EMT - Movilidad'
-                         : 'Control de acceso EMT - Movilidad';
+const NOMBRE_APP = ES_GC ? 'Gestión EMT - Palma (Control de acceso)'
+                         : 'EMT - Palma (Control de acceso)';
 
 const AVATAR_EMOJIS = ['🚌','⭐','🔥','⚡','🌊','🎯','🚀','🦸','🎨','🌈'];
 const AVATAR_BG     = ['#667eea','#e74c3c','#f39c12','#27ae60','#3498db','#9b59b6','#1abc9c','#e67e22','#764ba2','#e91e63'];

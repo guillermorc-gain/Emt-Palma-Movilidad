@@ -32,7 +32,7 @@ jobs:
         include:
           - rol: control
             appid: com.guillermorc.controlemt
-            nombre: Control de acceso EMT - Movilidad
+            nombre: EMT - Palma (Control de acceso)
             bg: "21,101,192"
             color: "#1565C0"
             icono: "icons/icon-192.png"
@@ -43,7 +43,7 @@ jobs:
             apk: control-acceso-emt
           - rol: gestion-control
             appid: com.guillermorc.gcontrolemt
-            nombre: Gestión control de acceso EMT - Movilidad
+            nombre: Gestión EMT - Palma (Control de acceso)
             bg: "108,52,131"
             color: "#6C3483"
             icono: "icons/icon-gc-192.png"
