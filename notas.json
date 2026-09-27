@@ -251,16 +251,18 @@
         "texto": "Hola",
         "adjuntos": [],
         "en": "2026-09-27T17:04:31.175Z"
+      },
+      {
+        "de": "gestor",
+        "autor": "Guillermo Rios",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-27T17:16:09.534Z"
       }
     ],
     "archivada": false,
     "de": "trabajador",
     "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "guillermo.rcvpn@gmail.com",
-      "nombre": "Guillermo Rios",
-      "en": "2026-09-27T17:16:04.340Z"
-    }
+    "estado": "pendiente"
   }
 }
