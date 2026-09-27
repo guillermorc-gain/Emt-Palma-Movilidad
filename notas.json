@@ -141,28 +141,5 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-27T14:17:09.901Z"
     }
-  },
-  "20260927141742796-ctvg7-0": {
-    "id": "20260927141742796-ctvg7-0",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-27T14:17:42.796Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Sonido de mensajes normal y cuando entras en la aplicación te suena el sonido que ha personalizado otra vez",
-        "adjuntos": [],
-        "en": "2026-09-27T14:17:42.796Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "companero",
-    "deEmail": "guillermo.rc82@gmail.com",
-    "deNombre": "Guillermo Ríos Correa",
-    "deConductor": "1418-3",
-    "estado": "pendiente"
   }
 }
