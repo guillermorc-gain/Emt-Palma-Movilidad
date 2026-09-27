@@ -1595,6 +1595,8 @@ const app = {
         // salir tiene que dejarlo como estaba antes de entrar.
         this._olvidarLoDelAnterior();
         ['gAccessToken', 'gTokenExpiry', 'gRefreshToken'].forEach(k => localStorage.removeItem(k));
+        // En el navegador, a la bienvenida de la página; en la app, a entrar
+        if (!_enLaApp()) { window.location.replace('/'); return; }
         this.mostrarAuth();
     },
 

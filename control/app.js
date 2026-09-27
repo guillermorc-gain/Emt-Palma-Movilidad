@@ -510,7 +510,8 @@ const app = {
             // dejarlo como estaba antes de entrar.
             try { localStorage.clear(); } catch (_) {}
             try { sessionStorage.clear(); } catch (_) {}
-            window.location.reload();
+            // En el navegador, a la bienvenida de la página; en la app, a entrar
+            if (this._enLaApp()) window.location.reload(); else window.location.replace('/');
         });
     },
 
@@ -540,7 +541,8 @@ const app = {
         this._olvidarSesion();
         try { localStorage.clear(); } catch (_) {}
         try { sessionStorage.clear(); } catch (_) {}
-        window.location.reload();
+        // En el navegador, a la bienvenida de la página; en la app, a entrar
+            if (this._enLaApp()) window.location.reload(); else window.location.replace('/');
     },
 
     // ── Pantallas ────────────────────────────────────────────────────────────
