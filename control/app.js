@@ -2177,7 +2177,7 @@ const app = {
             const fila = document.getElementById('opsAplicacion');
             if (fila) fila.hidden = false;
         }
-        if (!this._debePreguntarModo()) return;
+        if (!this._debePreguntarModo()) { this._ofrecerDescarga(); return; }
         const pant = document.getElementById('modoScreen');
         if (!pant) return;
         pant.style.display = '';
@@ -2202,8 +2202,24 @@ const app = {
         try { localStorage.setItem('modoUso', modo); } catch (_) {}
         const pant = document.getElementById('modoScreen');
         if (pant) pant.style.display = 'none';
-        if (modo === 'instalada') this._abrirAppInstalada();
-        else if (modo === 'apk') this.instalarApp();
+        if (modo === 'apk') this.instalarApp();
+        else this._ofrecerDescarga();
+    },
+
+    // La franja de abajo, en el navegador y fuera de la app instalada. La ×
+    // la aparta una semana; descargar, un mes.
+    _ofrecerDescarga() {
+        if (this._enLaApp() || /iPad|iPhone|iPod/.test(navigator.userAgent)) return;
+        if (Date.now() < parseInt(localStorage.getItem('bannerCerradoHasta') || '0', 10)) return;
+        const b = document.getElementById('installBanner');
+        const t = document.getElementById('installBannerTit');
+        if (t) t.textContent = '📲 Descargar ' + NOMBRE_APP;
+        if (b) b.style.display = 'flex';
+    },
+
+    ocultarInstallBanner() {
+        const b = document.getElementById('installBanner'); if (b) b.style.display = 'none';
+        try { localStorage.setItem('bannerCerradoHasta', String(Date.now() + 7 * 24 * 3600 * 1000)); } catch (_) {}
     },
 
     async instalarApp() {
@@ -2213,6 +2229,8 @@ const app = {
             return;
         }
         this._mostrarToast('⬇️ Descargando ' + apk.version + '…', 4000);
+        try { localStorage.setItem('bannerCerradoHasta', String(Date.now() + 30 * 24 * 3600 * 1000)); } catch (_) {}
+        const b = document.getElementById('installBanner'); if (b) b.style.display = 'none';
         // Los APK de GitHub se descargan sin sacarle de la página
         window.location.href = apk.url;
     },
