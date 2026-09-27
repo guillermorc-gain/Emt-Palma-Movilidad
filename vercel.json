@@ -172,32 +172,6 @@
   ],
   "rewrites": [
     {
-      "source": "/",
-      "missing": [
-        {
-          "type": "query",
-          "key": "app"
-        },
-        {
-          "type": "query",
-          "key": "code"
-        },
-        {
-          "type": "query",
-          "key": "error"
-        },
-        {
-          "type": "query",
-          "key": "state"
-        },
-        {
-          "type": "query",
-          "key": "access_token"
-        }
-      ],
-      "destination": "/bienvenida.html"
-    },
-    {
       "source": "/gestion",
       "destination": "/gestion/index.html"
     },
@@ -222,5 +196,34 @@
     "deploymentEnabled": {
       "datos": false
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/",
+      "missing": [
+        {
+          "type": "query",
+          "key": "app"
+        },
+        {
+          "type": "query",
+          "key": "code"
+        },
+        {
+          "type": "query",
+          "key": "error"
+        },
+        {
+          "type": "query",
+          "key": "state"
+        },
+        {
+          "type": "query",
+          "key": "access_token"
+        }
+      ],
+      "destination": "/bienvenida.html",
+      "permanent": false
+    }
+  ]
 }
