@@ -73,45 +73,6 @@
     "deConductor": "💻",
     "estado": "pendiente"
   },
-  "20260927140809120-97a45-0": {
-    "id": "20260927140809120-97a45-0",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-27T14:08:09.120Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "trabajador",
-        "autor": "Desarrollador",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T14:08:09.120Z"
-      },
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Gestión",
-        "adjuntos": [],
-        "en": "2026-09-27T14:12:53.112Z"
-      },
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "No me sale la foto de google del correo guillermo.rcxx@gmail.com",
-        "adjuntos": [],
-        "en": "2026-09-27T14:16:54.770Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-27T14:17:09.901Z"
-    }
-  },
   "20260927141802151-jfjuu-0": {
     "id": "20260927141802151-jfjuu-0",
     "email": "g.rioscorrea@gmail.com",
