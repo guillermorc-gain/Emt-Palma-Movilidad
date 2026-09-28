@@ -10,7 +10,7 @@
     "diasMes": 20,
     "turno": "M",
     "puesto": "Control",
-    "actualizado": "2026-09-28T17:35:18.332Z",
+    "actualizado": "2026-09-28T17:35:35.129Z",
     "horaInicio": "09:00",
     "horaFin": "12:30",
     "horarioDe": "hoy",
@@ -1568,7 +1568,7 @@
       "trabajador"
     ],
     "oculto": false,
-    "comunicacion": false
+    "comunicacion": true
   },
   "guillermo.rcxx@gmail.com": {
     "email": "guillermo.rcxx@gmail.com",
