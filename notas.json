@@ -1,1 +1,25 @@
-{}
+{
+  "20260928224704176-bl39b-0": {
+    "id": "20260928224704176-bl39b-0",
+    "email": "guillermo.rc82@gmail.com",
+    "creado": "2026-09-28T22:47:04.176Z",
+    "nombre": "Guillermo Ríos Correa",
+    "conductor": "1418-3",
+    "mensajes": [
+      {
+        "de": "g.rioscorrea@gmail.com",
+        "autor": "Desarrollador",
+        "texto": "Je",
+        "adjuntos": [],
+        "en": "2026-09-28T22:47:04.176Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "companero",
+    "deEmail": "g.rioscorrea@gmail.com",
+    "deNombre": "Desarrollador",
+    "deConductor": "💻",
+    "estado": "pendiente"
+  }
+}
