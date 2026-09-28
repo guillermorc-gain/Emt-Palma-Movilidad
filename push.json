@@ -25,8 +25,8 @@
       "email": "guillermo.rc82@gmail.com",
       "app": "trabajador",
       "bandeja": false,
-      "control": false,
-      "en": "2026-09-28T23:30:05.578Z"
+      "control": true,
+      "en": "2026-09-28T23:30:07.228Z"
     }
   }
 }
