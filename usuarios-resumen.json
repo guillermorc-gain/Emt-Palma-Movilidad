@@ -1850,35 +1850,6 @@
       "20260930": "Son Rossinyol"
     }
   },
-  "prueba-1789759514777@prueba.local": {
-    "nombre": "Xisca",
-    "conductor": "8955-6",
-    "puesto": "Control de acceso",
-    "avatar": null,
-    "version": "build-119",
-    "horasMes": 0,
-    "horasTotales": 0,
-    "diasMes": 0,
-    "horaInicio": "",
-    "horaFin": "",
-    "horarioDe": "anterior",
-    "turno": "",
-    "jornadaHoras": 7,
-    "horasAnuales": 1700,
-    "ritmo": "lv",
-    "dias": [
-      1,
-      2,
-      3,
-      4,
-      5
-    ],
-    "jornadas": [],
-    "email": "prueba-1789759514777@prueba.local",
-    "ficticio": true,
-    "actualizado": "2026-09-20T15:36:29.172Z",
-    "oculto": true
-  },
   "prueba-1789759539366@prueba.local": {
     "nombre": "Juan",
     "conductor": "9785-6",
