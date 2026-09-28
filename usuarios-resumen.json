@@ -2343,5 +2343,42 @@
     ],
     "grupo": null,
     "actualizado": "2026-09-28T07:43:36.552Z"
+  },
+  "g.rioscorrea@gmail.com": {
+    "email": "g.rioscorrea@gmail.com",
+    "nombre": "Guillermo Ríos Correa",
+    "conductor": "",
+    "avatar": null,
+    "avatarEmoji": null,
+    "avatarBg": null,
+    "version": "build-380",
+    "horasMes": 0,
+    "horasTotales": 0,
+    "horasAnuales": 777,
+    "jornadaHoras": 7.5,
+    "dias": null,
+    "diasAt": 0,
+    "diasMes": 0,
+    "turno": "",
+    "horaInicio": "",
+    "horaFin": "",
+    "horarioDe": "anterior",
+    "jornadas": [],
+    "vacaciones": [],
+    "vacacionesAt": 0,
+    "puesto": "",
+    "horario": "",
+    "horarios": {},
+    "horariosDia": {},
+    "tramosDia": {},
+    "revisiones": {},
+    "avisoVisto": null,
+    "apps": [
+      "trabajador"
+    ],
+    "grupo": null,
+    "comunicacion": true,
+    "bienvenidaVista": false,
+    "actualizado": "2026-09-28T23:29:18.846Z"
   }
 }
