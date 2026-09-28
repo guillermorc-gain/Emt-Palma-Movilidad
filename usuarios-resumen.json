@@ -2351,7 +2351,7 @@
     "avatar": null,
     "avatarEmoji": null,
     "avatarBg": null,
-    "version": "build-380",
+    "version": "build-381",
     "horasMes": 0,
     "horasTotales": 0,
     "horasAnuales": 777,
@@ -2379,6 +2379,6 @@
     "grupo": null,
     "comunicacion": true,
     "bienvenidaVista": true,
-    "actualizado": "2026-09-28T23:29:26.946Z"
+    "actualizado": "2026-09-28T23:29:45.458Z"
   }
 }
