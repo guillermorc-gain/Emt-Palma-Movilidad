@@ -55,6 +55,10 @@ async function setFile(FILE_PATH, emails, sha) {
 const SOLICITUDES = 'solicitudes.json';
 const CLAVE_WEB = process.env.FIREBASE_WEB_KEY || 'AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI';
 const COMO = { trabajador: 'movilidad', gestion: 'gestion' };
+// Adónde lleva el enlace del correo: a su app, donde lo dejó, que ya sabe que
+// está autorizado y le pregunta si sigue en el navegador o baja la aplicación
+const WEB = process.env.WEB_PUBLICA || 'https://emt-palma-movilidad.vercel.app';
+const seguirEn = como => como === 'gestion' ? `${WEB}/gestion/?autorizado=1` : `${WEB}/?app=trabajador&autorizado=1`;
 
 async function leerJson(ruta) {
   const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${ruta}?ref=${BRANCH}&t=${Date.now()}`,
@@ -91,7 +95,7 @@ async function yaAutorizado(email) {
 
 // El correo de confirmación, mandado desde aquí: con la cuenta de servicio se
 // entra como ese usuario (token propio firmado) y se pide el correo a Firebase.
-async function mandarConfirmacion(uid) {
+async function mandarConfirmacion(uid, como) {
   const sa = cuentaDeServicio();
   if (!sa) throw new Error('Falta la clave de Firebase en el servidor');
   const ahora = Math.floor(Date.now() / 1000);
@@ -108,7 +112,18 @@ async function mandarConfirmacion(uid) {
     return d;
   };
   const { idToken } = await post('signInWithCustomToken', { token: jwt, returnSecureToken: true });
-  await post('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken });
+  await post('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken, continueUrl: seguirEn(como) });
+}
+
+// Quien entró con Google no tiene nada que confirmar, pero también tiene que
+// enterarse: Firebase le manda un correo con el enlace para seguir. No hace
+// falta cuenta de servicio, solo que esté activado el acceso por enlace.
+async function mandarAvisoGoogle(email, como) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${CLAVE_WEB}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestType: 'EMAIL_SIGNIN', email, continueUrl: seguirEn(como), canHandleCodeInApp: true }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Firebase: ' + (d?.error?.message || r.status));
 }
 
 async function cuentasDeCorreo(req, res) {
@@ -125,7 +140,7 @@ async function cuentasDeCorreo(req, res) {
     if (como && !esFirebase) return res.status(200).json({ aprobado: true });
     if (como) {
       // Ya tenía acceso: la confirmación va directa
-      await mandarConfirmacion(s.uid);
+      await mandarConfirmacion(s.uid, como);
       await mutarSolicitudes(d => { if (!d[s.email]) return null; delete d[s.email]; return d; }, `Solicitud de ${s.email} resuelta`);
       // Solo para enterarse: ya estaba autorizado, no hay nada que decidir
       if (q.solicitud !== undefined) {
@@ -169,10 +184,15 @@ async function cuentasDeCorreo(req, res) {
   const { emails, sha } = await getFile(APPS[app].file);
   if (!emails.map(e => String(e).toLowerCase()).includes(email)) emails.push(email);
   if (!await setFile(APPS[app].file, emails, sha)) return res.status(500).json({ error: 'No se pudo apuntar en la lista' });
-  // Las de Google ya vienen verificadas: con apuntarlas basta
-  if (!sol.google && sol.uid) await mandarConfirmacion(sol.uid);
+  // Ya está apuntado: el correo se intenta, y si falla se dice, pero el alta vale
+  let correo = true, aviso = '';
+  try {
+    if (sol.google) await mandarAvisoGoogle(email, req.body.como);
+    else if (sol.uid) await mandarConfirmacion(sol.uid, req.body.como);
+    else correo = false;
+  } catch (e) { correo = false; aviso = e.message; }
   await mutarSolicitudes(d => { delete d[email]; return d; }, `Solicitud de ${email} aprobada (${req.body.como})`);
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, correo, ...(aviso ? { aviso } : {}) });
 }
 
 export default async function handler(req, res) {

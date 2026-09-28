@@ -460,6 +460,7 @@ const app = {
     _updateApkUrl: null,
 
     async init() {
+        this._alVolverAutorizado();
         this._preguntarConQueApp();
         this._instalarFirmaApi();
         this._vigilarEnvios();
@@ -637,6 +638,10 @@ const app = {
 
         if (this.accessToken && Date.now() < this.tokenExpiry) {
             this._loadUserAndStart();
+        } else if (localStorage.getItem('fbPendRefresh') && !this._esCuentaCorreo()) {
+            // Una cuenta de correo que esperaba la autorización: se mira si ya
+            // la tiene y, si es así, entra sola
+            this._retomarCuentaPendiente();
         } else {
             const isAndroidNative = !!(window.Capacitor?.isNativePlatform?.());
             const hasSession = !!(localStorage.getItem('gUserEmail') && (this.refreshToken || localStorage.getItem('gUserEmail')));
@@ -836,11 +841,13 @@ const app = {
                 this.mostrarAuth();
                 const pedida = await this._pedirAccesoAlDepartamento('trabajador');
                 this.mostrarMensaje(pedida
-                    ? `La cuenta ${this.usuarioActual.email} aún no tiene acceso. Hemos avisado al Departamento: cuando te autoricen, vuelve a entrar.`
+                    ? `⏳ La cuenta ${this.usuarioActual.email} está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
+                      + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en spam).'
                     : '❌ La cuenta ' + this.usuarioActual.email + ' no tiene acceso a esta aplicación.', 'error');
                 return;
             }
             this.mostrarApp();
+            this._avisarRecienAutorizado();
             this._sincronizarAvisosNativos();
             this._caArrancar();
             this._alEntrarPrimeraVez();
@@ -1971,8 +1978,9 @@ const app = {
             const u = info.users?.[0] || {};
             if (!u.emailVerified) {
                 this._fbPendiente = d.idToken;
-                this.mostrarMensaje('Tu cuenta aún no está lista: primero la aprueba el Departamento y después te llega un correo '
-                    + 'para confirmarla. Si ya te llegó, abre el enlace y vuelve a darle a Entrar. ¿No lo encuentras? Mira en spam '
+                this._apuntarPendiente(d);
+                this.mostrarMensaje('⏳ Tu cuenta está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: '
+                    + 'entonces te llegará un correo con un enlace para seguir. Si ya te llegó, ábrelo. ¿No lo encuentras? Mira en spam '
                     + 'o pulsa «Reenviar el correo».', 'error');
                 const re = document.getElementById('cReenviar');
                 if (re) re.hidden = false;
@@ -1993,10 +2001,12 @@ const app = {
             await this._fbPost('update', { idToken: d.idToken, displayName: nombre.slice(0, 80), returnSecureToken: false }).catch(() => {});
             // Antes del correo de confirmación, el Departamento tiene que
             // aprobarla (y decir si es de gestión o trabajador)
-            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre });
+            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'trabajador' });
+            this._apuntarPendiente(d);
             this.mostrarMensaje(r.aprobado
-                ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarlo y luego pulsa Entrar.`
-                : `✅ Cuenta creada y enviada al Departamento para aprobarla. Cuando la aprueben te llegará un correo a ${d0.email}: abre el enlace y luego pulsa Entrar.`, 'success');
+                ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarla y seguirás desde aquí.`
+                : `⏳ Cuenta creada. Ahora tienes que esperar a que el Departamento la autorice. Cuando lo haga te llegará un correo a ${d0.email} `
+                  + 'avisándote, con un enlace para seguir donde lo has dejado (mira también en spam).', 'success');
         } catch (e) { this.mostrarMensaje(e.message, 'error'); }
     },
 
@@ -2028,6 +2038,68 @@ const app = {
             await this._fbPost('sendOobCode', { requestType: 'PASSWORD_RESET', email });
             this.mostrarMensaje(`📧 Si ${email} tiene cuenta, te llegará un correo para poner una contraseña nueva.`, 'success');
         } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    // La cuenta de correo que espera la autorización: se guarda su sesión, sin
+    // usarla, para que al abrir el enlace del correo siga ya dentro, sin
+    // volver a escribir la contraseña.
+    _apuntarPendiente(d) {
+        try {
+            localStorage.setItem('fbPendRefresh', d.refreshToken);
+            localStorage.setItem('fbPendEmail', String(d.email || '').toLowerCase());
+        } catch (_) {}
+    },
+
+    async _retomarCuentaPendiente() {
+        const rt = localStorage.getItem('fbPendRefresh');
+        try {
+            const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${this.FIREBASE_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt }) });
+            if (r.status === 400 || r.status === 401 || r.status === 403) ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k));
+            if (!r.ok) { this.mostrarAuth(); return; }
+            const j = await r.json();
+            const claims = JSON.parse(atob(j.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            if (!claims.email_verified) {
+                localStorage.setItem('fbPendRefresh', j.refresh_token);
+                this._fbPendiente = j.id_token;
+                this.mostrarAuth();
+                this.mostrarEntradaCorreo(true);
+                const cE = document.getElementById('cEmail');
+                if (cE && claims.email) cE.value = claims.email;
+                const re = document.getElementById('cReenviar');
+                if (re) re.hidden = false;
+                this.mostrarMensaje(`⏳ La cuenta ${claims.email || ''} sigue pendiente de autorización. Cuando el Departamento la autorice `
+                    + 'te llegará un correo con el enlace para seguir.', 'error');
+                return;
+            }
+            ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k));
+            this._guardarSesionCorreo({ idToken: j.id_token, refreshToken: j.refresh_token, expiresIn: j.expires_in,
+                                        email: claims.email }, claims.name || '');
+            this._loadUserAndStart();
+        } catch (_) { this.mostrarAuth(); }
+    },
+
+    // Viene del enlace del correo de «ya estás autorizado»: se le vuelve a
+    // preguntar si sigue en el navegador o se baja la aplicación, y se limpia
+    // la dirección (Firebase le añade sus códigos) dejando solo la app.
+    _alVolverAutorizado() {
+        const q = new URLSearchParams(window.location.search);
+        if (!q.has('autorizado')) return;
+        try {
+            localStorage.removeItem('modoUso');
+            sessionStorage.setItem('recienAutorizado', '1');
+        } catch (_) {}
+        const app = q.get('app');
+        history.replaceState(null, '', window.location.pathname + (app ? '?app=' + encodeURIComponent(app) : ''));
+    },
+
+    _avisarRecienAutorizado() {
+        try {
+            if (!sessionStorage.getItem('recienAutorizado')) return;
+            sessionStorage.removeItem('recienAutorizado');
+        } catch (_) { return; }
+        setTimeout(() => this._mostrarToast('✅ Tu cuenta ya está autorizada. ¡Bienvenido!', 5000), 600);
     },
 
     _guardarSesionCorreo(d, nombre) {

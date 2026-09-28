@@ -500,6 +500,7 @@ const app = {
     },
 
     async init() {
+        this._alVolverAutorizado();
         this._pintarIdentidadApp();
         this._instalarFirmaApi();
         this._vigilarEnvios();
@@ -812,11 +813,15 @@ const app = {
                 const pedida = !ES_APP_DEV && await this._pedirAccesoAlDepartamento('gestion');
                 this.mostrarMensaje(ES_APP_DEV
                     ? `❌ Has entrado con ${conQue}. Esta aplicación es solo para ${SUPER_USER_EMAIL}.`
-                    : pedida ? `La cuenta ${conQue} aún no tiene acceso. Hemos avisado al desarrollador: cuando te autorice, vuelve a entrar.`
+                    : pedida ? `⏳ La cuenta ${conQue} está pendiente de autorización. Tienes que esperar a que el desarrollador la autorice: `
+                      + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en spam).'
                     : `❌ La cuenta ${conQue} no tiene acceso a esta aplicación.`, 'error');
                 // Y que la próxima vez vuelva a preguntar la cuenta: si se queda
                 // guardada la sesión, al abrir entra sola otra vez con la que no
-                // vale y se vuelve a quedar a medias sin decir por qué.
+                // vale y se vuelve a quedar a medias sin decir por qué. Salvo si
+                // está esperando la autorización: entonces se guarda, para que
+                // el enlace del correo le deje ya dentro.
+                if (pedida) return;
                 this.accessToken  = null;
                 this.tokenExpiry  = 0;
                 this.refreshToken = null;
@@ -825,6 +830,7 @@ const app = {
                 return;
             }
             this.mostrarApp();
+            this._avisarRecienAutorizado();
             this._caComprobarAcceso();
             this._cargarSolicitudes();
             this._tutorialPrimeraVez();
@@ -4894,6 +4900,26 @@ const app = {
             .catch(() => {});
     },
 
+    // Viene del enlace del correo de «ya estás autorizado»: se le vuelve a
+    // preguntar si sigue en el navegador o se baja la aplicación, y se limpia
+    // la dirección, que Firebase le añade sus códigos.
+    _alVolverAutorizado() {
+        if (!new URLSearchParams(window.location.search).has('autorizado')) return;
+        try {
+            localStorage.removeItem('modoUso');
+            sessionStorage.setItem('recienAutorizado', '1');
+        } catch (_) {}
+        history.replaceState(null, '', window.location.pathname);
+    },
+
+    _avisarRecienAutorizado() {
+        try {
+            if (!sessionStorage.getItem('recienAutorizado')) return;
+            sessionStorage.removeItem('recienAutorizado');
+        } catch (_) { return; }
+        setTimeout(() => this._mostrarToast('✅ Tu cuenta ya está autorizada. ¡Bienvenido!', 5000), 600);
+    },
+
     // Quien entra sin estar autorizado pide el alta solo: al desarrollador le
     // llega el aviso y lo apunta como gestión o trabajador con un toque.
     async _pedirAccesoAlDepartamento(app) {
@@ -4949,12 +4975,12 @@ const app = {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, como }) });
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { this._mostrarToast('❌ ' + (d.error || r.status), 5000); return; }
-            const deGoogle = (this._solicitudes || []).find(s => s.email === email)?.google;
             this._solicitudes = (this._solicitudes || []).filter(s => s.email !== email);
             this._pintarSolicitudes();
-            this._mostrarToast(como ? `✅ Apuntado como ${como === 'gestion' ? 'gestión' : 'trabajador'}: ${deGoogle
-                    ? 'ya puede entrar con Google' : 'le hemos mandado el correo de confirmación'}`
-                                    : '🗑️ Solicitud rechazada', 4000);
+            const quien = como === 'gestion' ? 'gestión' : 'trabajador';
+            this._mostrarToast(!como ? '🗑️ Solicitud rechazada'
+                : d.correo === false ? `⚠️ Apuntado como ${quien}, pero no se pudo mandar el correo${d.aviso ? ' (' + d.aviso + ')' : ''}. Avísale tú.`
+                : `✅ Apuntado como ${quien}: le hemos mandado el correo de que ya está autorizado`, d.correo === false ? 8000 : 4000);
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
 
