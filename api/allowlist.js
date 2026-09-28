@@ -122,6 +122,12 @@ async function cuentasDeCorreo(req, res) {
       // Ya tenía acceso: la confirmación va directa
       await mandarConfirmacion(s.uid);
       await mutarSolicitudes(d => { if (!d[s.email]) return null; delete d[s.email]; return d; }, `Solicitud de ${s.email} resuelta`);
+      // Solo para enterarse: ya estaba autorizado, no hay nada que decidir
+      if (q.solicitud !== undefined) {
+        const nombre = String(req.body?.nombre || s.nombre || '').slice(0, 80);
+        await avisarDesarrollador(GESTOR_PRINCIPAL, { tipo: 'registro', titulo: '✅ Cuenta registrada',
+          texto: `${nombre ? nombre + ' · ' : ''}${s.email} (${como === 'gestion' ? 'gestión' : 'trabajador'}) se ha registrado. Le hemos mandado el correo de confirmación.` });
+      }
       return res.status(200).json({ aprobado: true });
     }
     if (q.reenviar !== undefined) return res.status(403).json({ error: 'Tu cuenta aún no está aprobada por el Departamento.' });

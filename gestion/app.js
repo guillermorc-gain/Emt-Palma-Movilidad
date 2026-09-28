@@ -4946,6 +4946,7 @@ const app = {
         else if (tipo === 'acceso') { this._caTraer?.(); this.caCargarVisitantes?.(); }
         else if (tipo === 'plantilla' && !document.querySelector('.modal.show')) this._cargarConductores(true);
         else if (tipo === 'solicitud') this._cargarSolicitudes();
+        else if (tipo === 'registro') this._mostrarToast('✅ Se ha registrado una cuenta que ya estaba autorizada: le ha llegado el correo de confirmación', 5000);
     },
 
     _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
