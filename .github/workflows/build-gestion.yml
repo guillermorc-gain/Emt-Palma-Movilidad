@@ -14,6 +14,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/debug.keystore.b64'
+      - '.github/google-services.json'
   workflow_dispatch:
 jobs:
   build-apk:
@@ -123,6 +124,8 @@ jobs:
           sed -i 's|</activity>|        <intent-filter>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.DEFAULT" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="https" android:host="localhost" />\n        </intent-filter>\n    </activity>|' "$MANIFEST"
           sed -i 's|<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />|<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />|' "$MANIFEST"
           sed -i 's|</application>|    <receiver android:name=".MainActivity$GeofenceReceiver" android:exported="false" />\n    <receiver android:name=".MainActivity$ChatReceiver" android:exported="false" />\n    <receiver android:name=".MainActivity$LeidoReceiver" android:exported="false" />\n    <receiver android:name=".MainActivity$ResponderReceiver" android:exported="false" />\n    <service android:name=".MainActivity$ChatJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false" />\n    <service android:name=".MainActivity$AvisoService" android:foregroundServiceType="dataSync" android:exported="false" />\n    <receiver android:name=".MainActivity$BootReceiver" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter></receiver>\n    <receiver android:name=".MainActivity$RegistrarReceiver" android:exported="false"><intent-filter><action android:name="${{ matrix.appid }}.REGISTRAR"/></intent-filter></receiver>\n    <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/></provider>\n    </application>|' "$MANIFEST"
+          # Los avisos al instante de Firebase (ver PushService)
+          sed -i 's|</application>|    <service android:name=".MainActivity$PushService" android:exported="false"><intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT"/></intent-filter></service>\n    </application>|' "$MANIFEST"
 
       - name: Create FileProvider paths config
         run: |
@@ -192,6 +195,16 @@ jobs:
 
               public static final String PREFS      = "HorasEMT";
               public static final String CHANNEL_ID = "trabajo_cercano";
+
+              // Con la app delante, el aviso al instante no pone nada en la barra:
+              // solo le dice a la app que mire ya, y ella suena como siempre.
+              static volatile MainActivity delante;
+
+              @Override
+              public void onResume() { super.onResume(); delante = this; }
+
+              @Override
+              public void onPause() { delante = null; super.onPause(); }
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -320,6 +333,22 @@ jobs:
                           programarAvisoChat(ctx);
                           asegurarAvisoDeFondo(ctx);
                           arrancarVigilante(ctx);
+                      }
+
+                      // El token de los avisos al instante, para apuntarlo en el
+                      // servidor. La primera vez aún no está: se pide a Firebase y
+                      // la app vuelve a preguntar al rato.
+                      @JavascriptInterface
+                      public String pushToken() {
+                          String t = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("pushToken", "");
+                          if (t.isEmpty()) {
+                              try {
+                                  com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                                      .addOnSuccessListener(nuevo -> ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                                          .edit().putString("pushToken", nuevo == null ? "" : nuevo).apply());
+                              } catch (Exception ignored) {}
+                          }
+                          return t;
                       }
 
                       @JavascriptInterface
@@ -1116,6 +1145,28 @@ jobs:
 
               // El mismo repaso que hace la alarma, pero lanzado por el planificador
               // de Android, que es quien lo mantiene cuando la app no está delante.
+              // El aviso al instante de Firebase: alguien acaba de escribir. Con la
+              // app delante, que mire ya; si no, el mismo repaso de siempre, que
+              // monta el aviso con su nombre, su texto, su sonido y sus botones.
+              public static class PushService extends com.google.firebase.messaging.FirebaseMessagingService {
+                  @Override
+                  public void onMessageReceived(com.google.firebase.messaging.RemoteMessage msg) {
+                      final MainActivity act = delante;
+                      if (act != null && act.getBridge() != null && act.getBridge().getWebView() != null) {
+                          act.getBridge().getWebView().post(() -> act.getBridge().getWebView()
+                              .evaluateJavascript("window.dispatchEvent(new Event('avisoPush'))", null));
+                          return;
+                      }
+                      try { ChatReceiver.mirarChat(getApplicationContext()); } catch (Exception ignored) {}
+                  }
+
+                  @Override
+                  public void onNewToken(String token) {
+                      getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                          .putString("pushToken", token == null ? "" : token).apply();
+                  }
+              }
+
               public static class ChatJob extends android.app.job.JobService {
                   @Override
                   public boolean onStartJob(final android.app.job.JobParameters params) {
@@ -1559,6 +1610,11 @@ jobs:
         run: |
           GRADLE="android/app/build.gradle"
           sed -i "/dependencies {/a\\    implementation 'com.google.android.gms:play-services-location:21.0.1'" "$GRADLE"
+          # Avisos al instante: Firebase Cloud Messaging. La configuración
+          # (google-services.json) lleva las tres apps; la plantilla de Capacitor
+          # aplica sola el plugin de Google en cuanto el fichero está.
+          sed -i "/dependencies {/a\\    implementation 'com.google.firebase:firebase-messaging:23.1.2'" "$GRADLE"
+          cp .github/google-services.json android/app/google-services.json
 
       - name: Set native splash background color
         run: |

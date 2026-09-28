@@ -4680,6 +4680,7 @@ const app = {
 
     _iniciarSondeoChat() {
         this._pararSondeoChat();
+        this._registrarPush();
         window.AndroidBridge?.saveToPrefs?.('notifSoundChat', this.notifSoundChat || 'default');
         if (!this.usuarioActual?.email) return;
         this._timerChat = setInterval(() => this._sondearChat(), this.SONDEO_CHAT);
@@ -4696,6 +4697,36 @@ const app = {
         // Con qué nombre firma el visto que se dé desde el propio aviso
         window.AndroidBridge?.saveToPrefs?.('chatNombre', this.usuarioActual?.name || '');
     },
+
+    // ── Avisos al instante ───────────────────────────────────────────────────
+    // El móvil apunta en el servidor su token de Firebase, y así en cuanto
+    // alguien escribe le llega el aviso aunque la app esté cerrada, en vez de
+    // esperar a que le toque mirar. Se vuelve a apuntar cada semana, por si
+    // el servidor lo borró o el token cambió.
+    _registrarPush(intento = 0) {
+        if (!this._escuchaPush) {
+            this._escuchaPush = true;
+            // Con la app delante el aviso llega aquí: se mira ya
+            window.addEventListener('avisoPush', () => { this._huellaChat = null; this._sondearChat(); });
+        }
+        const email = this.usuarioActual?.email;
+        const token = window.AndroidBridge?.pushToken?.();
+        if (!email || token === undefined || token === null) return;   // web o app sin avisos
+        if (!token) {
+            if (intento < 6) setTimeout(() => this._registrarPush(intento + 1), 5000);
+            return;
+        }
+        const clave = `${email}|${this._appPush()}|${token}`;
+        let hecho = null;
+        try { hecho = JSON.parse(localStorage.getItem('pushApuntado') || 'null'); } catch (_) {}
+        if (hecho?.clave === clave && Date.now() - (hecho.en || 0) < 7 * 24 * 3600 * 1000) return;
+        fetch(this.NOTAS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ pushToken: token, app: this._appPush() }) })
+            .then(r => { if (r.ok) localStorage.setItem('pushApuntado', JSON.stringify({ clave, en: Date.now() })); })
+            .catch(() => {});
+    },
+
+    _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
 
     // Hasta dónde he leído, para que el aviso nativo no repita lo ya visto
     _ponerAlDiaElAviso() {
