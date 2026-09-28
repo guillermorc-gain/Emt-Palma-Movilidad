@@ -144,6 +144,19 @@ async function avisar({ id, emails, aGestion, quien }) {
   }
 }
 
+// Para comprobar que está bien puesto sin enseñar nada: si la clave se lee
+// y si Google la acepta, y cuántos móviles hay apuntados.
+export async function estadoPush() {
+  const sa = cuentaDeServicio();
+  let google = false, error = '';
+  if (sa) {
+    try { google = !!(await tokenDeGoogle(sa)); } catch (e) { error = e.message; }
+  }
+  let moviles = null;
+  try { moviles = Object.keys((await leer()).data.tokens || {}).length; } catch (_) {}
+  return { clave: !!sa, proyecto: sa?.project_id || '', google, ...(error ? { error } : {}), moviles };
+}
+
 // Que un aviso que falla o tarda no se lleve por delante el mensaje, que ya
 // está guardado: como mucho se espera unos segundos y se sigue.
 export async function avisarChat(datos) {
