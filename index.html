@@ -946,6 +946,17 @@
         .grupo-ok{background:linear-gradient(135deg,var(--g1,#1565C0),var(--g2,#003A99));color:#fff;border:none;border-radius:11px;padding:10px 18px;font-weight:700;font-size:14.5px;font-family:inherit;cursor:pointer;}
         .hilo-ed{background:none;border:none;font-size:15px;cursor:pointer;padding:0 4px;vertical-align:middle;}
         .bub-visto{font-size:10.5px;opacity:.8;margin-top:3px;text-align:right;}
+        /* Entrar con correo (sin Google) */
+        .auth-form .auth-correo-link,.auth-correo-link{background:none !important;border:none !important;box-shadow:none !important;color:var(--g1,#1565C0) !important;font-size:13.5px;font-weight:600;cursor:pointer;padding:8px;font-family:inherit;text-decoration:underline;width:auto;align-self:center;}
+        .auth-input{width:100%;padding:12px;border:1.5px solid #dadce0;border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;background:#fff;color:#2c3e50;}
+        .auth-btn{width:100%;padding:13px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,var(--g1,#1565C0),var(--g2,#003A99));color:#fff;}
+        .auth-btn.sec{background:#fff;color:var(--g1,#1565C0);border:1.5px solid var(--g1,#1565C0);}
+        #correoForm{display:flex;flex-direction:column;gap:10px;}
+        #correoForm[hidden],#loginForm[hidden]{display:none !important;}
+        .solo-correo{display:none;}
+        body.cuenta-correo .solo-correo{display:block;}
+        body.cuenta-correo .solo-google{display:none !important;}
+        .aviso-correo{font-size:12.5px;line-height:1.45;color:var(--text-secondary,#5a6b7d);background:rgba(21,101,192,.07);border-radius:10px;padding:10px 12px;margin:6px 14px;}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}
@@ -1306,11 +1317,24 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                 <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
                 Continuar con Google
             </button>
+            <button type="button" class="auth-correo-link" onclick="app.mostrarEntradaCorreo(true)">¿No tienes cuenta de Google? Entra con tu correo</button>
             <!-- Aquí había un aviso explicando cómo pasar la pantalla de
                  "aplicación no verificada" de Google. Ya no hace falta: al
                  entrar solo se piden permisos corrientes, que era lo que la
                  hacía salir. Si volviera a aparecer, sería porque se ha vuelto
                  a pedir alguno de los sensibles. -->
+        </div>
+        <!-- Entrar con un correo que no es de Google -->
+        <div class="auth-form" id="correoForm" hidden>
+            <p style="color:#7f8c8d;font-size:13px;text-align:center;margin-bottom:4px;">Con tu correo y una contraseña. Tus datos se guardan en este móvil.</p>
+            <input type="email" id="cEmail" class="auth-input" placeholder="Tu correo" autocomplete="email">
+            <input type="password" id="cPass" class="auth-input" placeholder="Contraseña (mínimo 6)" autocomplete="current-password">
+            <input type="text" id="cNombre" class="auth-input" placeholder="Nombre y apellidos (solo para crear la cuenta)" autocomplete="name">
+            <button type="button" class="auth-btn" onclick="app.entrarConCorreo()">Entrar</button>
+            <button type="button" class="auth-btn sec" onclick="app.crearCuentaCorreo()">Crear cuenta</button>
+            <button type="button" class="auth-correo-link" id="cReenviar" hidden onclick="app.reenviarVerificacion()">Reenviar el correo de confirmación</button>
+            <button type="button" class="auth-correo-link" onclick="app.olvideContrasena()">He olvidado la contraseña</button>
+            <button type="button" class="auth-correo-link" onclick="app.mostrarEntradaCorreo(false)">‹ Volver a entrar con Google</button>
         </div>
     </div>
 
@@ -2035,8 +2059,9 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div class="ops-section" id="sectionBackup">
                 <button class="ops-title" onclick="app.toggleSection(this)">☁️ Copia de Seguridad <span class="ops-chevron">›</span></button>
                 <div class="ops-body">
-                    <div id="lastBackupInfo" style="font-size:12px;color:var(--text-secondary);padding:6px 14px 2px;opacity:0.8;">Comprobando...</div>
-                    <div class="ops-field">
+                    <div class="solo-correo aviso-correo">📱 Tu cuenta no es de Google, así que no hay copia en Drive: tus jornadas y tu personalización se guardan en este móvil. <b>Si desinstalas la app o cambias de móvil, se pierden.</b> Exporta una copia de vez en cuando y guárdala; con «Importar archivo JSON» lo recuperas todo.</div>
+                    <div id="lastBackupInfo" class="solo-google" style="font-size:12px;color:var(--text-secondary);padding:6px 14px 2px;opacity:0.8;">Comprobando...</div>
+                    <div class="ops-field solo-google">
                         <span class="ops-field-label">🔄 Copia automática</span>
                         <div class="freq-row">
                             <label class="freq-opt"><input type="radio" name="backupFreq" value="hora"   onchange="app.guardarFrecuenciaCopia('hora')"><span>Cada hora</span></label>
@@ -2049,8 +2074,8 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                         <span class="ops-field-sub">Cada fin de mes se guarda en Drive, en <b>Movilidad Emt</b> › tu número y nombre, el JSON del mes y el histórico completo.</span>
                         <span class="ops-field-sub" id="mesesExportadosInfo" style="color:var(--g1);font-weight:700;"></span>
                     </div>
-                    <button class="ops-btn" onclick="app.hacerCopiaEnDrive()">☁️ Guardar copia en Google Drive <span class="ops-arrow">›</span></button>
-                    <button class="ops-btn" onclick="app.restaurarDesdeDrive()">⬇️ Restaurar desde Google Drive <span class="ops-arrow">›</span></button>
+                    <button class="ops-btn solo-google" onclick="app.hacerCopiaEnDrive()">☁️ Guardar copia en Google Drive <span class="ops-arrow">›</span></button>
+                    <button class="ops-btn solo-google" onclick="app.restaurarDesdeDrive()">⬇️ Restaurar desde Google Drive <span class="ops-arrow">›</span></button>
                     <button class="ops-btn" onclick="app.exportarDatos()">⬆️ Exportar datos JSON <span class="ops-arrow">›</span></button>
                     <button class="ops-btn" onclick="app.importarDatos()">⬇️ Importar archivo JSON <span class="ops-arrow">›</span></button>
                 </div>
