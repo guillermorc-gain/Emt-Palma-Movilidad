@@ -1,1 +1,37 @@
-{}
+{
+  "20260928221657882-8lcq2-g": {
+    "id": "20260928221657882-8lcq2-g",
+    "tipo": "grupo",
+    "creado": "2026-09-28T22:16:57.882Z",
+    "creadoPor": "g.rioscorrea@gmail.com",
+    "email": "g.rioscorrea@gmail.com",
+    "participantes": [
+      {
+        "email": "guillermo.rc82@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1418-3"
+      }
+    ],
+    "conGestion": true,
+    "titulo": "Yu",
+    "emoji": "👥",
+    "leidos": {
+      "gestion": {
+        "nombre": "Guillermo Ríos Correa",
+        "en": "2026-09-28T22:16:57.882Z"
+      }
+    },
+    "mensajes": [
+      {
+        "de": "gestor",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-28T22:16:57.882Z"
+      }
+    ],
+    "archivada": false,
+    "de": "gestor",
+    "estado": "pendiente"
+  }
+}
