@@ -149,6 +149,11 @@
         .tab-btn:active{opacity:0.55;}
         .tab-ico{font-size:21px;line-height:1;filter:grayscale(1) opacity(0.5);transition:filter 0.15s,transform 0.15s;pointer-events:none;}
         .tab-lbl{font-size:10px;font-weight:600;color:#8e8e93;letter-spacing:0.1px;transition:color 0.15s;pointer-events:none;}
+        /* Muchas pestañas (con el control de acceso son ocho): se reparten el
+           ancho y la etiqueta se acorta, para que ninguna se quede fuera */
+        .tab-btn{min-width:0;flex:1 1 0;}
+        .tab-lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .tab-bar.muchas .tab-lbl{font-size:8.5px;letter-spacing:0;}
         .tab-btn.active .tab-ico{filter:none;transform:scale(1.08);}
         .tab-btn.active .tab-lbl{color:var(--g1);font-weight:700;}
         .tab-bar.dark .tab-lbl{color:#7d8590;}
@@ -1036,6 +1041,64 @@
         .perfil-envio.enviando::before,.perfil-envio.enviando::after{opacity:1;animation:perfil-giro .9s linear infinite;}
         @keyframes perfil-giro{to{transform:rotate(360deg);}}
         html[data-tema="pastel"] .perfil-envio,html[data-tema="mediterraneo"] .perfil-envio{--anillo:var(--g1);}
+        /* ── Tutorial y bienvenida ── */
+        .tut-velo{position:fixed;inset:0;z-index:9000;background:rgba(8,16,34,.55);display:flex;align-items:flex-end;justify-content:center;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));animation:tut-in .25s ease;}
+        @keyframes tut-in{from{opacity:0}to{opacity:1}}
+        .tut-card{background:#fff;color:#1f2d45;border-radius:22px;width:100%;max-width:440px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:11px;box-shadow:0 12px 36px rgba(0,0,0,.3);font-family:inherit;}
+        .tut-ill{border-radius:14px;background:linear-gradient(160deg,#e9f1fc,#d6e5f8);padding:12px;display:flex;flex-direction:column;gap:7px;min-height:96px;justify-content:center;}
+        .tut-card h3{margin:0;font-size:18px;line-height:1.25;font-weight:700;color:#1f2d45;}
+        .tut-card p{margin:0;font-size:14px;line-height:1.5;color:#4b5a73;}
+        .tut-card p b{color:#1f2d45;}
+        .tut-dots{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
+        .tut-dots i{width:6px;height:6px;border-radius:50%;background:#cfd7e4;}
+        .tut-dots i.on{width:16px;border-radius:3px;background:var(--g1,#1565C0);}
+        .tut-btns{display:flex;justify-content:space-between;align-items:center;}
+        .tut-btns button{font-family:inherit;font-size:14.5px;border:none;cursor:pointer;}
+        .tut-skip{background:none;color:#7c889c;font-weight:500;padding:8px 4px;}
+        .tut-go{background:linear-gradient(135deg,var(--g1,#1565C0),var(--g2,#003A99));color:#fff;border-radius:11px;padding:10px 20px;font-weight:700;}
+        .tut-row{display:flex;gap:6px;flex-wrap:wrap;}
+        .tut-t{flex:1 1 28%;background:#fff;border-radius:9px;padding:6px 8px;font-size:10px;color:#7f8c9f;line-height:1.25;}
+        .tut-t b{display:block;font-size:16px;color:#1f2d45;font-variant-numeric:tabular-nums;}
+        .tut-t.a{background:linear-gradient(135deg,var(--g1,#1565C0),var(--g2,#003A99));color:#d8e6fa;}
+        .tut-t.a b{color:#fff;}
+        .tut-chip{font-size:11px;padding:4px 9px;border-radius:9px;background:#fff;color:#6c7a90;font-weight:700;white-space:nowrap;}
+        .tut-chip.on{background:linear-gradient(135deg,var(--g1,#1565C0),var(--g2,#003A99));color:#fff;}
+        .tut-bub{max-width:82%;font-size:12px;padding:7px 10px;border-radius:12px;background:#fff;color:#1f2d45;line-height:1.35;}
+        .tut-bub.yo{align-self:flex-end;background:var(--g1,#1565C0);color:#fff;}
+        .tut-bub small{display:block;font-size:10px;opacity:.75;font-weight:700;}
+        .tut-notif{background:#fff;border-radius:11px;padding:8px 10px;font-size:11.5px;color:#4b5a73;display:flex;gap:8px;align-items:flex-start;box-shadow:0 2px 6px rgba(20,40,80,.12);}
+        .tut-notif b{color:#1f2d45;display:block;font-size:12px;}
+        .tut-opt{background:#fff;border-radius:10px;padding:7px 10px;font-size:12px;color:#1f2d45;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+        .tut-opt em{font-style:normal;color:#7f8c9f;font-size:10.5px;display:block;}
+        .tut-sw{width:30px;height:17px;border-radius:9px;background:var(--g1,#1565C0);position:relative;flex-shrink:0;}
+        .tut-sw::after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff;}
+        .tut-sw.off{background:#c9d1dd;}.tut-sw.off::after{right:auto;left:2px;}
+        .tut-big{font-size:40px;text-align:center;line-height:1;}
+        .tut-line{height:7px;border-radius:4px;background:#fff;}
+        /* La bienvenida, a pantalla completa */
+        .bienv{position:fixed;inset:0;z-index:9100;background:linear-gradient(170deg,var(--g1,#1565C0),var(--g2,#003A99));color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px 20px calc(24px + env(safe-area-inset-bottom,0px));overflow-y:auto;animation:tut-in .25s ease;}
+        .bienv-in{width:100%;max-width:420px;display:flex;flex-direction:column;gap:16px;}
+        .bienv .tut-big{font-size:56px;}
+        .bienv h2{margin:0;font-size:23px;text-align:center;line-height:1.2;}
+        .bienv p{margin:0;font-size:14.5px;text-align:center;color:#d8e6fa;line-height:1.45;}
+        .bienv-ask{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:16px;padding:13px 14px;display:flex;gap:12px;align-items:center;cursor:pointer;text-align:left;color:#fff;font-family:inherit;width:100%;}
+        .bienv-ask b{font-size:15px;display:block;line-height:1.3;}
+        .bienv-ask span{font-size:12px;color:#d0e0f6;line-height:1.35;display:block;margin-top:3px;}
+        .bienv-sw{width:44px;height:25px;border-radius:13px;background:#4fd18b;position:relative;flex-shrink:0;transition:background .2s;}
+        .bienv-sw::after{content:"";position:absolute;top:3px;right:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:all .2s;}
+        .bienv-sw.off{background:rgba(255,255,255,.28);}
+        .bienv-sw.off::after{right:22px;}
+        .bienv-jor{display:flex;flex-direction:column;gap:8px;}
+        .bienv-jor b{font-size:14px;text-align:center;}
+        .bienv-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+        .bienv-seg button{border:1px solid rgba(255,255,255,.4);border-radius:12px;padding:10px 6px;text-align:center;font-size:14px;font-weight:700;line-height:1.25;background:none;color:#fff;font-family:inherit;cursor:pointer;}
+        .bienv-seg button small{display:block;font-weight:400;font-size:11px;color:#d0e0f6;}
+        .bienv-seg button.on{background:#fff;color:#003A99;border-color:#fff;}
+        .bienv-seg button.on small{color:#4b6a99;}
+        .bienv-go{background:#fff;color:#003A99;border:none;border-radius:13px;padding:13px;font-weight:700;font-size:16px;font-family:inherit;cursor:pointer;}
+        /* Sin comunicación con el Departamento no hay círculo de envío */
+        body.sin-comunicacion .perfil-envio::before,body.sin-comunicacion .perfil-envio::after{display:none !important;}
+        @media (prefers-reduced-motion: reduce){.tut-velo,.bienv{animation:none;}}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}
@@ -1800,10 +1863,6 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div class="ops-section">
                 <button class="ops-title" onclick="app.toggleSection(this)">🔔 Notificaciones <span class="ops-chevron">›</span></button>
                 <div class="ops-body">
-                    <div class="ops-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
-                        <span class="ops-row-label">Aviso al llegar al trabajo</span>
-                        <span class="ops-row-sub">Recibirás una notificación cuando el GPS detecte que estás cerca de una ubicación de trabajo guardada. En Android funciona en segundo plano.</span>
-                    </div>
                     <div class="ops-field" style="gap:8px;padding-top:2px;">
                         <span class="ops-field-label">🔊 Sonido de notificación</span>
                         <select id="notifSoundSelect" onchange="app.guardarSonidoNotif(this.value)" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;width:100%;">
@@ -1956,6 +2015,13 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             </div>
 
             <!-- Aplicación -->
+            <!-- Ayuda: el tutorial, para volver a verlo cuando se quiera -->
+            <div class="ops-section">
+                <button class="ops-title" onclick="app.toggleSection(this)">❓ Ayuda <span class="ops-chevron">›</span></button>
+                <div class="ops-body">
+                    <button class="ops-btn" onclick="app.mostrarTutorial()">📖 Ver tutorial <span class="ops-arrow">›</span></button>
+                </div>
+            </div>
             <div class="ops-section" id="installSection" style="display:none;">
                 <button class="ops-title" onclick="app.toggleSection(this)">📲 Aplicación <span class="ops-chevron">›</span></button>
                 <div class="ops-body">
