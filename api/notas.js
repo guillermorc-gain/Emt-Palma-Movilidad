@@ -1,7 +1,7 @@
 import { emailDelToken, tokenDe, esGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { hayBaseDeDatos, leerNotas, leerNota, guardarNota, borrarNota } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
-import { registrarPush, avisarChat, estadoPush } from './_push.js';
+import { registrarPush, avisarChat, estadoPush, quitarPush } from './_push.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -422,6 +422,10 @@ export default async function handler(req, res) {
       // sesión: el correo sale de ella, no de lo que diga el móvil.
       if (b.pushToken !== undefined) {
         if (!delToken) return res.status(401).json({ error: 'Falta la sesión' });
+        if (b.baja) {
+          const r = await quitarPush(b.pushToken);
+          return r.error ? res.status(r.status).json({ error: r.error }) : res.status(200).json(r);
+        }
         const r = await registrarPush({ email: delToken, token: b.pushToken, app: b.app,
                                         bandeja: b.app === 'gestion' && deGestion, control: !!b.control });
         return r.error ? res.status(r.status).json({ error: r.error }) : res.status(200).json(r);
