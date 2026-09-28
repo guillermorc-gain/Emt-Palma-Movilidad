@@ -391,7 +391,6 @@ const app = {
         }
         const webs = {
             'gestion-emt':     '/gestion/',
-            'control':         '/control/',
             'gestion-control': '/control/?app=gestion-control',
         };
         if (webs[rol]) { window.location.href = webs[rol]; return; }

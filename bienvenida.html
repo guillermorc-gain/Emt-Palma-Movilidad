@@ -88,10 +88,8 @@
                 <span class="rol-ico">🕐</span>
                 <span class="rol-txt"><b>Trabajador</b><span>Registrar mis jornadas</span></span>
             </button>
-            <button class="rol-btn" onclick="elegir('control')">
-                <span class="rol-ico">🛡️</span>
-                <span class="rol-txt"><b>Control de acceso</b><span>El parte del turno en la garita</span></span>
-            </button>
+            <!-- Control de acceso (la de la garita) está desactivada: su registro
+                 está ahora en Trabajador, con la opción de Ajustes → Trabajo -->
             <button class="rol-btn" onclick="elegir('gestion')">
                 <span class="rol-ico">🛠️</span>
                 <span class="rol-txt"><b>Gestión</b><span>Llevar la plantilla o el puesto</span></span>
@@ -156,7 +154,7 @@ function pintar() {
 function elegir(rol) {
     if (rol === 'gestion') { history.pushState({ pantalla: 'gestion' }, '', '/'); pintar(); return; }
     if (rol === 'volver') { if (history.state && history.state.pantalla === 'gestion') history.back(); else pintar(); return; }
-    var webs = { trabajador: '/?app=trabajador', control: '/control/', 'gestion-emt': '/gestion/',
+    var webs = { trabajador: '/?app=trabajador', 'gestion-emt': '/gestion/',
                  'gestion-control': '/control/?app=gestion-control' };
     if (webs[rol]) location.href = webs[rol];
 }

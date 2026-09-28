@@ -30,17 +30,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - rol: control
-            appid: com.guillermorc.controlemt
-            nombre: EMT - Palma (Control de acceso)
-            bg: "21,101,192"
-            color: "#1565C0"
-            icono: "icons/icon-192.png"
-            iconoApk: "icons/icon-512.png"
-            iconoFg: "icons/icon-fg-512.png"
-            rotulo: "🛡️ Control de acceso"
-            tag: control-build-
-            apk: control-acceso-emt
+          # La de la garita (Control de acceso) está desactivada: su registro
+          # está ahora en la app de Trabajador. No se monta ni se publica;
+          # para volver a tenerla basta con quitar los # de aquí abajo.
+          # - rol: control
+          #   appid: com.guillermorc.controlemt
+          #   nombre: EMT - Palma (Control de acceso)
+          #   bg: "21,101,192"
+          #   color: "#1565C0"
+          #   icono: "icons/icon-192.png"
+          #   iconoApk: "icons/icon-512.png"
+          #   iconoFg: "icons/icon-fg-512.png"
+          #   rotulo: "🛡️ Control de acceso"
+          #   tag: control-build-
+          #   apk: control-acceso-emt
           - rol: gestion-control
             appid: com.guillermorc.gcontrolemt
             nombre: Gestión EMT - Palma (Control de acceso)
