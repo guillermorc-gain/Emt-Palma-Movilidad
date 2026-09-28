@@ -1,7 +1,7 @@
 import { emailDelToken, tokenDe, esGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { hayBaseDeDatos, leerNotas, leerNota, guardarNota, borrarNota } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
-import { registrarPush, avisarChat } from './_push.js';
+import { registrarPush, avisarChat, estadoPush } from './_push.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -324,6 +324,8 @@ export default async function handler(req, res) {
     // Con ?email= se devuelven solo las suyas, que es lo que pide su app.
     if (metodo === 'GET') {
       res.setHeader('Cache-Control', 'no-store');
+      // ?push=estado: si los avisos al instante están bien puestos
+      if (req.query?.push === 'estado') return res.status(200).json(await estadoPush());
       const quien = String(req.query?.email || '').toLowerCase().trim();
       // Con ?resumen=1 solo se devuelve una huella por conversación: es lo que
       // consultan las apps cada poco para saber si hay algo nuevo sin bajarse
