@@ -79,7 +79,7 @@
     "leidos": {
       "g.rioscorrea@gmail.com": {
         "nombre": "Guillermo Ríos Correa",
-        "en": "2026-09-28T18:58:26.363Z"
+        "en": "2026-09-28T18:59:49.052Z"
       },
       "guillermo.rc82@gmail.com": {
         "nombre": "Guillermo Ríos Correa",
@@ -111,6 +111,11 @@
     ],
     "archivada": false,
     "de": "trabajador",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "g.rioscorrea@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-28T18:59:49.052Z"
+    }
   }
 }
