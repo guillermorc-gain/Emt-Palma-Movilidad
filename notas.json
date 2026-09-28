@@ -240,28 +240,5 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T13:14:43.916Z"
     }
-  },
-  "20260928131651825-ud2h6-0": {
-    "id": "20260928131651825-ud2h6-0",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-28T13:16:51.825Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Soy trabajador",
-        "adjuntos": [],
-        "en": "2026-09-28T13:16:51.825Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "companero",
-    "deEmail": "guillermo.rc82@gmail.com",
-    "deNombre": "Guillermo Ríos Correa",
-    "deConductor": "1418-3",
-    "estado": "pendiente"
   }
 }
