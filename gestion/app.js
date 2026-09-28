@@ -10763,7 +10763,7 @@ const app = {
             const re = new RegExp('^' + RELEASE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
             // Al administrador se le ofrece la última aunque no esté
             // publicada, igual que en el aviso de actualización.
-            const soyGestor = (this.usuarioActual?.email || '').toLowerCase() === SUPER_USER_EMAIL.toLowerCase();
+            const soyGestor = this._recibeTodasLasVersiones();
             let publicada = null;
             if (!soyGestor) {
                 const pub = await this._buildPublicado();
@@ -10836,6 +10836,15 @@ const app = {
         else if (modo === 'apk') this.instalarApp();
     },
 
+    // El desarrollador recibe la última versión nada más salir en cualquiera
+    // de las apps, no solo en la suya. Si aún no ha terminado de entrar, vale
+    // la cuenta guardada de la última vez.
+    _recibeTodasLasVersiones() {
+        if (ES_APP_DEV) return true;
+        const yo = String(this.usuarioActual?.email || localStorage.getItem('gUserEmail') || '').toLowerCase();
+        return yo === SUPER_USER_EMAIL.toLowerCase();
+    },
+
     async _checkForUpdates(showFeedback = false) {
         if (!window.Capacitor?.isNativePlatform?.()) return;
         if (typeof APP_VERSION === 'undefined' || APP_VERSION === '0') return;
@@ -10860,7 +10869,7 @@ const app = {
             // a apuntarse. Ahora se publica desde ahí, y mientras no se
             // publique ninguna todos reciben la más reciente, que es lo que
             // hacía falta para no volver a dejar a nadie tirado.
-            const soyGestor = this._soyElGestor();
+            const soyGestor = this._recibeTodasLasVersiones();
             let publicada = null;
             if (!soyGestor) {
                 const pub = await this._buildPublicado();

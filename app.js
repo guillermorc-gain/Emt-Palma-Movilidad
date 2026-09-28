@@ -10238,7 +10238,7 @@ const app = {
             const re = new RegExp('^' + RELEASE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
             // Al administrador se le ofrece la última aunque no esté
             // publicada, igual que en el aviso de actualización.
-            const soyGestor = (this.usuarioActual?.email || '').toLowerCase() === SUPER_USER_EMAIL.toLowerCase();
+            const soyGestor = this._recibeTodasLasVersiones();
             let publicada = null;
             if (!soyGestor) {
                 const pub = await this._buildPublicado();
@@ -10309,6 +10309,15 @@ const app = {
         else if (modo === 'apk') this.instalarApp();
     },
 
+    // Quien recibe la última versión nada más salir, aunque no esté publicada
+    // para todos: el administrador y el desarrollador, en cualquier app. Si
+    // aún no ha terminado de entrar, vale la cuenta guardada de la última vez.
+    _recibeTodasLasVersiones() {
+        const yo = String(this.usuarioActual?.email || localStorage.getItem('gUserEmail')
+            || localStorage.getItem('fbEmail') || '').toLowerCase();
+        return !!yo && [SUPER_USER_EMAIL.toLowerCase(), 'g.rioscorrea@gmail.com'].includes(yo);
+    },
+
     async _checkForUpdates(showFeedback = false) {
         if (!window.Capacitor?.isNativePlatform?.()) return;
         if (typeof APP_VERSION === 'undefined' || APP_VERSION === '0') return;
@@ -10328,7 +10337,7 @@ const app = {
             // El administrador recibe la última aunque no esté publicada, para
             // poder probarla antes de repartirla; al resto solo se les ofrece
             // la que el gestor haya publicado.
-            const soyGestor = (this.usuarioActual?.email || '').toLowerCase() === SUPER_USER_EMAIL.toLowerCase();
+            const soyGestor = this._recibeTodasLasVersiones();
             let publicada = null;
             if (!soyGestor) {
                 const pub = await this._buildPublicado();
