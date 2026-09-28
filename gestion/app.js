@@ -275,6 +275,20 @@ function sonarTramos(id) {
     return true;
 }
 
+// La matrícula con sus guiones aunque se escriban sin ellos: las de ahora,
+// 1234ABC → 1234-ABC, y las de provincia de antes, PM1234AB → PM-1234-AB.
+// Lo que no tenga una de esas formas (extranjeras, remolques…) se deja
+// como se escribió, solo en mayúsculas.
+function formatoMatricula(m) {
+    const t = String(m || '').trim().toUpperCase();
+    const k = t.replace(/[^A-Z0-9]/g, '');
+    let x = /^(\d{4})([A-Z]{3})$/.exec(k);
+    if (x) return `${x[1]}-${x[2]}`;
+    x = /^([A-Z]{1,2})(\d{4})([A-Z]{1,2})$/.exec(k);
+    if (x) return `${x[1]}-${x[2]}-${x[3]}`;
+    return t;
+}
+
 const app = {
     accessToken: localStorage.getItem('gAccessToken') || null,
     tokenExpiry: parseInt(localStorage.getItem('gTokenExpiry') || '0'),
@@ -655,6 +669,7 @@ const app = {
                 return;
             }
             this.mostrarApp();
+            this._caComprobarAcceso();
             this._pedirBateriaSiHaceFalta();
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
@@ -2223,6 +2238,12 @@ const app = {
         if (idx === 2) this._cargarNotasGestor();
         if (idx === 3) this._cargarConductores();
         if (idx === 4) this._cargarPartes();
+        // Control de acceso: registro, historial y visitantes
+        if (idx >= 5 && idx <= 7) {
+            if (idx === 6) this._caRenderHistorial();
+            if (idx === 7) { this.caRenderVisitantes(); this.caCargarVisitantes(); }
+            this.caCargarRegistros(false, ...(idx === 5 ? [this._caDia, this._caDia] : []));
+        }
     },
 
     // El dedo puede arrastrar tanto sobre el orden visual de la barra
@@ -2246,7 +2267,7 @@ const app = {
             // Las escondidas no cuentan: la de control de acceso solo está
             // en la app de desarrollador, y en la de gestión el dedo acababa
             // llevando a una pestaña que no se ve.
-            const btns = [...document.querySelectorAll('#tabBar .tab-btn')]
+            const btns = [...document.querySelectorAll('#tabBar .tab-btn')].filter(b => !b.hidden && b.style.display !== 'none')
                 .filter(b => b.style.display !== 'none');
             const actualIdx = btns.findIndex(b => b.classList.contains('active'));
             if (actualIdx === -1) return;
@@ -2284,8 +2305,18 @@ const app = {
                     const btn = bar.querySelector(`.tab-btn[data-tab="${t}"]`);
                     if (btn) bar.appendChild(btn);
                 });
+                // Las que no estaban cuando se guardó el orden —las de Control
+                // de acceso—, al final y no delante de todo
+                [...bar.querySelectorAll('.tab-btn')].filter(b => !orden.includes(b.dataset.tab))
+                    .forEach(b => bar.appendChild(b));
             }
         } catch(_) {}
+        // Las de Control de acceso, como se dejaron la última vez hasta que se
+        // compruebe otra vez la autorización al entrar
+        ['tabBtnCaReg', 'tabBtnCaHist', 'tabBtnCaVis'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.hidden = !(ES_APP_DEV || localStorage.getItem('caPermitido') === '1');
+        });
         // Siempre se abre por Trabajadores, que es lo primero que se mira al
         // entrar. Antes se quedaba donde lo dejaste la última vez, y volver a
         // la app te dejaba en la pestaña de hace dos días.
@@ -2738,6 +2769,1072 @@ const app = {
     // mismo hilo. Lo que firma gestión va con el nombre del gestor, que es lo
     // que ve el trabajador. Ya no se acepta ni se deniega nada: se da el visto,
     // y ese visto lo ven los dos.
+
+    // ── Control de acceso (las tres pestañas del puesto) ─────────────────────
+    //
+    // Lo que era la app de Gestión de Control de acceso, dentro de gestión:
+    // apuntar entradas y salidas, el historial con exportar, y el directorio
+    // de visitantes. Solo para quien el desarrollador autorice en Usuarios con
+    // acceso → "Control (Gestión)" (y el desarrollador). El servidor lo vuelve
+    // a comprobar: con esa lista se puede corregir y borrar cualquier registro.
+
+    _caPermitido: false,
+    _caPorId: {},
+    _caVisitantes: {},
+    _caDia: '',
+    _caAutorrellenado: {},
+    _caEditando: null,
+    _caSalidaDe: null,
+    _caRelojSync: null,
+    _caRelojHora: null,
+    _caSinPermiso: '',
+    _caPreparado: false,
+
+    _caEsc(t) {
+        return String(t ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+    },
+
+    _caUrl(q) { return this.API_BASE + 'accesos' + (q ? '?' + q : ''); },
+
+    // La firma de las llamadas solo renueva la sesión al escribir; aquí se lee
+    // cada pocos segundos, así que se renueva antes si ha caducado y, si aun
+    // así el servidor no la acepta, se prueba una vez más con una nueva. Solo
+    // con la llave de renovar: sin ella, renovar es sacar la pantalla de
+    // entrar, y un repaso de fondo no puede hacer eso.
+    async _caFetch(url, op = {}) {
+        if (this.refreshToken && this.accessToken && Date.now() >= this.tokenExpiry) {
+            try { await this._silentReauth(); } catch (_) {}
+        }
+        let r = await fetch(url, op);
+        if (r.status === 401 && this.refreshToken) {
+            try { await this._silentReauth(); } catch (_) {}
+            r = await fetch(url, op);
+        }
+        return r;
+    },
+
+    async _caRespuesta(r) {
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 403) this._caPonerSinPermiso(data.error);
+        if (!r.ok) throw new Error(data.error || r.status);
+        return data;
+    },
+
+    _caPonerSinPermiso(error) {
+        this._caSinPermiso = error || 'Esta cuenta no tiene acceso al puesto de control de acceso';
+        ['caAviso', 'caHistAviso'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = '🔒 ' + this._caSinPermiso + '. Pide al desarrollador que te autorice en Control (Gestión).';
+            el.hidden = false;
+        });
+    },
+
+    _caQuitarSinPermiso() {
+        this._caSinPermiso = '';
+        ['caAviso', 'caHistAviso'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
+    },
+
+    // Al entrar en la app con la opción puesta, o al ponerla
+    _caArrancar() {
+        if (!this._caPermitido || !this.usuarioActual) return;
+        if (!this._caPreparado) {
+            this._caPreparado = true;
+            this._caPreparar();
+        }
+        this.caCargarVisitantes();
+        this.caCargarRegistros();
+        this._caSincronizarSolo();
+    },
+
+    _caHoyISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    _caIsoHaceDias(n) {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    _caAISO(f)   { const s = String(f || ''); return s.length === 8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : ''; },
+    _caAClave(f) { return String(f || '').replace(/-/g, '').slice(0, 8); },
+    _caClaveMatricula(m) { return String(m || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); },
+    _caHoraAhora() {
+        const d = new Date();
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    },
+    _caDiaLargo(fecha) {
+        const f = String(fecha || '');
+        if (f.length !== 8) return f;
+        const d = new Date(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8), 12);
+        return isNaN(d) ? f : d.toLocaleDateString('es-ES',
+            { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    },
+
+    _caRegistrosDe(fecha) {
+        return Object.values(this._caPorId).filter(r => r.fecha === fecha)
+            .sort((a, b) => (a.entrada || '').localeCompare(b.entrada || ''));
+    },
+
+    _caGuardarCacheRegistros() {
+        try {
+            // Solo lo reciente: es para poder seguir sin cobertura, no un archivo
+            const desde = this._caAClave(this._caIsoHaceDias(40));
+            const lista = Object.values(this._caPorId).filter(r => r.fecha >= desde);
+            localStorage.setItem('caRegistrosCache', JSON.stringify(lista));
+        } catch (_) {}
+    },
+
+    _caGuardarCacheVisitantes() {
+        try { localStorage.setItem('caVisitantesCache', JSON.stringify(Object.values(this._caVisitantes))); } catch (_) {}
+    },
+
+    // Hoy, con la hora de ahora, y lo que se tuviera guardado sin red
+    _caPreparar() {
+        if (!this._caDia) this._caDia = this._caAClave(this._caHoyISO());
+        const pd = document.getElementById('caDesde'), ph = document.getElementById('caHasta');
+        if (pd && !pd.value) pd.value = this._caIsoHaceDias(30);
+        if (ph && !ph.value) ph.value = this._caHoyISO();
+        const f = document.getElementById('caFecha');
+        if (f) f.value = this._caAISO(this._caDia);
+        this._caPintarDiaLargo();
+        this._caPrepararSugerencias();
+        this._caLimpiarFormulario();
+        try {
+            const c = JSON.parse(localStorage.getItem('caRegistrosCache') || '[]');
+            c.forEach(r => { if (r?.id && !this._caPorId[r.id]) this._caPorId[r.id] = r; });
+            this._caPonerVisitantes(JSON.parse(localStorage.getItem('caVisitantesCache') || '[]'));
+        } catch (_) {}
+        this._caRenderDia();
+        this._caRenderHistorial();
+    },
+
+    _caPintarDiaLargo() {
+        const el = document.getElementById('caDiaLargo');
+        if (!el) return;
+        const hoy = this._caAClave(this._caHoyISO());
+        const d = new Date(+this._caDia.slice(0, 4), +this._caDia.slice(4, 6) - 1, +this._caDia.slice(6, 8), 12);
+        const largo = isNaN(d) ? '' : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        el.textContent = (this._caDia === hoy ? 'Hoy · ' : '') + largo;
+        const volver = document.getElementById('caHoyBtn');
+        if (volver) volver.hidden = this._caDia === hoy;
+    },
+
+    caCambiarDia() {
+        const v = this._caAClave(document.getElementById('caFecha')?.value);
+        if (v.length !== 8) return;
+        this._caDia = v;
+        this._caPintarDiaLargo();
+        this._caRenderDia();
+        this.caCargarRegistros(true, v, v);
+    },
+
+    caIrAHoy() {
+        this._caDia = this._caAClave(this._caHoyISO());
+        const f = document.getElementById('caFecha');
+        if (f) f.value = this._caAISO(this._caDia);
+        this.caCambiarDia();
+    },
+
+    _caLimpiarFormulario() {
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('caEntrada', this._caHoraAhora());
+        // La hora va sola hasta que alguien la toque: si el formulario se queda
+        // abierto un rato, al registrar tiene que ser la de ese momento
+        const h = document.getElementById('caEntrada');
+        if (h) {
+            h.dataset.tocada = '';
+            if (!h._escucha) { h._escucha = true; h.addEventListener('input', () => { h.dataset.tocada = '1'; }); }
+        }
+        if (!this._caRelojHora) {
+            this._caRelojHora = setInterval(() => {
+                const e = document.getElementById('caEntrada');
+                if (e && !e.dataset.tocada && document.activeElement !== e) e.value = this._caHoraAhora();
+            }, 20000);
+        }
+        ['caMatricula', 'caNombre', 'caEmpresa', 'caVehiculo', 'caDepartamento'].forEach(id => v(id, ''));
+        this._caAutorrellenado = {};
+        this._caPintarPista('');
+        this._caPintarPersonas('');
+    },
+
+    // ── El directorio de visitantes: lo que se sabe de cada matrícula ──
+
+    _caPonerVisitantes(lista) {
+        if (!Array.isArray(lista)) return;
+        const mapa = {};
+        lista.forEach(v => { const k = this._caClaveMatricula(v?.matricula); if (k) mapa[k] = v; });
+        this._caVisitantes = mapa;
+        if (this._activeTab === 7) this.caRenderVisitantes();
+    },
+
+    async caCargarVisitantes() {
+        if (!this._caPermitido || !this.usuarioActual) return;
+        try {
+            const r = await this._caFetch(this._caUrl('que=visitantes'), { cache: 'no-store' });
+            const lista = await this._caRespuesta(r);
+            this._caPonerVisitantes(lista);
+            this._caGuardarCacheVisitantes();
+        } catch (_) { /* sin cobertura vale lo último que se supo */ }
+    },
+
+    // Debajo del campo, lo que ya se conoce y encaja con lo escrito. En la
+    // matrícula basta con ir poniendo números: salen las que los llevan.
+    _caOpcionesDe(campo, q) {
+        const vs = Object.values(this._caVisitantes);
+        if (campo === 'matricula') {
+            const k = this._caClaveMatricula(q);
+            if (!k) return [];
+            return vs.filter(v => this._caClaveMatricula(v.matricula).includes(k))
+                .sort((a, b) => (this._caClaveMatricula(b.matricula).startsWith(k) - this._caClaveMatricula(a.matricula).startsWith(k))
+                                || (a.matricula || '').localeCompare(b.matricula || ''))
+                .map(v => ({ valor: v.matricula, texto: v.matricula,
+                             sub: [v.nombre, v.empresa].filter(Boolean).join(' · ')
+                                  + (v.personas?.length > 1 ? ` · y ${v.personas.length - 1} más` : '') }));
+        }
+        const t = String(q || '').trim().toLowerCase();
+        const base = campo === 'departamento' ? ['Taller', 'Obra', 'Paquetería taller'] : [];
+        const valores = [...new Set([...base, ...vs.map(v => v[campo])].filter(x => x && x !== '-'))];
+        return valores.filter(x => !t || x.toLowerCase().includes(t))
+            .filter(x => x.toLowerCase() !== t)
+            .sort((a, b) => (b.toLowerCase().startsWith(t) - a.toLowerCase().startsWith(t)) || a.localeCompare(b, 'es'))
+            .map(x => ({ valor: x, texto: x }));
+    },
+
+    _caPrepararSugerencias() {
+        const campos = { caMatricula: 'matricula', caEmpresa: 'empresa', caVehiculo: 'vehiculo', caDepartamento: 'departamento',
+                         caeMatricula: 'matricula', caeEmpresa: 'empresa', caeVehiculo: 'vehiculo', caeDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, campo]) => {
+            const input = document.getElementById(id);
+            if (!input || input._sug) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'ca-sug-wrap';
+            wrap.style.marginBottom = input.style.marginBottom;
+            input.style.marginBottom = '0';
+            input.parentNode.insertBefore(wrap, input);
+            wrap.appendChild(input);
+            const caja = document.createElement('div');
+            caja.className = 'ca-sug';
+            caja.hidden = true;
+            wrap.appendChild(caja);
+            input._sug = caja;
+            const pintar = () => {
+                const ops = this._caOpcionesDe(campo, input.value).slice(0, 8);
+                caja.innerHTML = ops.map((o, i) => `<div class="ca-sug-op" data-i="${i}"><b>${this._caEsc(o.texto)}</b>${
+                    o.sub ? `<span>${this._caEsc(o.sub)}</span>` : ''}</div>`).join('');
+                caja.hidden = !ops.length || document.activeElement !== input;
+                caja._ops = ops;
+            };
+            input.addEventListener('input', pintar);
+            input.addEventListener('focus', pintar);
+            input.addEventListener('blur', () => setTimeout(() => { caja.hidden = true; }, 150));
+            // mousedown y no click: con click el campo pierde el foco antes y la
+            // lista se cierra sin haber elegido
+            caja.addEventListener('mousedown', e => e.preventDefault());
+            caja.addEventListener('click', e => {
+                const op = caja._ops?.[+e.target.closest('.ca-sug-op')?.dataset.i];
+                if (!op) return;
+                input.value = op.valor;
+                input.dispatchEvent(new Event('input'));
+                caja.hidden = true;
+                if (id === 'caMatricula') this.caBuscarMatricula();
+            });
+        });
+    },
+
+    // Al escribir la matrícula: si ya vino alguna vez, se rellena lo demás. Lo
+    // escrito a mano no se pisa; lo rellenado solo sí, por si se cambia de
+    // matrícula a media escritura.
+    caBuscarMatricula() {
+        const el = document.getElementById('caMatricula');
+        if (!el) return;
+        const v = this._caVisitantes[this._caClaveMatricula(el.value)];
+        const campos = { caNombre: 'nombre', caEmpresa: 'empresa', caVehiculo: 'vehiculo', caDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, k]) => {
+            const c = document.getElementById(id);
+            if (!c) return;
+            const vacio = !c.value.trim() || this._caAutorrellenado[id] === c.value;
+            if (v && vacio) {
+                const nuevo = v[k] && v[k] !== '-' ? v[k] : '';
+                c.value = nuevo;
+                this._caAutorrellenado[id] = nuevo;
+            } else if (!v && this._caAutorrellenado[id] === c.value) {
+                c.value = '';
+                delete this._caAutorrellenado[id];
+            }
+        });
+        if (v) el.value = formatoMatricula(v.matricula || el.value);
+        const clave = this._caClaveMatricula(el.value);
+        // "Nueva" solo si no hay ninguna que la contenga: a medio escribir aún
+        // puede ser una conocida, y para eso están las sugerencias
+        const aMedias = !v && Object.keys(this._caVisitantes).some(k => k.includes(clave));
+        const ps = this._caPintarPersonas(v ? clave : '');
+        this._caPintarPista(!clave || aMedias ? '' : v ? (ps.length > 1
+                ? `✅ Ya ha venido · la traen ${ps.length} personas: elige quién en el desplegable`
+                : `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`)
+            : '🆕 Matrícula nueva: se recordará al registrarla');
+    },
+
+
+    // ── Varias personas con el mismo coche ──
+    //
+    // Hay matrículas que traen personas distintas según el día. Si la que se
+    // escribe tiene más de una, sale un desplegable en el nombre con cada una
+    // (la última que vino, primero) y al elegirla se rellena lo suyo. Salen
+    // del directorio y, para lo de antes de que lo guardara, de los registros.
+    _caPersonasDe(clave) {
+        const k = n => String(n || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const v = this._caVisitantes[clave];
+        const lista = [...(Array.isArray(v?.personas) ? v.personas : [])];
+        Object.values(this._caPorId)
+            .filter(r => r.nombre && this._caClaveMatricula(r.matricula) === clave)
+            .sort((a, b) => `${b.fecha}${b.entrada}`.localeCompare(`${a.fecha}${a.entrada}`))
+            .forEach(r => lista.push({ nombre: r.nombre, empresa: r.empresa, vehiculo: r.vehiculo, departamento: r.departamento }));
+        if (v?.nombre) lista.push({ nombre: v.nombre, empresa: v.empresa, vehiculo: v.vehiculo, departamento: v.departamento });
+        const vistos = new Set();
+        return lista.filter(p => p?.nombre && !vistos.has(k(p.nombre)) && vistos.add(k(p.nombre)));
+    },
+
+    _caPintarPersonas(clave) {
+        const sel = document.getElementById('caNombreSel');
+        if (!sel) return [];
+        const ps = clave ? this._caPersonasDe(clave) : [];
+        this._caPersonas = ps;
+        if (ps.length < 2) { sel.hidden = true; sel.innerHTML = ''; return ps; }
+        const actual = (document.getElementById('caNombre')?.value || '').trim().toLowerCase();
+        const esc2 = t => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        sel.innerHTML = ps.map((p, i) => `<option value="${i}"${p.nombre.toLowerCase() === actual ? ' selected' : ''}>👤 ${esc2(p.nombre)}${
+                p.empresa ? ' · ' + esc2(p.empresa) : ''}</option>`).join('')
+            + '<option value="otra">✏️ Otra persona…</option>';
+        sel.hidden = false;
+        return ps;
+    },
+
+    _caElegirPersona(valor) {
+        const nom = document.getElementById('caNombre');
+        const auto = this._caAutorrellenado;
+        if (valor === 'otra') {
+            if (nom) { nom.value = ''; delete auto.caNombre; nom.focus(); }
+            return;
+        }
+        const p = (this._caPersonas || [])[+valor];
+        if (!p || !nom) return;
+        nom.value = p.nombre;
+        auto.caNombre = p.nombre;
+        // Lo de esa persona, sin pisar lo que se haya escrito a mano
+        const campos = { caEmpresa: 'empresa', caVehiculo: 'vehiculo', caDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, k]) => {
+            const c = document.getElementById(id);
+            if (!c || !p[k]) return;
+            if (!c.value.trim() || auto[id] === c.value) { c.value = p[k]; auto[id] = p[k]; }
+        });
+    },
+    _caPintarPista(t) {
+        const el = document.getElementById('caPista');
+        if (el) { el.textContent = t; el.hidden = !t; }
+    },
+
+    // ── Apuntar ──
+
+    async caRegistrarEntrada() {
+        const h = document.getElementById('caEntrada');
+        if (h && !h.dataset.tocada) h.value = this._caHoraAhora();
+        const g = id => (document.getElementById(id)?.value || '').trim();
+        const r = {
+            fecha: this._caDia, entrada: g('caEntrada'), matricula: formatoMatricula(g('caMatricula')),
+            nombre: g('caNombre'), empresa: g('caEmpresa'), vehiculo: g('caVehiculo'), departamento: g('caDepartamento'),
+        };
+        if (!/^\d{2}:\d{2}$/.test(r.entrada)) { this._mostrarToast('❌ Falta la hora de entrada', 3000); return; }
+        if (!r.matricula && !r.nombre) { this._mostrarToast('❌ Pon al menos la matrícula o el nombre', 3000); return; }
+        const btn = document.getElementById('caBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const data = await this._caEnviarRegistro(r);
+            // Lo aprendido, ya aquí, sin esperar a la próxima carga
+            if (data.matricula) {
+                const k = this._caClaveMatricula(data.matricula);
+                const previo = this._caVisitantes[k] || {};
+                this._caVisitantes[k] = { ...previo, matricula: data.matricula,
+                    nombre: data.nombre || previo.nombre || '', empresa: data.empresa || previo.empresa || '',
+                    vehiculo: data.vehiculo || previo.vehiculo || '', departamento: data.departamento || previo.departamento || '' };
+                this._caGuardarCacheVisitantes();
+            }
+            this._caLimpiarFormulario();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast(`✅ Entrada a las ${data.entrada}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) {
+            this._mostrarToast('❌ ' + e.message, 5000);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async _caEnviarRegistro(cuerpo) {
+        const r = await this._caFetch(this._caUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...cuerpo,
+                autor: { nombre: this.usuarioActual?.name || '', num: '' } }),
+        });
+        const data = await this._caRespuesta(r);
+        this._caQuitarSinPermiso();
+        this._caPorId[data.id] = data;
+        this._caGuardarCacheRegistros();
+        return data;
+    },
+
+    // La salida, con la hora de ahora; si no era esa, se toca en el registro
+    async caMarcarSalida(id) {
+        if (!this._caPorId[id]) return;
+        try {
+            const data = await this._caEnviarRegistro({ id, salida: this._caHoraAhora() });
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast(`🚪 Salida a las ${data.salida}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    // La hora de salida escrita a mano, por si no se apuntó en el momento
+    caPonerHoraSalida(id) {
+        const r = this._caPorId[id];
+        if (!r) return;
+        this._caSalidaDe = id;
+        const t = document.getElementById('caHsTitulo');
+        if (t) t.textContent = [r.matricula, r.nombre].filter(Boolean).join(' · ') + ` · entró a las ${r.entrada}`;
+        const h = document.getElementById('caHsHora');
+        if (h) h.value = r.fecha === this._caAClave(this._caHoyISO()) ? this._caHoraAhora() : '';
+        document.getElementById('caSalidaModal').classList.add('show');
+        setTimeout(() => h?.focus(), 50);
+    },
+
+    caCerrarHoraSalida() { document.getElementById('caSalidaModal').classList.remove('show'); this._caSalidaDe = null; },
+
+    async caGuardarHoraSalida() {
+        const r = this._caPorId[this._caSalidaDe];
+        const hora = document.getElementById('caHsHora')?.value || '';
+        if (!r) return;
+        if (!/^\d{2}:\d{2}$/.test(hora)) { this._mostrarToast('❌ Pon la hora de salida', 3000); return; }
+        if (hora < r.entrada) { this._mostrarToast('❌ La salida no puede ser antes que la entrada', 3500); return; }
+        try {
+            const data = await this._caEnviarRegistro({ id: r.id, salida: hora });
+            this.caCerrarHoraSalida();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast(`🚪 Salida a las ${data.salida}${data.matricula ? ' · ' + data.matricula : ''}`, 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    // ── Lo apuntado ──
+
+    _caTarjeta(r) {
+        // Sin hora de salida no se pone nada. El botón de salida ahora, solo en
+        // los de hoy: en uno de otro día pondría la hora de ahora, que no es.
+        const esc = t => this._caEsc(t);
+        const abierto = !r.salida && r.fecha === this._caAClave(this._caHoyISO());
+        const quien = [r.nombre, r.empresa].filter(Boolean).join(' · ');
+        const que = [r.vehiculo, r.departamento && r.departamento !== '-' ? '→ ' + r.departamento : ''].filter(Boolean).join(' ');
+        return `<div class="ca-reg${abierto ? ' dentro' : ''}" onclick="app.caAbrirRegistro('${esc(r.id)}')">
+            <div class="ca-top">
+                <span class="ca-horas">${esc(r.entrada)}${r.salida ? '–' + esc(r.salida) : ''}</span>
+                ${r.matricula ? `<span class="ca-mat">${esc(r.matricula)}</span>` : ''}
+            </div>
+            ${quien ? `<div class="ca-quien">${esc(quien)}</div>` : ''}
+            ${que ? `<div class="ca-que">${esc(que)}</div>` : ''}
+            ${r.creadoPor ? `<div class="ca-por">✍️ Apuntado por ${esc(this._caQuien(r.creadoPor, r.creadoNombre, r.creadoNum))}${
+                r.tocadoPor && r.tocadoPor !== r.creadoPor ? `<br>✏️ Corregido por ${esc(this._caQuien(r.tocadoPor, r.tocadoNombre, r.tocadoNum))}` : ''}</div>` : ''}
+            ${!r.salida ? `<div class="ca-btns">${abierto
+                ? `<button class="ca-btn" onclick="event.stopPropagation();app.caMarcarSalida('${esc(r.id)}')">🚪 Salida ahora</button>` : ''}
+                <button class="btn-secondary" onclick="event.stopPropagation();app.caPonerHoraSalida('${esc(r.id)}')">🕒 Poner hora</button></div>` : ''}
+        </div>`;
+    },
+
+    _caRenderDia() {
+        const cont = document.getElementById('caLista');
+        if (!cont) return;
+        const lista = this._caRegistrosDe(this._caDia);
+        const cab = document.getElementById('caCuantos');
+        if (cab) cab.textContent = lista.length ? String(lista.length) : '';
+        cont.innerHTML = lista.length
+            // Los que siguen dentro, arriba: son a los que hay que apuntar la salida
+            ? [...lista.filter(r => !r.salida), ...lista.filter(r => r.salida)].map(r => this._caTarjeta(r)).join('')
+            : '<div class="ca-vacio">Todavía no hay nada apuntado este día.</div>';
+    },
+
+    _caEnHistorial() {
+        const desde = this._caAClave(document.getElementById('caDesde')?.value) || this._caAClave(this._caIsoHaceDias(30));
+        const hasta = this._caAClave(document.getElementById('caHasta')?.value) || this._caAClave(this._caHoyISO());
+        const texto = String(document.getElementById('caBuscar')?.value || '').trim().toLowerCase();
+        const busca = this._caClaveMatricula(texto);
+        return Object.values(this._caPorId)
+            .filter(r => r.fecha >= desde && r.fecha <= hasta)
+            .filter(r => !texto || (busca && this._caClaveMatricula(r.matricula).includes(busca))
+                || [r.nombre, r.empresa, r.vehiculo, r.departamento].some(x => String(x || '').toLowerCase().includes(texto)))
+            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.entrada || '').localeCompare(a.entrada || ''));
+    },
+
+    _caRenderHistorial() {
+        const cont = document.getElementById('caHistLista');
+        if (!cont) return;
+        const lista = this._caEnHistorial();
+        if (!lista.length) {
+            cont.innerHTML = '<div class="ca-vacio">No hay registros en esas fechas.</div>';
+            return;
+        }
+        let dia = '';
+        cont.innerHTML = lista.map(r => {
+            const cab = r.fecha !== dia ? `<div class="ca-dia">${this._caEsc(this._caDiaLargo(r.fecha))}</div>` : '';
+            dia = r.fecha;
+            return cab + this._caTarjeta(r);
+        }).join('');
+    },
+
+    // A mano, con el botón: lo que haya apuntado otra garita, ya
+    async caRecargar() {
+        const b = document.getElementById('caRecargar');
+        if (b) { b.disabled = true; b.textContent = '⏳'; }
+        this._caQuitarSinPermiso();
+        const [a, d] = await Promise.all([this.caCargarRegistros(true), this.caCargarRegistros(true, this._caDia, this._caDia),
+                                          this.caCargarVisitantes()]);
+        if (b) { b.disabled = false; b.textContent = '🔄 Recargar'; }
+        if (a && d) this._mostrarToast('✅ Actualizado', 1500);
+    },
+
+    // Y solo, como en la app del puesto: mientras se está en una de las dos
+    // pestañas, cada pocos segundos se trae lo nuevo, para que lo que apunta
+    // una garita salga en la otra al momento. Al volver a la app, también.
+    _caSincronizarSolo() {
+        if (this._caRelojSync) return;
+        const traer = () => {
+            if (!this._caPermitido || !this.usuarioActual) return;
+            if (document.visibilityState !== 'visible') return;
+            if (this._activeTab < 5 || this._activeTab > 7) return;
+            // Con un cuadro abierto no se repinta nada debajo
+            if (document.querySelector('.modal.show')) return;
+            const hoy = this._caAClave(this._caHoyISO());
+            // El día que se está viendo y hasta hoy: lo que puede haber cambiado
+            const desde = this._caDia && this._caDia < hoy ? this._caDia : hoy;
+            this.caCargarRegistros(false, desde, this._caDia > hoy ? this._caDia : hoy);
+        };
+        this._caRelojSync = setInterval(traer, 15000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible' || !this._caPermitido || !this.usuarioActual) return;
+            traer();
+            this.caCargarVisitantes();
+        });
+    },
+
+    async caCargarRegistros(forzar, desde, hasta) {
+        if (!this._caPermitido || !this.usuarioActual) return false;
+        if (!desde) {
+            desde = this._caAClave(document.getElementById('caDesde')?.value) || this._caAClave(this._caIsoHaceDias(30));
+            hasta = this._caAClave(document.getElementById('caHasta')?.value) || this._caAClave(this._caHoyISO());
+        }
+        try {
+            const r = await this._caFetch(this._caUrl(new URLSearchParams({ desde, hasta })), { cache: 'no-store' });
+            const lista = await this._caRespuesta(r);
+            // Si antes no tenía acceso y ahora sí —le acaban de dar de alta—,
+            // fuera el aviso y a por lo que ya se sabe de cada matrícula
+            if (this._caSinPermiso) { this._caQuitarSinPermiso(); this.caCargarVisitantes(); }
+            // Lo de esas fechas manda: lo que ya no está es que se ha borrado
+            Object.values(this._caPorId).forEach(x => { if (x.fecha >= desde && x.fecha <= hasta) delete this._caPorId[x.id]; });
+            (Array.isArray(lista) ? lista : []).forEach(x => { this._caPorId[x.id] = x; });
+            this._caGuardarCacheRegistros();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            return true;
+        } catch (e) {
+            if (forzar && !this._caSinPermiso) this._mostrarToast('📴 Sin conexión: se ve lo último que se cargó', 3000);
+        }
+        this._caRenderDia();
+        this._caRenderHistorial();
+        return false;
+    },
+
+    caLimpiarFiltros() {
+        const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        v('caDesde', this._caIsoHaceDias(30));
+        v('caHasta', this._caHoyISO());
+        const b = document.getElementById('caBuscar');
+        if (b) b.value = '';
+        this.caCargarRegistros(true);
+    },
+
+    // ── Corregir un registro ──
+
+    caAbrirRegistro(id) {
+        const r = this._caPorId[id];
+        if (!r) return;
+        this._caEditando = id;
+        const v = (k, val) => { const el = document.getElementById(k); if (el) el.value = val || ''; };
+        v('caeFecha', this._caAISO(r.fecha)); v('caeEntrada', r.entrada); v('caeSalida', r.salida);
+        v('caeMatricula', r.matricula); v('caeNombre', r.nombre); v('caeEmpresa', r.empresa);
+        v('caeVehiculo', r.vehiculo); v('caeDepartamento', r.departamento);
+        // Borrar es de quien lleva el puesto, que es quien está aquí
+        const b = document.getElementById('caeBorrar');
+        if (b) b.hidden = false;
+        const firma = document.getElementById('caeFirma');
+        if (firma) firma.textContent = r.creadoPor
+            ? `Apuntado por ${this._caQuien(r.creadoPor, r.creadoNombre, r.creadoNum)}`
+              + (r.tocadoPor && r.tocadoPor !== r.creadoPor
+                  ? ` · corregido por ${this._caQuien(r.tocadoPor, r.tocadoNombre, r.tocadoNum)}` : '')
+            : '';
+        document.getElementById('caRegModal').classList.add('show');
+    },
+
+    caCerrarRegistro() { document.getElementById('caRegModal').classList.remove('show'); this._caEditando = null; },
+
+    caSalidaAhoraEnCuadro() {
+        const el = document.getElementById('caeSalida');
+        if (el) el.value = this._caHoraAhora();
+    },
+
+    async caGuardarRegistro() {
+        const id = this._caEditando;
+        if (!id) return;
+        const g = k => (document.getElementById(k)?.value || '').trim();
+        const cuerpo = {
+            id, fecha: this._caAClave(g('caeFecha')), entrada: g('caeEntrada'), salida: g('caeSalida'),
+            matricula: formatoMatricula(g('caeMatricula')), nombre: g('caeNombre'), empresa: g('caeEmpresa'),
+            vehiculo: g('caeVehiculo'), departamento: g('caeDepartamento'),
+        };
+        if (cuerpo.fecha.length !== 8 || !/^\d{2}:\d{2}$/.test(cuerpo.entrada)) {
+            this._mostrarToast('❌ Falta el día o la hora de entrada', 3000); return;
+        }
+        if (cuerpo.salida && cuerpo.salida < cuerpo.entrada) {
+            this._mostrarToast('❌ La salida no puede ser antes que la entrada', 3500); return;
+        }
+        try {
+            await this._caEnviarRegistro(cuerpo);
+            this.caCerrarRegistro();
+            this._caRenderDia();
+            this._caRenderHistorial();
+            this._mostrarToast('✅ Registro guardado', 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+    },
+
+    caBorrarRegistro() {
+        const id = this._caEditando;
+        const r = this._caPorId[id];
+        if (!r) return;
+        this.caCerrarRegistro();
+        this.mostrarModal('Borrar el registro',
+            `¿Borrar la entrada de las ${r.entrada}${r.matricula ? ' de ' + r.matricula : ''}${r.nombre ? ' (' + r.nombre + ')' : ''}?`,
+            async () => {
+                try {
+                    const resp = await this._caFetch(this._caUrl('id=' + encodeURIComponent(id)), { method: 'DELETE' });
+                    await this._caRespuesta(resp);
+                    delete this._caPorId[id];
+                    this._caGuardarCacheRegistros();
+                    this._caRenderDia();
+                    this._caRenderHistorial();
+                    this._mostrarToast('🗑️ Registro borrado', 2500);
+                } catch (e) { this._mostrarToast('❌ ' + e.message, 5000); }
+            });
+    },
+
+    // ── Quién puede verlo ──
+    // El desarrollador siempre; en gestión, quien esté en la lista de
+    // "Control (Gestión)" de Usuarios con acceso.
+    async _caComprobarAcceso() {
+        const yo = (this.usuarioActual?.email || '').toLowerCase();
+        let ok = ES_APP_DEV || yo === SUPER_USER_EMAIL.toLowerCase();
+        if (!ok && yo) {
+            try {
+                const r = await fetch(`${this.API_BASE}allowlist?app=gestion-control`, { cache: 'no-store' });
+                if (r.ok) {
+                    const l = await r.json();
+                    ok = Array.isArray(l) && l.map(e => String(e).toLowerCase()).includes(yo);
+                    try { localStorage.setItem('caPermitido', ok ? '1' : '0'); } catch (_) {}
+                } else ok = localStorage.getItem('caPermitido') === '1';
+            } catch (_) { ok = localStorage.getItem('caPermitido') === '1'; }
+        }
+        this._caPermitido = ok;
+        ['tabBtnCaReg', 'tabBtnCaHist', 'tabBtnCaVis'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.hidden = !ok;
+        });
+        if (ok) this._caArrancar();
+        else if (this._activeTab >= 5 && this._activeTab <= 7) this.switchTab(0);
+    },
+
+    // Nombre - número de quien apuntó; en los de antes, lo de la plantilla
+    _caQuien(email, nombre, num) {
+        const e = String(email || '').toLowerCase();
+        const u = (this._conductores || {})[e];
+        nombre = nombre || u?.nombre;
+        num = num || u?.conductor;
+        return [nombre || e, num].filter(Boolean).join(' - ');
+    },
+
+    _caCuando(iso) {
+        const d = new Date(iso);
+        return isNaN(d) ? '' : d.toLocaleString('es-ES',
+            { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    },
+
+    // ── El directorio de visitantes ──
+    // Una tarjeta por persona: si un coche lo traen dos, salen las dos, cada
+    // una con la misma matrícula
+    _caFichasVisitantes() {
+        const out = [];
+        Object.values(this._caVisitantes).forEach(v => {
+            const ps = Array.isArray(v.personas) && v.personas.length ? v.personas
+                : [{ nombre: v.nombre, empresa: v.empresa, vehiculo: v.vehiculo, departamento: v.departamento, visto: v.visto }];
+            ps.forEach(p => out.push({ ...p, matricula: v.matricula, clave: this._caClaveMatricula(v.matricula),
+                                       comparten: ps.length, editadoPor: v.editadoPor }));
+        });
+        return out;
+    },
+
+    caRenderVisitantes() {
+        const cont = document.getElementById('caViLista');
+        if (!cont) return;
+        const t = String(document.getElementById('caViBuscar')?.value || '').trim().toLowerCase();
+        const k = this._caClaveMatricula(t);
+        const orden = document.getElementById('caViOrden')?.value || 'nombre';
+        const todas = this._caFichasVisitantes();
+        const lista = todas
+            .filter(v => !t || (k && v.clave.includes(k))
+                || [v.nombre, v.empresa, v.vehiculo, v.departamento].some(x => String(x || '').toLowerCase().includes(t)))
+            .sort((a, b) => orden === 'visto'
+                ? String(b.visto || '').localeCompare(String(a.visto || ''))
+                : String(a[orden] || '￿').localeCompare(String(b[orden] || '￿'), 'es', { numeric: true })
+                  || String(a.matricula || '').localeCompare(String(b.matricula || '')));
+        this._caFichasVistas = lista;
+        const n = document.getElementById('caViCuantos');
+        if (n) n.textContent = String(todas.length);
+        cont.innerHTML = lista.length ? lista.map((v, i) => `
+            <div class="ca-reg" onclick="app.caAbrirVisitante(${i})">
+                <div class="ca-top">
+                    <span class="ca-horas">${this._caEsc(v.nombre || '—')}</span>
+                    <span class="ca-mat">${this._caEsc(v.matricula)}</span>
+                </div>
+                ${v.empresa ? `<div class="ca-quien">${this._caEsc(v.empresa)}</div>` : ''}
+                ${v.vehiculo || v.departamento ? `<div class="ca-que">${this._caEsc([v.vehiculo, v.departamento ? '→ ' + v.departamento : ''].filter(Boolean).join(' '))}</div>` : ''}
+                ${v.comparten > 1 ? `<div class="ca-que">👥 Esta matrícula la traen ${v.comparten} personas</div>` : ''}
+                ${v.visto ? `<div class="ca-que">Última vez: ${this._caEsc(this._caCuando(v.visto))}</div>` : ''}
+            </div>`).join('')
+            : '<div class="ca-vacio">No hay nadie en el directorio con eso.</div>';
+    },
+
+    // i: la tarjeta de la lista; sin él, una ficha nueva
+    caAbrirVisitante(i) {
+        const v = typeof i === 'number' ? this._caFichasVistas?.[i] : null;
+        this._caVisEditando = v ? { clave: v.clave, nombre: v.nombre || '' } : null;
+        const put = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        put('caVMatricula', v?.matricula); put('caVNombre', v?.nombre); put('caVEmpresa', v?.empresa);
+        put('caVVehiculo', v?.vehiculo); put('caVDepartamento', v?.departamento);
+        const t = document.getElementById('caVisTitulo');
+        if (t) t.textContent = v ? '✏️ Visitante' : '➕ Nuevo visitante';
+        const b = document.getElementById('caVBorrar');
+        if (b) b.hidden = !v;
+        const f = document.getElementById('caVFirma');
+        if (f) f.textContent = [v?.comparten > 1 ? `Esta matrícula la traen ${v.comparten} personas.` : '',
+                                v?.editadoPor ? `Modificado por ${v.editadoPor}` : ''].filter(Boolean).join(' ');
+        document.getElementById('caVisModal').classList.add('show');
+    },
+
+    caCerrarVisitante() { document.getElementById('caVisModal').classList.remove('show'); },
+
+    async caGuardarVisitante() {
+        const g = id => (document.getElementById(id)?.value || '').trim();
+        const ficha = { matricula: formatoMatricula(g('caVMatricula')), nombre: g('caVNombre'), empresa: g('caVEmpresa'),
+                        vehiculo: g('caVVehiculo'), departamento: g('caVDepartamento') };
+        if (!this._caClaveMatricula(ficha.matricula)) { this._mostrarToast('❌ Falta la matrícula', 3000); return; }
+        try {
+            const r = await this._caFetch(this._caUrl('que=visitantes'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ficha, antes: this._caVisEditando?.clave || '', antesNombre: this._caVisEditando?.nombre || '' }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || r.status);
+            this.caCerrarVisitante();
+            await this.caCargarVisitantes();
+            this.caRenderVisitantes();
+            this._mostrarToast('✅ Guardado', 2000);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 4500); }
+    },
+
+    caBorrarVisitante() {
+        const ed = this._caVisEditando;
+        const v = ed && this._caVisitantes[ed.clave];
+        if (!v) return;
+        this.caCerrarVisitante();
+        const quien = ed.nombre ? ` (${ed.nombre})` : '';
+        this.mostrarModal('Quitar del directorio',
+            `¿Quitar ${v.matricula}${quien} del directorio? Sus registros no se borran.`,
+            async () => {
+                try {
+                    const q = `que=visitantes&matricula=${encodeURIComponent(v.matricula)}`
+                        + (ed.nombre ? `&nombre=${encodeURIComponent(ed.nombre)}` : '');
+                    const r = await this._caFetch(this._caUrl(q), { method: 'DELETE' });
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(data.error || r.status);
+                    await this.caCargarVisitantes();
+                    this.caRenderVisitantes();
+                    this._mostrarToast('🗑️ Quitado del directorio', 2500);
+                } catch (e) { this._mostrarToast('❌ ' + e.message, 4500); }
+            });
+    },
+
+    CA_MESES: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
+            'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+    CA_CABECERAS: ['Fecha', 'Nombre y apellidos', 'Matrícula', 'Marca y modelo', 'Empresa',
+                'H. Entrada', 'H. Salida', 'Departamento'],
+    CA_ANCHOS: [13.7, 25.6, 13, 30, 22.6, 13.9, 13.9, 28.8],
+
+    // Los registros de lo que se está viendo, por meses, del más viejo al más nuevo
+    _caMesesExport() {
+        const lista = this._caEnHistorial().slice().sort((a, b) =>
+            (a.fecha || '').localeCompare(b.fecha || '') || (a.entrada || '').localeCompare(b.entrada || ''));
+        const meses = [];
+        lista.forEach(r => {
+            const k = String(r.fecha).slice(0, 6);
+            let m = meses[meses.length - 1];
+            if (!m || m.clave !== k) meses.push(m = { clave: k, anio: k.slice(0, 4),
+                                                      nombre: this.CA_MESES[+k.slice(4, 6) - 1], registros: [] });
+            m.registros.push(r);
+        });
+        const anios = [...new Set(meses.map(m => m.anio))];
+        meses.forEach(m => { m.hoja = anios.length > 1 ? `${m.nombre} ${m.anio}` : m.nombre;
+                             m.titulo = `Control de acceso · ${m.nombre} ${m.anio}`; });
+        const nombre = meses.length === 1 ? `Control de acceso - ${meses[0].nombre} ${meses[0].anio}`
+                     : `Control de acceso - ${anios.length > 1 ? anios[0] + '-' + anios[anios.length - 1] : anios[0]}`;
+        return { meses, nombre, total: lista.length };
+    },
+
+    caExportar() {
+        const { meses, nombre, total } = this._caMesesExport();
+        if (!total) { this._mostrarToast('No hay registros que exportar', 3000); return; }
+        const res = document.getElementById('caExpResumen');
+        if (res) res.textContent = `${total} registros · ${meses.length === 1 ? meses[0].nombre + ' ' + meses[0].anio
+            : meses.length + ' meses, una hoja por mes'} · «${nombre}»`;
+        document.getElementById('caExpModal').classList.add('show');
+    },
+
+    caCerrarExport() { document.getElementById('caExpModal').classList.remove('show'); },
+
+    _caFechaCorta(f) { return `${f.slice(6, 8)}/${f.slice(4, 6)}/${f.slice(2, 4)}`; },
+
+    // Las filas de un mes: la fecha solo en la primera de cada día
+    _caFilasMes(m) {
+        let dia = '';
+        return m.registros.map(r => {
+            const f = r.fecha !== dia ? r.fecha : '';
+            dia = r.fecha;
+            return [f, r.nombre, r.matricula, r.vehiculo, r.empresa, r.entrada, r.salida, r.departamento];
+        });
+    },
+
+    // ── CSV: una hoja no cabe en otra, así que cada mes va en su bloque ─────
+
+    _caCsv() {
+        const esc = v => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+        const { meses } = this._caMesesExport();
+        const bloques = meses.map(m => [
+            m.titulo, this.CA_CABECERAS.join(';'),
+            ...this._caFilasMes(m).map(f => [f[0] ? this._caFechaCorta(f[0]) : '', ...f.slice(1)].map(esc).join(';')),
+        ].join('\r\n'));
+        return '﻿' + bloques.join('\r\n\r\n') + '\r\n';
+    },
+
+    // ── Excel (.xlsx), hecho aquí mismo: un ZIP con unos cuantos XML ────────
+
+    _caCrc32(bytes) {
+        let tabla = this._caCrcTabla;
+        if (!tabla) {
+            tabla = this._caCrcTabla = new Int32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                tabla[n] = c;
+            }
+        }
+        let crc = -1;
+        for (let i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ tabla[(crc ^ bytes[i]) & 0xFF];
+        return (crc ^ -1) >>> 0;
+    },
+
+    _caZip(ficheros) {
+        const enc = new TextEncoder();
+        const partes = [], central = [];
+        let offset = 0;
+        const u16 = n => [n & 0xFF, (n >>> 8) & 0xFF];
+        const u32 = n => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
+        ficheros.forEach(({ nombre, texto }) => {
+            const datos = enc.encode(texto);
+            const nom = enc.encode(nombre);
+            const crc = this._caCrc32(datos);
+            const comun = [...u16(20), ...u16(0x800), ...u16(0), ...u16(0), ...u16(0x2100),
+                           ...u32(crc), ...u32(datos.length), ...u32(datos.length), ...u16(nom.length)];
+            partes.push(new Uint8Array([...u32(0x04034b50), ...comun, ...u16(0)]), nom, datos);
+            central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...comun,
+                ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), nom);
+            offset += 30 + nom.length + datos.length;
+        });
+        const tamCentral = central.reduce((n, p) => n + p.length, 0);
+        const fin = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0),
+            ...u16(ficheros.length), ...u16(ficheros.length), ...u32(tamCentral), ...u32(offset), ...u16(0)]);
+        const todo = [...partes, ...central, fin];
+        const salida = new Uint8Array(todo.reduce((n, p) => n + p.length, 0));
+        let i = 0;
+        todo.forEach(p => { salida.set(p, i); i += p.length; });
+        return salida;
+    },
+
+    _caXlsx() {
+        const { meses } = this._caMesesExport();
+        const esc = v => String(v ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]))
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        const col = n => String.fromCharCode(65 + n);
+        const texto = (ref, v, st) => v === '' || v == null ? `<c r="${ref}" s="${st}"/>`
+            : `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${this._caEsc(v)}</t></is></c>`;
+        const numero = (ref, v, st) => `<c r="${ref}" s="${st}"><v>${v}</v></c>`;
+        // Fechas y horas como las de Excel: días desde 1899-12-30 y fracción de día
+        const serial = f => (Date.UTC(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8)) - Date.UTC(1899, 11, 30)) / 86400000;
+        const hora = h => { const [a, b] = String(h).split(':').map(Number); return (a * 60 + b) / 1440; };
+        const ultima = col(this.CA_CABECERAS.length - 1);
+
+        const hojas = meses.map(m => {
+            const filas = [
+                `<row r="1" ht="24" customHeight="1">${texto('A1', m.titulo, 5)}</row>`,
+                `<row r="2" ht="22.5" customHeight="1">${this.CA_CABECERAS.map((h, i) => texto(col(i) + '2', h, 1)).join('')}</row>`,
+                ...this._caFilasMes(m).map((f, n) => {
+                    const r = n + 3;
+                    return `<row r="${r}" ht="21" customHeight="1">` + f.map((v, i) => {
+                        const ref = col(i) + r;
+                        if (i === 0) return v ? numero(ref, serial(v), 3) : `<c r="${ref}" s="2"/>`;
+                        if ((i === 5 || i === 6) && /^\d{2}:\d{2}$/.test(v || '')) return numero(ref, hora(v), 4);
+                        return texto(ref, v, 2);
+                    }).join('') + '</row>';
+                }),
+            ].join('');
+            const anchos = this.CA_ANCHOS.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+                + `<cols>${anchos}</cols><sheetData>${filas}</sheetData>`
+                + `<mergeCells count="1"><mergeCell ref="A1:${ultima}1"/></mergeCells>`
+                + '<pageMargins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
+                + '<pageSetup paperSize="9" orientation="landscape" fitToHeight="0"/>'
+                // El título también en la cabecera de la página, al imprimir
+                + `<headerFooter><oddHeader>&amp;C&amp;B${this._caEsc(m.titulo)}</oddHeader><oddFooter>&amp;CPágina &amp;P de &amp;N</oddFooter></headerFooter>`
+                + '</worksheet>';
+        });
+
+        const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+        const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+        const REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
+        const DOC = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+        const fuente = 'Aptos Narrow';
+        return this._caZip([
+            { nombre: '[Content_Types].xml', texto: X
+              + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+              + '<Default Extension="xml" ContentType="application/xml"/>'
+              + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+              + hojas.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+              + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+              + '</Types>' },
+            { nombre: '_rels/.rels', texto: X + `<Relationships xmlns="${REL}">`
+              + `<Relationship Id="rId1" Type="${DOC}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+            { nombre: 'xl/workbook.xml', texto: X + `<workbook xmlns="${NS}" xmlns:r="${DOC}"><sheets>`
+              + meses.map((m, i) => `<sheet name="${this._caEsc(m.hoja).slice(0, 31)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')
+              + '</sheets>'
+              + `<definedNames>${meses.map((m, i) => `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${this._caEsc(m.hoja).slice(0, 31)}'!$1:$2</definedName>`).join('')}</definedNames>`
+              + '</workbook>' },
+            { nombre: 'xl/_rels/workbook.xml.rels', texto: X + `<Relationships xmlns="${REL}">`
+              + hojas.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${DOC}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+              + `<Relationship Id="rId${hojas.length + 1}" Type="${DOC}/styles" Target="styles.xml"/></Relationships>` },
+            { nombre: 'xl/styles.xml', texto: X + `<styleSheet xmlns="${NS}">`
+              + '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yy"/><numFmt numFmtId="165" formatCode="h:mm"/></numFmts>'
+              + `<fonts count="3"><font><sz val="11"/><name val="${fuente}"/></font>`
+              + `<font><b/><sz val="11"/><name val="${fuente}"/></font>`
+              + `<font><b/><sz val="14"/><color rgb="FF156082"/><name val="${fuente}"/></font></fonts>`
+              + '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+              + '<fill><patternFill patternType="solid"><fgColor rgb="FFC0E4F5"/><bgColor indexed="64"/></patternFill></fill></fills>'
+              + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+              + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+              + '<cellXfs count="6">'
+              + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+              + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
+            ...hojas.map((texto, i) => ({ nombre: `xl/worksheets/sheet${i + 1}.xml`, texto })),
+        ]);
+    },
+
+    _caGuardarArchivo(bytes, nombre, tipo) {
+        if (window.AndroidBridge?.saveFileBase64) {
+            let bin = '';
+            for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+            window.AndroidBridge.saveFileBase64(btoa(bin), nombre);
+            return true;
+        }
+        if (window.AndroidBridge?.saveFile) return false;   // APK anterior, sin el puente binario
+        const url = URL.createObjectURL(new Blob([bytes], { type: tipo }));
+        const a = document.createElement('a');
+        a.href = url; a.download = nombre;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        return true;
+    },
+
+    caExportarXLS() {
+        const { nombre, total } = this._caMesesExport();
+        this.caCerrarExport();
+        const ok = this._caGuardarArchivo(this._caXlsx(), nombre + '.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (!ok) { this._mostrarToast('Actualiza la app para exportar a Excel; de momento usa CSV', 4500); return; }
+        this._mostrarToast(`📗 ${total} registros en Excel`, 3500);
+    },
+
+    caExportarCSV() {
+        const { nombre, total } = this._caMesesExport();
+        this.caCerrarExport();
+        const csv = this._caCsv();
+        if (window.AndroidBridge?.saveFile) {
+            try { window.AndroidBridge.saveFile(csv, nombre + '.csv'); return; } catch (_) {}
+        }
+        this._caGuardarArchivo(new TextEncoder().encode(csv), nombre + '.csv', 'text/csv;charset=utf-8');
+        this._mostrarToast(`📊 ${total} registros en CSV`, 3500);
+    },
+
+    // Google Sheets: se sube el mismo Excel y Drive lo convierte, con sus
+    // hojas por mes y su formato
+    async caExportarSheets() {
+        const { nombre, total } = this._caMesesExport();
+        this.caCerrarExport();
+        this._mostrarToast('☁️ Creando la hoja en tu Drive…', 3000);
+        try {
+            const frontera = 'emt' + Date.now();
+            const meta = JSON.stringify({ name: nombre, mimeType: 'application/vnd.google-apps.spreadsheet' });
+            const cuerpo = new Blob([
+                `--${frontera}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`
+                + `--${frontera}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n`,
+                this._caXlsx(),
+                `\r\n--${frontera}--`,
+            ]);
+            if (!await this._ensureToken()) throw new Error('Sin sesión de Google');
+            const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+                method: 'POST', headers: { Authorization: `Bearer ${this.accessToken}`,
+                                           'Content-Type': 'multipart/related; boundary=' + frontera }, body: cuerpo,
+            });
+            if (!r.ok) throw new Error('Drive ' + r.status);
+            const out = await r.json();
+            this._mostrarToast(`✅ ${total} registros en Google Sheets`, 3500);
+            if (out.webViewLink) {
+                if (window.AndroidBridge?.openExternalUrl) window.AndroidBridge.openExternalUrl(out.webViewLink);
+                else window.open(out.webViewLink, '_blank');
+            }
+        } catch (e) {
+            this._mostrarToast('❌ No se ha podido crear la hoja: ' + e.message, 5000);
+        }
+    },
 
     // ── Partes del puesto de Control de acceso ───────────────────────────────
     // Quien hace ese turno va apuntando lo que pasa en la garita —quién entra,
@@ -4859,10 +5956,13 @@ const app = {
           prefijo: 'control-build-',  clave: 'control', sinVersiones: true,
           quien: 'los de control de acceso',
           deAcceso: 'Quién puede usar la pestaña de Control de acceso en la app de Trabajador (registrar entradas y salidas del puesto).' },
-        { id: 'gcontrol', rotulo: '🗝️ Gestión control', acceso: 'gestion-control',
-          prefijo: 'gcontrol-build-', clave: 'gestionControl',
+        // La app de Gestión de control de acceso también está desactivada: su
+        // lista es la que deja ver las tres pestañas de Control de acceso en
+        // la app de Gestión.
+        { id: 'gcontrol', rotulo: '🗝️ Control (Gestión)', acceso: 'gestion-control',
+          prefijo: 'gcontrol-build-', clave: 'gestionControl', sinVersiones: true,
           quien: 'los de gestión de control de acceso',
-          deAcceso: 'Quién puede entrar en la app de Gestión de control de acceso, la de quien lleva ese puesto.' },
+          deAcceso: 'Quién ve las tres pestañas de Control de acceso en la app de Gestión: registro, historial y visitantes.' },
     ],
     _appVer: 'worker',
     _appAcc: 'worker',
@@ -7895,7 +8995,8 @@ const app = {
     aplicarDarkMode() {
         document.body.classList.add('dark');
         ['#appHeader','#appContent','#tabBar','#optionsHeader','#optionsContent','#modalContent',
-         '#editModalContent','#historialModalContent','#avatarModalContent']
+         '#editModalContent','#historialModalContent','#avatarModalContent',
+         '#caRegModalContent','#caSalidaModalContent','#caVisModalContent','#caExpModalContent']
             .forEach(s => { const e = document.querySelector(s); if(e) e.classList.add('dark'); });
         document.querySelector('.container')?.classList.add('dark');
     },
@@ -7903,7 +9004,8 @@ const app = {
     removerDarkMode() {
         document.body.classList.remove('dark');
         ['#appHeader','#appContent','#tabBar','#optionsHeader','#optionsContent','#modalContent',
-         '#editModalContent','#historialModalContent','#avatarModalContent']
+         '#editModalContent','#historialModalContent','#avatarModalContent',
+         '#caRegModalContent','#caSalidaModalContent','#caVisModalContent','#caExpModalContent']
             .forEach(s => { const e = document.querySelector(s); if(e) e.classList.remove('dark'); });
         document.querySelector('.container')?.classList.remove('dark');
     },

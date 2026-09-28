@@ -10,17 +10,11 @@
 (function rolEnLaWeb() {
     try {
         if (window.Capacitor?.isNativePlatform?.()) return;
-        const q = new URLSearchParams(window.location.search);
-        const gc = q.get('app') === 'gestion-control'
-            || /(^|:)com\.guillermorc\.gcontrolemt$/.test(q.get('state') || '');
-        // La de la garita está desactivada: su registro está ahora en la app
-        // de Trabajador (Ajustes → Trabajo → Control de acceso). En la web
-        // solo queda la del puesto; lo demás vuelve a la bienvenida.
-        if (!gc) { window.location.replace('/'); return; }
-        document.querySelector('meta[name="app-rol"]')?.setAttribute('content', 'gestion-control');
-        // Al instalarla desde el navegador tiene que abrir esta y no la de la garita
-        document.querySelector('link[rel="manifest"]')?.setAttribute('href', 'manifest-gc.json');
-        document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', 'icons/icon-gc-192.png');
+        // Las dos del puesto están desactivadas: la de la garita está ahora en
+        // Trabajador (Ajustes → Trabajo → Control de acceso) y la del puesto,
+        // en Gestión (sus tres pestañas, con autorización). En la web, todo lo
+        // de aquí vuelve a la bienvenida.
+        window.location.replace('/');
     } catch (_) {}
 })();
 

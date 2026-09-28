@@ -1,19 +1,9 @@
 name: Build APK Control de acceso
 
+# Desactivada: las dos apps del puesto ya no se usan (la garita está en
+# Trabajador y la del puesto, dentro de Gestión). No se monta sola al subir
+# cambios; si hiciera falta, se puede lanzar a mano desde Actions.
 on:
-  push:
-    branches: [main]
-    # Solo lo que acaba dentro de estos APK: tocar la app de los conductores o
-    # la de gestión no tiene por qué publicar una versión nueva de éstas.
-    paths:
-      - 'control/**'
-      - 'scripts/build-www-control.js'
-      - 'capacitor.control.config.json'
-      - '.github/workflows/build-control.yml'
-      # Comunes a todas las apps
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/debug.keystore.b64'
   workflow_dispatch:
 jobs:
   build-apk:
