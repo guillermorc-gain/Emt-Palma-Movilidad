@@ -208,5 +208,104 @@
         }
       }
     }
+  ],
+  "guillermo.rcxx@gmail.com": [
+    {
+      "quitado": "2026-09-28T18:37:53.232Z",
+      "sinAccesoA": "trabajador",
+      "ficha": {
+        "email": "guillermo.rcxx@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "conductor": "1234-5",
+        "version": "build-351",
+        "horasMes": 14,
+        "horasTotales": 14,
+        "diasMes": 3,
+        "turno": "T",
+        "puesto": "",
+        "actualizado": "2026-09-28T12:52:17.904Z",
+        "horaInicio": "18:00",
+        "horaFin": "22:00",
+        "horarioDe": "anterior",
+        "jornadas": [
+          {
+            "f": "20260915",
+            "h": 5,
+            "i": "17:00",
+            "o": "22:00",
+            "n": 1,
+            "pu": ""
+          },
+          {
+            "f": "20260917",
+            "h": 5,
+            "i": "17:00",
+            "o": "22:00",
+            "n": 1,
+            "pu": ""
+          },
+          {
+            "f": "20260918",
+            "h": 4,
+            "i": "18:00",
+            "o": "22:00",
+            "n": 1,
+            "pu": ""
+          }
+        ],
+        "horasAnuales": 1700,
+        "jornadaHoras": 7,
+        "vacaciones": [],
+        "vacacionesAt": 1789917551384,
+        "dias": null,
+        "diasAt": 1789820835635,
+        "horario": "",
+        "grupo": null,
+        "lugares": {
+          "20260921": "Son Rossinyol",
+          "20260922": "Anselmo Clavé",
+          "20260923": "Anselmo Clavé",
+          "20260924": "Anselmo Clavé",
+          "20260925": "Anselmo Clavé",
+          "20260926": "Anselmo Clavé",
+          "20260927": "Anselmo Clavé"
+        },
+        "horarios": {
+          "202609": {
+            "i": "05:30",
+            "f": "13:00"
+          }
+        },
+        "revisiones": {
+          "20260915": "plan",
+          "20260917": "plan",
+          "20260918": "plan",
+          "20260921": "real"
+        },
+        "horariosDia": {
+          "20260921": {
+            "i": "20:00",
+            "f": "03:00"
+          },
+          "20260928": {
+            "i": "06:00",
+            "f": "09:30"
+          }
+        },
+        "tramosDia": {},
+        "avisoVisto": {
+          "clave": "20260921|Son Rossinyol|05:30–13:00",
+          "texto": "Se te asigna este servicio y horario: 05:30–13:00. Confirma como leído. Gracias.",
+          "en": "2026-09-21T18:42:50.343Z"
+        },
+        "oculto": true,
+        "apps": [
+          "trabajador"
+        ],
+        "asignadoDia": {
+          "20260928": 1790517642049
+        }
+      }
+    }
   ]
 }
