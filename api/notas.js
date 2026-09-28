@@ -87,6 +87,13 @@ async function guardarConReintento(mutar, mensaje) {
 }
 
 const texto = t => String(t ?? '').trim().slice(0, MAX_TEXTO);
+// El emoji de un grupo: uno solo (con sus modificadores), o el de siempre
+const limpiarEmoji = e => {
+  const s = String(e ?? '').trim();
+  return s && [...s].length <= 10 && /^[\p{Extended_Pictographic}\p{Regional_Indicator}\u200d\ufe0f\u20e3\u{1F3FB}-\u{1F3FF}]+$/u.test(s) ? s : '👥';
+};
+// A los usuarios de prueba no se les escribe: no hay nadie detrás
+const esDePrueba = e => String(e || '').toLowerCase().endsWith('@prueba.local');
 
 // Ya no se aceptan adjuntos nuevos: solo texto. Lo que se mandó cuando sí se
 // podía se sigue leyendo y enseñando, hasta que el recorte por tamaño se lo
@@ -278,22 +285,37 @@ const avisarDe = (nota, quien, comoGestion) => {
 function añadirMensaje(nota, { de, autor, cuerpo, adjuntos }) {
   const n = normalizar(nota);
   const { vistoPor: _v, ...resto } = n;
-  return { ...resto, estado: 'pendiente', mensajes: [...n.mensajes, {
+  const en = new Date().toISOString();
+  const leidos = n.tipo === 'grupo'
+    ? { ...(n.leidos || {}), [de === 'gestor' ? 'gestion' : String(de).toLowerCase()]: { nombre: String(autor || '').slice(0, 80), en } }
+    : n.leidos;
+  return { ...resto, ...(leidos ? { leidos } : {}), estado: 'pendiente', mensajes: [...n.mensajes, {
     de, autor: String(autor || '').slice(0, 80),
-    texto: cuerpo, adjuntos, en: new Date().toISOString(),
+    texto: cuerpo, adjuntos, en,
   }] };
 }
 
 // Dar el visto o archivar. El visto es de los dos: lo dé quien lo dé, queda
 // apuntado en la conversación con su nombre y su hora, así que el otro lo ve
 // en su app sin que nadie tenga que escribir nada.
-function tocarNota(nota, { visto, archivada, quien, nombre }) {
+function tocarNota(nota, { visto, archivada, quien, nombre, deGestion, titulo, emoji }) {
   const n = normalizar(nota);
+  // Los grupos: su nombre y su emoji los puede cambiar cualquiera de dentro
+  if (n.tipo === 'grupo') {
+    if (typeof titulo === 'string') n.titulo = titulo.trim().slice(0, 80);
+    if (emoji !== undefined) n.emoji = limpiarEmoji(emoji);
+  }
   if (visto !== undefined) {
     if (visto) {
       n.estado = 'visto';
       n.vistoPor = { email: quien, nombre: String(nombre || '').slice(0, 80),
                      en: new Date().toISOString() };
+      // En un grupo cada uno apunta hasta dónde ha leído, para que debajo
+      // de cada mensaje salga quién lo ha visto
+      if (n.tipo === 'grupo') {
+        const k = escribeComoGestion(n, quien, deGestion) ? 'gestion' : quien;
+        n.leidos = { ...(n.leidos || {}), [k]: { nombre: String(nombre || '').slice(0, 80), en: n.vistoPor.en } };
+      }
     } else {
       n.estado = 'pendiente';
       delete n.vistoPor;
@@ -342,7 +364,7 @@ export default async function handler(req, res) {
         if (n.tipo === 'grupo') {
           const otros = participantesDe(n).filter(p => p.gestion ? !!quien : (p.email || '') !== quien)
             .map(p => p.gestion ? 'Gestión' : (p.nombre || p.email));
-          return '👥 ' + (n.titulo || otros.join(', '));
+          return (n.emoji || '👥') + ' ' + (n.titulo || otros.join(', '));
         }
         if (n.tipo === 'companero') {
           return (n.deEmail || '').toLowerCase() === quien
@@ -439,7 +461,7 @@ export default async function handler(req, res) {
         const otros = lista.map(p => ({ email: String(p?.email || '').toLowerCase().trim(),
                                         nombre: String(p?.nombre || '').slice(0, 80),
                                         num: String(p?.num || '').slice(0, 12) }))
-          .filter(p => p.email.includes('@') && p.email !== quien && !vistos.has(p.email) && vistos.add(p.email))
+          .filter(p => p.email.includes('@') && p.email !== quien && !esDePrueba(p.email) && !vistos.has(p.email) && vistos.add(p.email))
           .slice(0, MAX_DESTINOS);
         const conGestion = !!b.conGestion;
         // Quien escribe como gestión no entra en la lista: está como "gestión"
@@ -455,6 +477,9 @@ export default async function handler(req, res) {
           participantes: comoGestion ? otros : [yo, ...otros],
           conGestion: conGestion || comoGestion,
           titulo: String(b.titulo || '').slice(0, 80),
+          emoji: limpiarEmoji(b.emoji),
+          // Quien lo crea ya ha visto su primer mensaje
+          leidos: { [comoGestion ? 'gestion' : quien]: { nombre: comoGestion ? String(b.gestor || 'Gestión').slice(0, 80) : yo.nombre, en: creado } },
           mensajes: [{ de: comoGestion ? 'gestor' : quien,
                        autor: comoGestion ? String(b.gestor || 'Gestión').slice(0, 80) : yo.nombre,
                        texto: cuerpo, adjuntos, en: creado }],
@@ -478,7 +503,10 @@ export default async function handler(req, res) {
       // cada uno contestará lo suyo.
       const destinos = [...new Set((Array.isArray(b.para) ? b.para : [b.para])
         .map(d => String(d || '').toLowerCase().trim())
-        .filter(d => d.includes('@')))].slice(0, MAX_DESTINOS);
+        .filter(d => d.includes('@') && !esDePrueba(d)))].slice(0, MAX_DESTINOS);
+      if ((Array.isArray(b.para) ? b.para : [b.para]).some(esDePrueba) && !destinos.length) {
+        return res.status(400).json({ error: 'A los usuarios de prueba no se les puede escribir' });
+      }
       if (Array.isArray(b.para) && !destinos.length) {
         return res.status(400).json({ error: 'No has elegido a nadie' });
       }
@@ -554,7 +582,7 @@ export default async function handler(req, res) {
       const delToken = await emailDelToken(tokenDe(req));
       const quien = delToken || (req.headers['x-admin-email'] || req.headers['x-user-email'] || '')
         .toLowerCase().trim();
-      const { id, visto, archivada, gestor, nombre, borrarMensaje: iBorrar, enMensaje } = req.body || {};
+      const { id, visto, archivada, gestor, nombre, borrarMensaje: iBorrar, enMensaje, titulo, emoji } = req.body || {};
       if (!id) return res.status(400).json({ error: 'Falta la nota' });
       if (!quien || !quien.includes('@')) return res.status(400).json({ error: 'Falta el usuario' });
       const deGestion = !!delToken && await esGestor(delToken);
@@ -562,7 +590,7 @@ export default async function handler(req, res) {
       const esDesarrollador = !!delToken && delToken === GESTOR_PRINCIPAL;
       // El visto lo da cualquiera de los dos: no hace falta comprobar nada
       // más de lo que ya comprueba puedeTocar.
-      const quita = { visto, archivada, quien, nombre: gestor || nombre };
+      const quita = { visto, archivada, quien, nombre: gestor || nombre, deGestion, titulo, emoji };
       const borraUno = metodo === 'PATCH' && Number.isInteger(iBorrar);
       if (borraUno) {
         const quienBorra = { quien, nombre: gestor || nombre, deGestion };
@@ -600,7 +628,7 @@ export default async function handler(req, res) {
         }
         const tocada = tocarNota(n, quita);
         await guardarNota(paraGuardar(tocada));
-        if (visto !== undefined) await avisarDe(tocada, quien, false);
+        if (visto !== undefined || titulo !== undefined || emoji !== undefined) await avisarDe(tocada, quien, false);
         return res.status(200).json(tocada);
       }
       let prohibido = false;
@@ -611,7 +639,7 @@ export default async function handler(req, res) {
         if (metodo === 'DELETE') { const out = { ...data }; delete out[id]; return out; }
         return acotarAdjuntos({ ...data, [id]: paraGuardar(tocarNota(data[id], quita)) });
       }, metodo === 'DELETE' ? `Quitar conversación ${id}` : `Cambio en ${id}`);
-      if (nuevo && nuevo[id] && visto !== undefined) await avisarDe(nuevo[id], quien, false);
+      if (nuevo && nuevo[id] && (visto !== undefined || titulo !== undefined || emoji !== undefined)) await avisarDe(nuevo[id], quien, false);
       if (!nuevo) {
         return res.status(prohibido ? 403 : 404)
           .json({ error: prohibido ? 'Esa conversación no es tuya' : 'No se pudo actualizar' });

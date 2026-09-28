@@ -4725,7 +4725,7 @@ const app = {
     },
 
     _soyElDesarrollador() {
-        return (this.usuarioActual?.email || '').toLowerCase() === this.DEV_EMAIL;
+        return ES_APP_DEV && (this.usuarioActual?.email || '').toLowerCase() === this.DEV_EMAIL;
     },
 
     _escribirA(quienes) {
@@ -4755,6 +4755,12 @@ const app = {
         const texto = (document.getElementById('respTexto').value || '').trim();
         if (!texto) { this._mostrarToast('Escribe algo', 3000); return; }
         const todos = Array.isArray(this._notaPara) ? this._notaPara : [this._notaPara];
+        // Un grupo lleva nombre y emoji: se piden antes de crearlo
+        let datosGrupo = null;
+        if (todos.length > 1) {
+            datosGrupo = await this._pedirDatosGrupo();
+            if (!datosGrupo) return;
+        }
         document.getElementById('respModal').classList.remove('show');
         // Al desarrollador no le corresponde firmar como gestión: lo que
         // escribe es suyo, va a su nombre y la conversación es entre los dos.
@@ -4778,7 +4784,7 @@ const app = {
             // Más de uno a la vez es un grupo: una sola conversación con todos.
             // Gestión entra como gestión; el desarrollador, como persona.
             if (todos.length > 1) {
-                nuevas.push(...await enviar({ grupo: true,
+                nuevas.push(...await enviar({ grupo: true, ...datosGrupo,
                     participantes: para.map(e => ({ email: e, nombre: this._fichaDe(e)?.nombre || '',
                                                     num: this._fichaDe(e)?.conductor || '' })),
                     ...(comoPersona
@@ -5069,7 +5075,7 @@ const app = {
         // que no se da por visto es lo que he escrito yo: esto se llama
         // también al recargar con la conversación abierta, y lo marcaba
         // "visto por" quien acababa de escribir.
-        if (!this._esMiMensaje(ultimo, n) && !this._estaVista(n)) {
+        if (!this._esMiMensaje(ultimo, n) && !this._yaLoVi(n, ultimo)) {
             this._marcarVisto(id, true, true);
         }
         const l = this._leidas();
@@ -5223,9 +5229,156 @@ const app = {
             : yo.gestion ? !p.gestion : (p.gestion || (p.email || '').toLowerCase() !== (yo.email || '').toLowerCase()));
     },
 
+    // ── Grupos: nombre y emoji ──────────────────────────────────────────────
+    // El selector de emojis, por categorías como en WhatsApp, con los que se
+    // han usado hace poco delante. Los emojis se sacan de tramos de Unicode y
+    // se quedan solo los que el móvil pinta como emoji.
+    _emojisPorCategoria() {
+        if (this._emojisCache) return this._emojisCache;
+        const tramos = {
+            '😀': [[0x1F600, 0x1F64F], [0x1F910, 0x1F92F], [0x1F970, 0x1F97A], [0x1F9D0, 0x1F9DF], [0x1FAE0, 0x1FAF8],
+                   [0x1F440, 0x1F450], [0x1F466, 0x1F487], [0x1F4AA, 0x1F4AA], [0x1F90C, 0x1F90F], [0x1F9B0, 0x1F9B9]],
+            '🐶': [[0x1F400, 0x1F43F], [0x1F980, 0x1F9AE], [0x1F330, 0x1F343], [0x1F490, 0x1F490], [0x1FAB0, 0x1FABF], [0x1F300, 0x1F32C]],
+            '🍔': [[0x1F344, 0x1F37F], [0x1F950, 0x1F96F], [0x1F9C0, 0x1F9CB], [0x1FAD0, 0x1FADB], [0x2615, 0x2615]],
+            '⚽': [[0x1F380, 0x1F393], [0x1F3A0, 0x1F3D3], [0x26BD, 0x26BE], [0x1F93A, 0x1F94F], [0x1FA80, 0x1FA8F], [0x26F3, 0x26F3]],
+            '🚌': [[0x1F680, 0x1F6FF], [0x1F3D4, 0x1F3F0], [0x26F0, 0x26FD], [0x2708, 0x2708], [0x1F5FA, 0x1F5FF]],
+            '💡': [[0x1F4A1, 0x1F4A1], [0x1F4B0, 0x1F4FF], [0x1F500, 0x1F533], [0x1F550, 0x1F567], [0x1F9E7, 0x1F9FF],
+                   [0x1FA70, 0x1FA7F], [0x1FA90, 0x1FAAF], [0x231A, 0x231B], [0x23F0, 0x23F3]],
+            '❤️': [[0x2764, 0x2764], [0x1F493, 0x1F49F], [0x1F4A2, 0x1F4A9], [0x1F4AF, 0x1F4AF], [0x2705, 0x2705], [0x274C, 0x274E],
+                   [0x2753, 0x2757], [0x2795, 0x2797], [0x1F534, 0x1F53D], [0x1F7E0, 0x1F7EB], [0x2B50, 0x2B55],
+                   [0x26A1, 0x26AB], [0x2648, 0x2653], [0x1F6AB, 0x1F6AB]],
+        };
+        const esEmoji = /^\p{Emoji_Presentation}$/u;
+        const vistos = new Set();
+        const out = {};
+        for (const [cat, rs] of Object.entries(tramos)) {
+            out[cat] = [];
+            for (const [a, b] of rs) for (let c = a; c <= b; c++) {
+                const e = String.fromCodePoint(c);
+                if (esEmoji.test(e) && !vistos.has(e)) { vistos.add(e); out[cat].push(e); }
+            }
+        }
+        // Banderas: las de aquí y las de fuera que más salen
+        const bandera = cc => String.fromCodePoint(...[...cc].map(l => 0x1F1E6 + l.charCodeAt(0) - 65));
+        out['🚩'] = ['🏁', '🚩', '🎌', '🏴', '🏳️', '🏳️‍🌈', ...['ES', 'PT', 'FR', 'IT', 'DE', 'GB', 'IE', 'NL', 'BE', 'CH', 'AT', 'PL',
+            'RO', 'BG', 'GR', 'SE', 'NO', 'DK', 'FI', 'UA', 'RU', 'MA', 'DZ', 'SN', 'NG', 'US', 'MX', 'CU', 'DO', 'CO', 'VE', 'EC',
+            'PE', 'BO', 'CL', 'AR', 'UY', 'PY', 'BR', 'CN', 'JP', 'KR', 'IN', 'PK', 'PH', 'EU', 'UN'].map(bandera)];
+        return (this._emojisCache = out);
+    },
+
+    _emojisRecientes() {
+        try { return JSON.parse(localStorage.getItem('emojisRecientes') || '[]').slice(0, 24); } catch (_) { return []; }
+    },
+
+    // Abre el selector y devuelve el emoji elegido (o null)
+    _elegirEmoji() {
+        return new Promise(resolver => {
+            const cats = this._emojisPorCategoria();
+            const recientes = this._emojisRecientes();
+            const pestanas = [...(recientes.length ? ['🕘'] : []), ...Object.keys(cats)];
+            let actual = pestanas[0];
+            const v = document.createElement('div');
+            v.className = 'emo-velo';
+            const pintar = () => {
+                const lista = actual === '🕘' ? recientes : cats[actual];
+                v.innerHTML = `<div class="emo-caja" role="dialog" aria-label="Elegir emoji">
+                    <div class="emo-tabs">${pestanas.map(p => `<button type="button" data-p="${p}" class="${p === actual ? 'on' : ''}">${p}</button>`).join('')}</div>
+                    <div class="emo-grid">${lista.map(e => `<button type="button" data-e="${e}">${e}</button>`).join('')}</div>
+                    <button type="button" class="emo-cerrar">Cancelar</button></div>`;
+            };
+            const fin = e => {
+                v.remove();
+                if (e) {
+                    const r = [e, ...this._emojisRecientes().filter(x => x !== e)].slice(0, 24);
+                    try { localStorage.setItem('emojisRecientes', JSON.stringify(r)); } catch (_) {}
+                }
+                resolver(e || null);
+            };
+            v.addEventListener('click', ev => {
+                const b = ev.target.closest('button');
+                if (ev.target === v) return fin(null);
+                if (!b) return;
+                if (b.dataset.p) { actual = b.dataset.p; pintar(); v.querySelector('.emo-grid').scrollTop = 0; }
+                else if (b.dataset.e) fin(b.dataset.e);
+                else if (b.classList.contains('emo-cerrar')) fin(null);
+            });
+            pintar();
+            document.body.appendChild(v);
+        });
+    },
+
+    // El nombre y el emoji del grupo: al crearlo y al cambiarlo
+    _pedirDatosGrupo(previo = {}) {
+        return new Promise(resolver => {
+            let emoji = previo.emoji || '👥';
+            const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+            const v = document.createElement('div');
+            v.className = 'emo-velo';
+            v.innerHTML = `<div class="emo-caja grupo-caja" role="dialog" aria-label="Datos del grupo">
+                <h3>${previo.titulo !== undefined ? '✏️ Cambiar el grupo' : '👥 Nuevo grupo'}</h3>
+                <div class="grupo-fila"><button type="button" class="grupo-emo" id="grEmo" title="Elegir emoji">${emoji}</button>
+                    <input type="text" id="grNombre" maxlength="60" placeholder="Nombre del grupo" value="${esc(previo.titulo || '')}"></div>
+                <p class="grupo-sub">Toca el emoji para cambiarlo. El nombre lo ven todos los del grupo.</p>
+                <div class="grupo-btns"><button type="button" class="emo-cerrar" id="grNo">Cancelar</button>
+                    <button type="button" class="grupo-ok" id="grSi">${previo.titulo !== undefined ? 'Guardar' : 'Crear grupo'}</button></div></div>`;
+            document.body.appendChild(v);
+            const fin = r => { v.remove(); resolver(r); };
+            v.querySelector('#grEmo').onclick = async () => {
+                const e = await this._elegirEmoji();
+                if (e) { emoji = e; v.querySelector('#grEmo').textContent = e; }
+            };
+            v.querySelector('#grNo').onclick = () => fin(null);
+            v.querySelector('#grSi').onclick = () => fin({ emoji, titulo: v.querySelector('#grNombre').value.trim().slice(0, 60) });
+            setTimeout(() => v.querySelector('#grNombre')?.focus(), 50);
+        });
+    },
+
+    async _editarGrupo() {
+        const n = (this._notas || []).find(x => x.id === this._hiloAbierto);
+        if (!n || n.tipo !== 'grupo') return;
+        const d = await this._pedirDatosGrupo({ titulo: n.titulo || '', emoji: n.emoji || '👥' });
+        if (!d) return;
+        await this._tocarConversacion(n.id, { titulo: d.titulo, emoji: d.emoji }, '✅ Grupo cambiado');
+        const nuevo = (this._notas || []).find(x => x.id === n.id);
+        if (nuevo) this._pintarTituloHilo(nuevo);
+    },
+
+    // El título del hilo, con el lápiz para cambiar nombre y emoji si es un grupo
+    _pintarTituloHilo(n) {
+        const el = document.getElementById('hiloQuien');
+        if (!el) return;
+        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        el.innerHTML = esc(this._tituloHilo(n))
+            + (n?.tipo === 'grupo' ? ' <button type="button" class="hilo-ed" title="Cambiar nombre y emoji" onclick="app._editarGrupo()">✏️</button>' : '');
+    },
+
+    // ── Vistos en los grupos ─────────────────────────────────────────────────
+    // Cada uno apunta hasta dónde ha leído; debajo de lo mío sale quién lo ha
+    // visto, como en WhatsApp.
+    _claveYo(n) {
+        const yo = this._yoEnHilo(n);
+        return !yo ? '' : yo.gestion ? 'gestion' : (yo.email || '').toLowerCase();
+    },
+
+    _yaLoVi(n, ultimo) {
+        if (n?.tipo !== 'grupo') return this._estaVista(n);
+        const mio = n.leidos?.[this._claveYo(n)]?.en || '';
+        return !!mio && mio >= (ultimo?.en || '');
+    },
+
+    _vistoEnGrupo(n, m) {
+        const yo = this._claveYo(n);
+        const otros = this._participantesDe(n).filter(p => (p.gestion ? 'gestion' : (p.email || '').toLowerCase()) !== yo);
+        const han = otros.filter(p => (n.leidos?.[p.gestion ? 'gestion' : (p.email || '').toLowerCase()]?.en || '') >= (m.en || ''));
+        if (!han.length) return '';
+        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        return `<div class="bub-visto">✓✓ ${han.length === otros.length ? 'Visto por todos'
+            : 'Visto por ' + esc(han.map(p => p.gestion ? 'Gestión' : (p.nombre || p.email)).join(', '))}</div>`;
+    },
+
     _tituloHilo(n) {
         const otros = this._otrosEnHilo(n).map(p => this._etiquetaParticipante(p));
-        if (n?.tipo === 'grupo') return n.titulo || ('👥 ' + otros.join(', '));
+        if (n?.tipo === 'grupo') return (n.emoji || '👥') + ' ' + (n.titulo || otros.join(', '));
         return otros[0] || '—';
     },
 
@@ -5276,7 +5429,7 @@ const app = {
         this._hiloAbierto = id;
         this._marcarLeida(id);
         document.getElementById('hiloTexto').value = '';
-        document.getElementById('hiloQuien').textContent = this._tituloHilo(n);
+        this._pintarTituloHilo(n);
         this._renderHilo();
         this._renderNotasGestor();
         document.getElementById('hiloModal').classList.add('show');
@@ -5284,7 +5437,7 @@ const app = {
         // Igual que en WhatsApp: al abrir la conversación, si lo último no es
         // mío y aún no está visto, se marca solo, sin tocar nada.
         const ultimo = this._ultimoMensaje(n);
-        if (ultimo && !this._esMiMensaje(ultimo, n) && !this._estaVista(n)) {
+        if (ultimo && !this._esMiMensaje(ultimo, n) && !this._yaLoVi(n, ultimo)) {
             this._marcarVisto(id, true, true);
         }
     },
@@ -5319,10 +5472,11 @@ const app = {
             return `<div class="bub ${mio ? 'mio' : 'suyo'}">` + autor
                 + (mio ? `<button class="bub-x" title="Borrar el mensaje" onclick="app._borrarMensaje(${i})">🗑</button>` : '')
                 + `<span class="bub-txt">${esc(m.texto)}</span>${adj}`
-                + `<div class="bub-hora">${esc(this._horaCorta(m.en))}</div></div>`;
+                + `<div class="bub-hora">${esc(this._horaCorta(m.en))}</div>`
+                + (mio && n.tipo === 'grupo' ? this._vistoEnGrupo(n, m) : '') + '</div>';
         }).join('') || '<div class="nt-vacio">Sin mensajes</div>';
         // Quién le dio el visto y cuándo, para los dos lados por igual
-        const v = n.vistoPor;
+        const v = n.tipo === 'grupo' ? null : n.vistoPor;
         if (v) {
             cont.innerHTML += `<div class="bub sistema">👁 Visto por ${esc(v.nombre) || esc(v.email)}`
                 + ` · ${esc(this._horaCorta(v.en))}</div>`;
