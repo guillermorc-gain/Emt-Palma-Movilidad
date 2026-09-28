@@ -1368,7 +1368,9 @@ const app = {
 
     async _writeDriveFile(data) {
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
-        const payload = { ...data, preferencias: this._getPreferencias() };
+        // Se suma a lo que ya había: así no se pierde lo que guardó la otra
+        // app (gestión o desarrollador) en la misma copia, como su tema
+        const payload = { ...data, preferencias: { ...(data?.preferencias || {}), ...this._getPreferencias() } };
         // En la de desarrollador la copia lleva también lo del puesto de
         // Control de acceso: los registros de entrada y salida y el directorio
         // de visitantes, que son de gente real y no pueden depender de un solo
@@ -10830,14 +10832,16 @@ const app = {
             workLocations: this._getWorkLocations(),
             notifSound: this.notifSound,
             // El tema, su versión clara u oscura, la letra…: que vuelvan al
-            // entrar otra vez, aunque al salir se borre todo del móvil
-            personal: leerPersonal()
+            // entrar otra vez, aunque al salir se borre todo del móvil. Cada
+            // app el suyo: gestión y desarrollador comparten la copia de Drive.
+            [ES_APP_DEV ? 'personalDev' : 'personal']: leerPersonal()
         };
     },
 
     _aplicarPreferenciasDesde(prefs) {
-        if (prefs.personal && typeof prefs.personal === 'object') {
-            try { localStorage.setItem('personal', JSON.stringify({ ...PERSONAL_DEF, ...prefs.personal })); } catch (_) {}
+        const suyo = prefs[ES_APP_DEV ? 'personalDev' : 'personal'];
+        if (suyo && typeof suyo === 'object') {
+            try { localStorage.setItem('personal', JSON.stringify({ ...PERSONAL_DEF, ...suyo })); } catch (_) {}
             aplicarPersonal(leerPersonal());
             this._aplicarModoDelTema();
         }
