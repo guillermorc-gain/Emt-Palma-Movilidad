@@ -846,10 +846,12 @@ const app = {
                 // problema siempre es haber elegido otra cuenta sin querer,
                 // y "no tiene acceso" a secas no ayuda a caer en ello.
                 const pedida = !ES_APP_DEV && await this._pedirAccesoAlDepartamento('gestion');
-                this.mostrarMensaje(ES_APP_DEV
+                if (pedida) {
+                    this._mostrarEspera(`⏳ La cuenta ${conQue} está pendiente de autorización. Tienes que esperar a que el desarrollador la autorice: `
+                        + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en «Correo no deseado»).',
+                        async () => { if (await this._checkUserAuthorized(conQue)) { this._quitarEspera(); this._loadUserAndStart(); } });
+                } else this.mostrarMensaje(ES_APP_DEV
                     ? `❌ Has entrado con ${conQue}. Esta aplicación es solo para ${SUPER_USER_EMAIL}.`
-                    : pedida ? `⏳ La cuenta ${conQue} está pendiente de autorización. Tienes que esperar a que el desarrollador la autorice: `
-                      + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en spam).'
                     : `❌ La cuenta ${conQue} no tiene acceso a esta aplicación.`, 'error');
                 // Y que la próxima vez vuelva a preguntar la cuenta: si se queda
                 // guardada la sesión, al abrir entra sola otra vez con la que no
@@ -1926,6 +1928,33 @@ const app = {
         document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-ES', opts);
     },
 
+    // Mientras espera la autorización: un cuadro fijo en la pantalla de
+    // entrada que no se va solo, y cada minuto se mira si ya está autorizado
+    // para entrar sin que tenga que hacer nada.
+    _mostrarEspera(texto, comprobar) {
+        let el = document.getElementById('authEspera');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'authEspera';
+            el.className = 'auth-espera';
+            const ref = document.getElementById('authError');
+            if (ref?.parentNode) ref.parentNode.insertBefore(el, ref);
+            else document.getElementById('authScreen')?.appendChild(el);
+        }
+        el.textContent = texto;
+        el.hidden = false;
+        document.getElementById('authError')?.classList.remove('show');
+        document.getElementById('authSuccess')?.classList.remove('show');
+        clearInterval(this._esperaTimer);
+        if (comprobar) this._esperaTimer = setInterval(() => { if (!document.hidden) comprobar(); }, 60000);
+    },
+
+    _quitarEspera() {
+        clearInterval(this._esperaTimer);
+        const el = document.getElementById('authEspera');
+        if (el) el.hidden = true;
+    },
+
     mostrarMensaje(msg, tipo) {
         const el = document.getElementById('auth' + (tipo === 'error' ? 'Error' : 'Success'));
         el.textContent = msg; el.classList.add('show');
@@ -1956,6 +1985,7 @@ const app = {
     },
 
     mostrarApp() {
+        this._quitarEspera?.();
         this._hideSplash();
         document.getElementById('authScreen').classList.add('hidden');
         document.getElementById('appScreen').classList.add('active');
@@ -5037,6 +5067,7 @@ const app = {
                     <button type="button" class="no" onclick="app.resolverSolicitud('${esc(s.email)}','')" title="Rechazar">✕</button>
                 </div></div>`).join('');
         document.body.appendChild(caja);
+        this._anclarACampana(caja);
     },
 
     async resolverSolicitud(email, como) {
@@ -5374,6 +5405,20 @@ const app = {
 
     _cerrarAvisos() { document.getElementById('avisosCaja')?.remove(); },
 
+    // Los avisos salen de la campana: justo debajo, con un pico que la señala
+    _anclarACampana(caja) {
+        const campana = document.getElementById('campanaBtn');
+        caja.classList.add('desde-campana');
+        if (!campana) return;
+        const r = campana.getBoundingClientRect();
+        caja.style.top = Math.max(8, r.bottom + 10) + 'px';
+        requestAnimationFrame(() => {
+            const c = caja.getBoundingClientRect();
+            const pico = Math.min(c.width - 24, Math.max(14, r.left + r.width / 2 - c.left - 8));
+            caja.style.setProperty('--pico', pico + 'px');
+        });
+    },
+
     _abrirAvisos() {
         this._cerrarAvisos();
         const esc = t => String(t || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -5400,6 +5445,7 @@ const app = {
             + (sinLeer ? `<div class="sol-fila aviso-fila" onclick="app._cerrarAvisos();app.switchTab(2)">
                 <div class="sol-quien"><b>💬 ${sinLeer} conversación${sinLeer === 1 ? '' : 'es'} sin leer</b><span>Ir al chat</span></div></div>` : '');
         document.body.appendChild(caja);
+        this._anclarACampana(caja);
     },
 
     guardarSonidoChat(sonido) {

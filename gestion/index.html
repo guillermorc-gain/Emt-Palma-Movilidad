@@ -1163,6 +1163,12 @@
         /* Cuentas nuevas por aprobar (Desarrollador) */
         .sol-caja{position:fixed;left:10px;right:10px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:8000;background:var(--tut-fondo,#fff);color:var(--tut-tinta,#1f2d45);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.28);padding:12px;display:flex;flex-direction:column;gap:8px;max-width:520px;margin:0 auto;max-height:50vh;overflow-y:auto;}
         .sol-tit{font-weight:800;font-size:14px;}
+        /* Los avisos salen de la campana, arriba, con un pico que la señala */
+        .sol-caja.desde-campana{bottom:auto;top:70px;left:10px;right:10px;margin:0;max-width:none;max-height:none;overflow:visible;animation:desdeCampana .18s ease-out;transform-origin:calc(var(--pico,90%) + 8px) 0;}
+        .sol-caja.desde-campana > *{position:relative;}
+        .sol-caja.desde-campana .sol-cerrar{position:absolute;}
+        .sol-caja.desde-campana::before{content:'';position:absolute;top:-8px;left:var(--pico,calc(100% - 70px));width:16px;height:16px;background:var(--tut-fondo,#fff);transform:rotate(45deg);border-radius:3px;box-shadow:-3px -3px 6px rgba(0,0,0,.06);}
+        @keyframes desdeCampana{from{opacity:0;transform:scale(.92) translateY(-6px);}to{opacity:1;transform:none;}}
         .sol-cerrar{position:absolute;top:8px;right:8px;width:30px;height:30px;border:none;border-radius:50%;background:var(--tut-toque,#eef3fb);color:var(--tut-tinta,#1f2d45);font-size:14px;font-weight:800;cursor:pointer;line-height:1;}
         .sol-caja .sol-tit{padding-right:36px;}
         .aviso-fila{cursor:pointer;}
@@ -1326,7 +1332,9 @@
         ::-webkit-scrollbar{width:4px;}
         ::-webkit-scrollbar-thumb{background:var(--g1);border-radius:2px;}
         .app-content.dark ::-webkit-scrollbar-thumb,.options-content.dark ::-webkit-scrollbar-thumb{background:#3d4571;}
-    </style>
+            .auth-espera{margin:10px 0;padding:12px 14px;border-radius:12px;background:#fff8e1;border:1.5px solid #f5c542;color:#6b4e00;font-size:13px;line-height:1.45;text-align:left;}
+        .auth-espera[hidden]{display:none;}
+</style>
     <!-- Leaflet va dentro del APK: depender de un CDN dejaría el mapa en
          blanco con mala cobertura, y es justo donde se usa. -->
     <link rel="stylesheet" href="vendor/leaflet.css">

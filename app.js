@@ -875,10 +875,12 @@ const app = {
             if (!authorized) {
                 this.mostrarAuth();
                 const pedida = await this._pedirAccesoAlDepartamento('trabajador');
-                this.mostrarMensaje(pedida
-                    ? `⏳ La cuenta ${this.usuarioActual.email} está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
-                      + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en spam).'
-                    : '❌ La cuenta ' + this.usuarioActual.email + ' no tiene acceso a esta aplicación.', 'error');
+                const quien = this.usuarioActual.email;
+                if (pedida) {
+                    this._mostrarEspera(`⏳ La cuenta ${quien} está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
+                        + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en «Correo no deseado»).',
+                        async () => { if (await this._checkUserAuthorized(quien)) { this._quitarEspera(); this._loadUserAndStart(); } });
+                } else this.mostrarMensaje('❌ La cuenta ' + quien + ' no tiene acceso a esta aplicación.', 'error');
                 return;
             }
             this.mostrarApp();
@@ -1666,11 +1668,6 @@ const app = {
         }
         if (horas < 0) { alert('❌ Las horas no pueden ser negativas'); return; }
         if (fechaHasta < fecha) { alert('❌ La fecha "hasta" no puede ser anterior a la de inicio'); return; }
-        // Lo que no ha pasado no se registra; solo las vacaciones, que se
-        // apuntan con tiempo
-        if (!esVacaciones && fechaHasta > this._hoyISO()) {
-            alert('❌ No puedes registrar días que todavía no han llegado.'); return;
-        }
         const fechas = this._rangoDeFechas(fecha, fechaHasta);
         if (fechas.length > 62) { alert('❌ El rango es demasiado largo (máximo dos meses)'); return; }
         const horaInicio     = document.getElementById('horaInicio').value;
@@ -1786,10 +1783,6 @@ const app = {
     async _guardarDesdeModal() {
         if (!this.usuarioActual || !this.editingId) return;
         const fecha     = document.getElementById('editModalFecha').value;
-        const esVacEdit = !!document.getElementById('editModalVacaciones')?.checked;
-        if (fecha && fecha > this._hoyISO() && !esVacEdit) {
-            alert('❌ No puedes poner un día que todavía no ha llegado.'); return;
-        }
         let   horas     = parseFloat(document.getElementById('editModalHoras').value);
         const horaInicio= document.getElementById('editModalInicio').value;
         let   horaFin   = document.getElementById('editModalFin').value;
@@ -2037,18 +2030,20 @@ const app = {
                     try {
                         await this._pedirAlta(d.idToken, 'reenviar');
                         localStorage.setItem('reenvioAuto:' + d0.email, String(Date.now()));
-                        this.mostrarMensaje(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${d0.email} para `
-                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».', 'success');
+                        this._mostrarEspera(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${d0.email} para `
+                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
+                            () => this._retomarCuentaPendiente());
                         return;
                     } catch (_) { /* aún sin autorizar: se dice abajo */ }
                 } else {
-                    this.mostrarMensaje(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
-                        + '(mira también en «Correo no deseado»). Si no llega, pulsa «Reenviar el correo».', 'success');
+                    this._mostrarEspera(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
+                        + '(mira también en «Correo no deseado»). Si no llega, pulsa «Reenviar el correo».',
+                        () => this._retomarCuentaPendiente());
                     return;
                 }
-                this.mostrarMensaje('⏳ Tu cuenta está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: '
+                this._mostrarEspera('⏳ Tu cuenta está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: '
                     + 'entonces te llegará un correo con un enlace para seguir. Si ya te llegó, ábrelo. ¿No lo encuentras? Mira en '
-                    + '«Correo no deseado» o pulsa «Reenviar el correo».', 'error');
+                    + '«Correo no deseado» o pulsa «Reenviar el correo».', () => this._retomarCuentaPendiente());
                 return;
             }
             this._guardarSesionCorreo(d, u.displayName || '');
@@ -2068,10 +2063,11 @@ const app = {
             // aprobarla (y decir si es de gestión o trabajador)
             const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'trabajador' });
             this._apuntarPendiente(d);
-            this.mostrarMensaje(r.aprobado
+            this._mostrarEspera(r.aprobado
                 ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarla y seguirás desde aquí.`
                 : `⏳ Cuenta creada. Ahora tienes que esperar a que el Departamento la autorice. Cuando lo haga te llegará un correo a ${d0.email} `
-                  + 'avisándote, con un enlace para seguir donde lo has dejado (mira también en spam).', 'success');
+                  + 'avisándote, con un enlace para seguir donde lo has dejado (mira también en «Correo no deseado»).',
+                () => this._retomarCuentaPendiente());
         } catch (e) { this.mostrarMensaje(e.message, 'error'); }
     },
 
@@ -2140,13 +2136,15 @@ const app = {
                     try {
                         await this._pedirAlta(j.id_token, 'reenviar');
                         localStorage.setItem('reenvioAuto:' + claims.email, String(Date.now()));
-                        this.mostrarMensaje(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${claims.email} para `
-                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».', 'success');
+                        this._mostrarEspera(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${claims.email} para `
+                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
+                            () => this._retomarCuentaPendiente());
                         return;
                     } catch (_) { /* aún sin autorizar */ }
                 }
-                this.mostrarMensaje(`⏳ La cuenta ${claims.email || ''} sigue pendiente de autorización. Cuando el Departamento la autorice `
-                    + 'te llegará un correo con el enlace para seguir (mira también en «Correo no deseado»).', 'error');
+                this._mostrarEspera(`⏳ La cuenta ${claims.email || ''} sigue pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
+                    + 'cuando lo haga te llegará un correo con el enlace para seguir (mira también en «Correo no deseado»).',
+                    () => this._retomarCuentaPendiente());
                 return;
             }
             ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k));
@@ -2416,10 +2414,10 @@ const app = {
         const m = String(hoy.getMonth() + 1).padStart(2, '0');
         const d = String(hoy.getDate()).padStart(2, '0');
         const hoyISO = `${y}-${m}-${d}`;
+        // Se puede registrar también un día posterior a hoy
         document.getElementById('fechaInput').value = hoyISO;
-        document.getElementById('fechaInput').max   = hoyISO;
-        const hasta = document.getElementById('fechaHastaInput');
-        if (hasta) hasta.max = hoyISO;
+        document.getElementById('fechaInput').removeAttribute('max');
+        document.getElementById('fechaHastaInput')?.removeAttribute('max');
         this.comprobarFestivo();
         this._sincronizarHastaMin();
     },
@@ -2478,6 +2476,33 @@ const app = {
         document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-ES', opts);
     },
 
+    // Mientras espera la autorización: un cuadro fijo en la pantalla de
+    // entrada que no se va solo, y cada minuto se mira si ya está autorizado
+    // para entrar sin que tenga que hacer nada.
+    _mostrarEspera(texto, comprobar) {
+        let el = document.getElementById('authEspera');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'authEspera';
+            el.className = 'auth-espera';
+            const ref = document.getElementById('authError');
+            if (ref?.parentNode) ref.parentNode.insertBefore(el, ref);
+            else document.getElementById('authScreen')?.appendChild(el);
+        }
+        el.textContent = texto;
+        el.hidden = false;
+        document.getElementById('authError')?.classList.remove('show');
+        document.getElementById('authSuccess')?.classList.remove('show');
+        clearInterval(this._esperaTimer);
+        if (comprobar) this._esperaTimer = setInterval(() => { if (!document.hidden) comprobar(); }, 60000);
+    },
+
+    _quitarEspera() {
+        clearInterval(this._esperaTimer);
+        const el = document.getElementById('authEspera');
+        if (el) el.hidden = true;
+    },
+
     mostrarMensaje(msg, tipo) {
         const el = document.getElementById('auth' + (tipo === 'error' ? 'Error' : 'Success'));
         el.textContent = msg; el.classList.add('show');
@@ -2508,6 +2533,7 @@ const app = {
     },
 
     mostrarApp() {
+        this._quitarEspera?.();
         this._hideSplash();
         document.getElementById('authScreen').classList.add('hidden');
         document.getElementById('appScreen').classList.add('active');
