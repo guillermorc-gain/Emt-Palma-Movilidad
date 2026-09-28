@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { exigirAdmin, GESTOR_PRINCIPAL, tokenDe, revisarFirebase, revisarToken } from './_auth.js';
 import { cuentaDeServicio, avisarDesarrollador } from './_push.js';
+import { enviarCorreo, correoAutorizado, hayCorreoPropio } from './_correo.js';
 import { quitarDeApp } from './usuarios.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
@@ -126,6 +127,50 @@ async function mandarAvisoGoogle(email, como) {
   if (!r.ok) throw new Error('Firebase: ' + (d?.error?.message || r.status));
 }
 
+// El enlace para confirmar el correo, pedido a Firebase como administrador
+// (con la cuenta de servicio): así el correo lo mandamos nosotros, desde la
+// cuenta de Gmail de Gestión, en vez de que lo mande Firebase.
+async function enlaceVerificacion(email, como) {
+  const sa = cuentaDeServicio();
+  if (!sa) throw new Error('Falta la clave de Firebase en el servidor');
+  const ahora = Math.floor(Date.now() / 1000);
+  const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const sinFirma = b64({ alg: 'RS256', typ: 'JWT' }) + '.' + b64({
+    iss: sa.client_email, scope: 'https://www.googleapis.com/auth/identitytoolkit',
+    aud: 'https://oauth2.googleapis.com/token', iat: ahora, exp: ahora + 3600 });
+  const firma = crypto.createSign('RSA-SHA256').update(sinFirma).sign(sa.private_key, 'base64url');
+  const t = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${sinFirma}.${firma}` }) });
+  if (!t.ok) throw new Error('Google ' + t.status + ' al pedir permiso');
+  const { access_token } = await t.json();
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:sendOobCode`, {
+    method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestType: 'VERIFY_EMAIL', email, returnOobLink: true, continueUrl: seguirEn(como) }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.oobLink) throw new Error('Firebase: ' + (d?.error?.message || r.status));
+  return d.oobLink;
+}
+
+// El aviso de «ya estás autorizado». Con la clave de Gmail puesta sale de
+// Gestión (g.rioscorrea@gmail.com) con su asunto; si no, lo manda Firebase.
+async function avisarAutorizado({ email, uid, google, como, nombre }) {
+  if (hayCorreoPropio()) {
+    try {
+      const confirmar = !google && !!uid;
+      const enlace = confirmar ? await enlaceVerificacion(email, como) : seguirEn(como);
+      await enviarCorreo({ para: email, ...correoAutorizado({ nombre, email, enlace, confirmar,
+                                                              app: como === 'gestion' ? 'gestion' : 'trabajador' }) });
+      return;
+    } catch (e) {
+      console.error('Correo propio:', e.message);   // se intenta con el de Firebase
+    }
+  }
+  if (google) await mandarAvisoGoogle(email, como);
+  else if (uid) await mandarConfirmacion(uid, como);
+  else throw new Error('No hay cómo avisarle');
+}
+
 async function cuentasDeCorreo(req, res) {
   const q = req.query || {};
   // Lo que pide el propio usuario, con su sesión aún sin confirmar
@@ -140,7 +185,8 @@ async function cuentasDeCorreo(req, res) {
     if (como && !esFirebase) return res.status(200).json({ aprobado: true });
     if (como) {
       // Ya tenía acceso: la confirmación va directa
-      await mandarConfirmacion(s.uid, como);
+      await avisarAutorizado({ email: s.email, uid: s.uid, google: false, como,
+                               nombre: String(req.body?.nombre || s.nombre || '').slice(0, 80) });
       await mutarSolicitudes(d => { if (!d[s.email]) return null; delete d[s.email]; return d; }, `Solicitud de ${s.email} resuelta`);
       // Solo para enterarse: ya estaba autorizado, no hay nada que decidir
       if (q.solicitud !== undefined) {
@@ -187,9 +233,9 @@ async function cuentasDeCorreo(req, res) {
   // Ya está apuntado: el correo se intenta, y si falla se dice, pero el alta vale
   let correo = true, aviso = '';
   try {
-    if (sol.google) await mandarAvisoGoogle(email, req.body.como);
-    else if (sol.uid) await mandarConfirmacion(sol.uid, req.body.como);
-    else correo = false;
+    if (sol.google || sol.uid) {
+      await avisarAutorizado({ email, uid: sol.uid, google: !!sol.google, como: req.body.como, nombre: sol.nombre });
+    } else correo = false;
   } catch (e) { correo = false; aviso = e.message; }
   await mutarSolicitudes(d => { delete d[email]; return d; }, `Solicitud de ${email} aprobada (${req.body.como})`);
   return res.status(200).json({ ok: true, correo, ...(aviso ? { aviso } : {}) });
