@@ -1580,37 +1580,54 @@ const app = {
 
     // ── El directorio, a mano (solo la del puesto) ───────────────────────────
 
+    // Una tarjeta por persona: si un coche lo traen dos, salen las dos, cada
+    // una con la misma matrícula
+    _fichasVisitantes() {
+        const out = [];
+        Object.values(this._visitantes).forEach(v => {
+            const ps = Array.isArray(v.personas) && v.personas.length ? v.personas
+                : [{ nombre: v.nombre, empresa: v.empresa, vehiculo: v.vehiculo, departamento: v.departamento, visto: v.visto }];
+            ps.forEach(p => out.push({ ...p, matricula: v.matricula, clave: this._claveMatricula(v.matricula),
+                                       comparten: ps.length, editadoPor: v.editadoPor }));
+        });
+        return out;
+    },
+
     renderVisitantes() {
         const cont = document.getElementById('viLista');
         if (!cont) return;
         const t = String(document.getElementById('viBuscar')?.value || '').trim().toLowerCase();
         const k = this._claveMatricula(t);
         const orden = document.getElementById('viOrden')?.value || 'nombre';
-        const lista = Object.values(this._visitantes)
-            .filter(v => !t || (k && this._claveMatricula(v.matricula).includes(k))
+        const todas = this._fichasVisitantes();
+        const lista = todas
+            .filter(v => !t || (k && v.clave.includes(k))
                 || [v.nombre, v.empresa, v.vehiculo, v.departamento].some(x => String(x || '').toLowerCase().includes(t)))
             .sort((a, b) => orden === 'visto'
                 ? String(b.visto || '').localeCompare(String(a.visto || ''))
-                : String(a[orden] || '\uffff').localeCompare(String(b[orden] || '\uffff'), 'es', { numeric: true })
+                : String(a[orden] || '￿').localeCompare(String(b[orden] || '￿'), 'es', { numeric: true })
                   || String(a.matricula || '').localeCompare(String(b.matricula || '')));
+        this._fichasVistas = lista;
         const n = document.getElementById('viCuantos');
-        if (n) n.textContent = String(Object.keys(this._visitantes).length);
-        cont.innerHTML = lista.length ? lista.map(v => `
-            <div class="re-card" onclick="app.abrirVisitante('${esc(this._claveMatricula(v.matricula))}')">
+        if (n) n.textContent = String(todas.length);
+        cont.innerHTML = lista.length ? lista.map((v, i) => `
+            <div class="re-card" onclick="app.abrirVisitante(${i})">
                 <div class="re-top">
                     <span class="re-horas">${esc(v.nombre || '—')}</span>
                     <span class="re-mat">${esc(v.matricula)}</span>
                 </div>
                 ${v.empresa ? `<div class="re-quien">${esc(v.empresa)}</div>` : ''}
                 ${v.vehiculo || v.departamento ? `<div class="re-que">${esc([v.vehiculo, v.departamento ? '→ ' + v.departamento : ''].filter(Boolean).join(' '))}</div>` : ''}
+                ${v.comparten > 1 ? `<div class="re-que">👥 Esta matrícula la traen ${v.comparten} personas</div>` : ''}
                 ${v.visto ? `<div class="re-que">Última vez: ${esc(this._cuando(v.visto))}</div>` : ''}
             </div>`).join('')
             : '<div class="pa-vacio">No hay nadie en el directorio con eso.</div>';
     },
 
-    abrirVisitante(clave) {
-        const v = clave ? this._visitantes[clave] : null;
-        this._visEditando = clave || '';
+    // i: la tarjeta de la lista; sin él, una ficha nueva
+    abrirVisitante(i) {
+        const v = typeof i === 'number' ? this._fichasVistas?.[i] : null;
+        this._visEditando = v ? { clave: v.clave, nombre: v.nombre || '' } : null;
         const put = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
         put('vMatricula', v?.matricula); put('vNombre', v?.nombre); put('vEmpresa', v?.empresa);
         put('vVehiculo', v?.vehiculo); put('vDepartamento', v?.departamento);
@@ -1619,7 +1636,8 @@ const app = {
         const b = document.getElementById('vBorrar');
         if (b) b.hidden = !v;
         const f = document.getElementById('vFirma');
-        if (f) f.textContent = v?.editadoPor ? `Modificado por ${v.editadoPor}` : '';
+        if (f) f.textContent = [v?.comparten > 1 ? `Esta matrícula la traen ${v.comparten} personas.` : '',
+                                v?.editadoPor ? `Modificado por ${v.editadoPor}` : ''].filter(Boolean).join(' ');
         document.getElementById('visModal').classList.add('show');
     },
 
@@ -1633,7 +1651,7 @@ const app = {
         try {
             const r = await fetch(ACCESOS_URL + '?que=visitantes', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ficha, antes: this._visEditando }),
+                body: JSON.stringify({ ficha, antes: this._visEditando?.clave || '', antesNombre: this._visEditando?.nombre || '' }),
             });
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(data.error || r.status);
@@ -1645,19 +1663,21 @@ const app = {
     },
 
     borrarVisitante() {
-        const clave = this._visEditando;
-        const v = this._visitantes[clave];
+        const ed = this._visEditando;
+        const v = ed && this._visitantes[ed.clave];
         if (!v) return;
         this.cerrarVisitante();
+        const quien = ed.nombre ? ` (${ed.nombre})` : '';
         this.mostrarModal('Quitar del directorio',
-            `¿Quitar ${v.matricula}${v.nombre ? ' (' + v.nombre + ')' : ''} del directorio? Sus registros no se borran.`,
+            `¿Quitar ${v.matricula}${quien} del directorio? Sus registros no se borran.`,
             async () => {
                 try {
-                    const r = await fetch(`${ACCESOS_URL}?que=visitantes&matricula=${encodeURIComponent(v.matricula)}`, { method: 'DELETE' });
+                    const q = `que=visitantes&matricula=${encodeURIComponent(v.matricula)}`
+                        + (ed.nombre ? `&nombre=${encodeURIComponent(ed.nombre)}` : '');
+                    const r = await fetch(`${ACCESOS_URL}?${q}`, { method: 'DELETE' });
                     const data = await r.json().catch(() => ({}));
                     if (!r.ok) throw new Error(data.error || r.status);
-                    delete this._visitantes[clave];
-                    try { localStorage.setItem('visitantesCache', JSON.stringify(Object.values(this._visitantes))); } catch (_) {}
+                    await this.cargarVisitantes();
                     this.renderVisitantes();
                     this._mostrarToast('🗑️ Quitado del directorio', 2500);
                 } catch (e) { this._mostrarToast('❌ ' + e.message, 4500); }

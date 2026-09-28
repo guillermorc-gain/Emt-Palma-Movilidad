@@ -34,6 +34,29 @@ const MAX_PERSONAS   = 10;     // por matrícula
 
 const claveNombre = n => String(n || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+// Las personas de una ficha; las de antes de guardarlas tienen solo una
+function personasDe(f) {
+  if (!f) return [];
+  if (Array.isArray(f.personas) && f.personas.length) return f.personas.filter(p => p && p.nombre);
+  return f.nombre ? [{ nombre: f.nombre, empresa: f.empresa || '', vehiculo: f.vehiculo || '',
+                       departamento: f.departamento || '', visto: f.visto || '' }] : [];
+}
+
+// Una ficha con su lista de personas: lo de arriba es lo de la última que vino
+function ficha(matricula, personas, base = {}, extra = {}) {
+  const ps = [...personas].sort((a, b) => String(b.visto || '').localeCompare(String(a.visto || '')))
+    .slice(0, MAX_PERSONAS);
+  const top = ps[0] || base || {};
+  return {
+    ...base, ...extra,
+    matricula,
+    nombre: top.nombre || '', empresa: top.empresa || '', vehiculo: top.vehiculo || '',
+    departamento: top.departamento || '',
+    visto: ps.reduce((m, p) => (String(p.visto || '') > m ? String(p.visto) : m), String(base?.visto || '')),
+    personas: ps,
+  };
+}
+
 // Quien viene en este registro pasa delante en la lista de esa matrícula
 function conPersona(personas, r, ahora) {
   const lista = Array.isArray(personas) ? personas.filter(p => p && p.nombre) : [];
@@ -209,31 +232,50 @@ export default async function handler(req, res) {
           .sort((a, b) => (a.nombre || a.matricula || '').localeCompare(b.nombre || b.matricula || '', 'es')));
       }
       if (req.method === 'POST' && req.body?.ficha) {
-        // Crear o corregir una ficha a mano, desde la del puesto: aquí sí vale
-        // dejar un campo vacío, y si cambia la matrícula la vieja se va.
+        // Crear o corregir una ficha a mano, desde la del puesto. Cada ficha
+        // es una persona con su matrícula, y una matrícula puede tener
+        // varias: antes/antesNombre dicen cuál se está corrigiendo (vacíos
+        // si es nueva). Aquí sí vale dejar un campo vacío.
         if (!mandaEl) return res.status(403).json({ error: 'Solo gestión puede tocar el directorio' });
         const b = req.body.ficha || {};
         const clave = claveMatricula(b.matricula);
         if (!clave) return res.status(400).json({ error: 'Falta la matrícula' });
         const antes = claveMatricula(req.body.antes);
+        const antesNombre = texto(req.body.antesNombre, 80);
+        const persona = { nombre: texto(b.nombre, 80), empresa: texto(b.empresa, 80),
+                          vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60) };
+        const firma = { editado: new Date().toISOString(), editadoPor: quien };
         let repetida = false;
         const nuevo = await guardarConReintento(F_VISITANTES, data => {
-          if (clave !== antes && data[clave]) { repetida = true; return null; }
           const out = { ...data };
-          if (antes && antes !== clave) delete out[antes];
-          out[clave] = {
-            matricula: formatoMatricula(texto(b.matricula, 20)), nombre: texto(b.nombre, 80),
-            empresa: texto(b.empresa, 80), vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60),
-            visto: data[antes || clave]?.visto || '', editado: new Date().toISOString(), editadoPor: quien,
-            // Las demás personas que traen ese coche siguen ahí; la de la
-            // ficha, delante
-            personas: conPersona(data[antes || clave]?.personas, { nombre: texto(b.nombre, 80),
-              empresa: texto(b.empresa, 80), vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60) },
-              data[antes || clave]?.visto || ''),
-          };
+          let vistoPrevio = '';
+          // La persona que se corrige sale de donde estaba
+          if (antes && out[antes]) {
+            const ps = personasDe(out[antes]);
+            const quitada = antesNombre ? ps.find(x => claveNombre(x.nombre) === claveNombre(antesNombre)) : null;
+            vistoPrevio = quitada?.visto || out[antes].visto || '';
+            if (quitada) {
+              const quedan = ps.filter(x => x !== quitada);
+              if (quedan.length) out[antes] = ficha(out[antes].matricula, quedan, out[antes]);
+              else delete out[antes];
+            } else if (antes !== clave) {
+              // Una ficha sin personas (de las de antes) que cambia de matrícula
+              if (!ps.length) delete out[antes];
+            }
+          }
+          const destino = out[clave];
+          const psDest = personasDe(destino);
+          // La misma persona dos veces en la misma matrícula, no
+          if (persona.nombre && psDest.some(x => claveNombre(x.nombre) === claveNombre(persona.nombre))) {
+            repetida = true; return null;
+          }
+          if (!persona.nombre && destino && !antes) { repetida = true; return null; }
+          const lista = persona.nombre ? [...psDest, { ...persona, visto: vistoPrevio }] : psDest;
+          out[clave] = ficha(formatoMatricula(texto(b.matricula, 20)), lista,
+                             persona.nombre ? destino : { ...destino, ...persona }, firma);
           return out;
         }, `Ficha de ${clave} en el directorio`);
-        if (repetida) return res.status(409).json({ error: 'Esa matrícula ya está en el directorio' });
+        if (repetida) return res.status(409).json({ error: 'Esa persona ya está con esa matrícula en el directorio' });
         return res.status(200).json(nuevo?.[clave] || {});
       }
       if (req.method === 'POST') {
@@ -255,10 +297,16 @@ export default async function handler(req, res) {
         if (!mandaEl) return res.status(403).json({ error: 'Solo gestión puede quitar a alguien del directorio' });
         const clave = claveMatricula(req.query?.matricula);
         if (!clave) return res.status(400).json({ error: 'Falta la matrícula' });
+        // Con nombre se quita solo esa persona; la matrícula se va con la última
+        const nombre = texto(req.query?.nombre, 80);
         await guardarConReintento(F_VISITANTES, data => {
           if (!data[clave]) return null;
-          const out = { ...data }; delete out[clave]; return out;
-        }, `Quitar ${clave} del directorio`);
+          const out = { ...data };
+          const quedan = nombre ? personasDe(out[clave]).filter(x => claveNombre(x.nombre) !== claveNombre(nombre)) : [];
+          if (quedan.length) out[clave] = ficha(out[clave].matricula, quedan, out[clave]);
+          else delete out[clave];
+          return out;
+        }, `Quitar ${nombre || clave} del directorio`);
         return res.status(200).json({ ok: true });
       }
       return res.status(405).end();
