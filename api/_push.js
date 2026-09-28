@@ -120,6 +120,21 @@ async function enviar(sa, permiso, token, datos) {
   return (r.status === 404 || /UNREGISTERED/.test(t)) ? 'caducado' : 'fallo';
 }
 
+// Manda el toque a esos móviles y borra los que ya no tienen la app
+async function mandarA(sa, tokens, datos) {
+  if (!tokens.length) return;
+  const permiso = await tokenDeGoogle(sa);
+  const res = await Promise.all(tokens.map(t => enviar(sa, permiso, t, datos).catch(() => 'fallo')));
+  const caducados = tokens.filter((_, i) => res[i] === 'caducado');
+  if (caducados.length) {
+    await guardar(d => {
+      const tk = { ...d.tokens };
+      caducados.forEach(t => delete tk[t]);
+      return { ...d, tokens: tk };
+    }, `Avisos: fuera ${caducados.length} móvil${caducados.length === 1 ? '' : 'es'} sin la app`);
+  }
+}
+
 // A quién: los que están en la conversación menos quien escribe, en sus
 // apps; y si la conversación es con gestión y no escribe gestión, además
 // los móviles con la bandeja de gestión.
@@ -130,18 +145,23 @@ async function avisar({ id, emails, aGestion, quien }) {
   const { data } = await leer();
   const tokens = Object.entries(data.tokens || {}).filter(([, t]) =>
     t.bandeja ? (aGestion && t.email !== quien) : para.has(t.email)).map(([k]) => k);
-  if (!tokens.length) return;
-  const permiso = await tokenDeGoogle(sa);
-  const res = await Promise.all(tokens.map(t => enviar(sa, permiso, t, { tipo: 'chat', id: String(id || '') })
-    .catch(() => 'fallo')));
-  const caducados = tokens.filter((_, i) => res[i] === 'caducado');
-  if (caducados.length) {
-    await guardar(d => {
-      const tk = { ...d.tokens };
-      caducados.forEach(t => delete tk[t]);
-      return { ...d, tokens: tk };
-    }, `Avisos: fuera ${caducados.length} móvil${caducados.length === 1 ? '' : 'es'} sin la app`);
-  }
+  await mandarA(sa, tokens, { tipo: 'chat', id: String(id || '') });
+}
+
+// El cuadrante del mes, a toda la plantilla: a cada móvil con la app de
+// trabajadores. El aviso lo monta el móvil, como el de siempre.
+async function avisarTodos() {
+  const sa = cuentaDeServicio();
+  if (!sa) return;
+  const { data } = await leer();
+  const tokens = Object.entries(data.tokens || {}).filter(([, t]) => t.app === 'trabajador').map(([k]) => k);
+  await mandarA(sa, tokens, { tipo: 'cuadrante' });
+}
+
+export async function avisarCuadrante() {
+  try {
+    await Promise.race([avisarTodos(), new Promise(r => setTimeout(r, 8000))]);
+  } catch (_) { /* los móviles lo verán en su próximo repaso */ }
 }
 
 // Para comprobar que está bien puesto sin enseñar nada: si la clave se lee

@@ -735,6 +735,53 @@ jobs:
                       // alarma que mira si hay avisos con la app cerrada, y en
                       // bastantes móviles lo hace sin avisar. Aquí se mira cómo
                       // está y se puede pedir que la dejen en paz.
+                      // La marca del móvil. Las de algunas marcas cierran las
+                      // apps que no están en su lista de inicio automático, y ahí
+                      // no basta con el ahorro de batería de Android.
+                      @JavascriptInterface
+                      public String marcaMovil() {
+                          return (Build.MANUFACTURER + " " + Build.BRAND).toLowerCase();
+                      }
+
+                      // Abre el ajuste propio de la marca (inicio automático,
+                      // apps protegidas…). Cada marca lo tiene en un sitio, y
+                      // cambia entre versiones: se prueban por orden y, si no
+                      // hay ninguno, se abre la ficha de la app.
+                      @JavascriptInterface
+                      public void abrirAjusteMarca() {
+                          final String[][] pantallas = {
+                              {"com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"},
+                              {"com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"},
+                              {"com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity"},
+                              {"com.hihonor.systemmanager", "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity"},
+                              {"com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"},
+                              {"com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity"},
+                              {"com.oplus.safecenter", "com.oplus.safecenter.permission.startup.StartupAppListActivity"},
+                              {"com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"},
+                              {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"},
+                              {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"},
+                              {"com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"},
+                              {"com.asus.mobilemanager", "com.asus.mobilemanager.autostart.AutoStartActivity"},
+                          };
+                          ((android.app.Activity) ctx).runOnUiThread(() -> {
+                              for (String[] p : pantallas) {
+                                  try {
+                                      Intent i = new Intent();
+                                      i.setComponent(new android.content.ComponentName(p[0], p[1]));
+                                      ctx.startActivity(i);
+                                      return;
+                                  } catch (Exception ignored) {}
+                              }
+                              try {
+                                  Intent i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                  i.setData(android.net.Uri.parse("package:" + ctx.getPackageName()));
+                                  ctx.startActivity(i);
+                              } catch (Exception e) {
+                                  Toast.makeText(ctx, "Búscalo en Ajustes › Aplicaciones", Toast.LENGTH_LONG).show();
+                              }
+                          });
+                      }
+
                       @JavascriptInterface
                       public boolean bateriaSinRestriccion() {
                           try {
@@ -1266,6 +1313,12 @@ jobs:
               public static class PushService extends com.google.firebase.messaging.FirebaseMessagingService {
                   @Override
                   public void onMessageReceived(com.google.firebase.messaging.RemoteMessage msg) {
+                      // El cuadrante del mes: el aviso sale siempre, también con
+                      // la app delante, que dentro no hay nada que lo diga
+                      if ("cuadrante".equals(msg.getData().get("tipo"))) {
+                          try { ChatReceiver.mirarCuadrante(getApplicationContext()); } catch (Exception ignored) {}
+                          return;
+                      }
                       final MainActivity act = delante;
                       if (act != null && act.getBridge() != null && act.getBridge().getWebView() != null) {
                           act.getBridge().getWebView().post(() -> act.getBridge().getWebView()
