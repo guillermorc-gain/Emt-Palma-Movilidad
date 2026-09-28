@@ -263,5 +263,25 @@
     "deNombre": "Guillermo Ríos Correa",
     "deConductor": "1418-3",
     "estado": "pendiente"
+  },
+  "20260928131725143-chpir-0": {
+    "id": "20260928131725143-chpir-0",
+    "email": "guillermo.rc82@gmail.com",
+    "creado": "2026-09-28T13:17:25.143Z",
+    "nombre": "Guillermo Ríos Correa",
+    "conductor": "1418-3",
+    "mensajes": [
+      {
+        "de": "trabajador",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Trabajador",
+        "adjuntos": [],
+        "en": "2026-09-28T13:17:25.143Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "gestion",
+    "estado": "pendiente"
   }
 }
