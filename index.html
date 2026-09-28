@@ -836,6 +836,20 @@
         .bub-x{position:absolute;top:2px;right:4px;border:none;background:transparent;font-size:11px;opacity:.45;cursor:pointer;padding:2px;line-height:1;}
         .bub-x:active{opacity:1;}
         .bub.mio{padding-right:22px;}
+        /* Mientras se envían datos o un mensaje, un círculo que gira alrededor
+           de la foto de perfil, con la punta más brillante. Sin envíos, nada. */
+        .perfil-envio{position:relative;display:inline-flex;flex-shrink:0;border-radius:50%;}
+        .perfil-envio::before,.perfil-envio::after{content:'';position:absolute;inset:-5px;border-radius:50%;
+            opacity:0;transition:opacity .3s;pointer-events:none;}
+        .perfil-envio::before{background:conic-gradient(from 0deg,transparent 0deg,rgba(255,255,255,.08) 90deg,
+            color-mix(in srgb,var(--anillo,#fff) 55%,transparent) 250deg,var(--anillo,#fff) 350deg,transparent 360deg);
+            -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));
+                    mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));}
+        .perfil-envio::after{background:radial-gradient(circle at 50% 2.5px,var(--anillo,#fff) 0 3.2px,transparent 4.2px);
+            filter:drop-shadow(0 0 4px var(--anillo,#fff));}
+        .perfil-envio.enviando::before,.perfil-envio.enviando::after{opacity:1;animation:perfil-giro .9s linear infinite;}
+        @keyframes perfil-giro{to{transform:rotate(360deg);}}
+        html[data-tema="pastel"] .perfil-envio,html[data-tema="mediterraneo"] .perfil-envio{--anillo:var(--g1);}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}
@@ -1221,7 +1235,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                         id="cabeceraLugar" class="cab-lugar" onclick="app.verCompaneros()"></span></span>
                 </div>
                 <button class="campana" id="campanaBtn" onclick="app.irANotas()" title="Mensajes sin leer">🔔<span class="campana-n" id="campanaN"></span></button>
-                <button class="profile-btn" id="profileBtn" onclick="app.mostrarOpciones()"></button>
+                <span class="perfil-envio" id="perfilEnvio"><button class="profile-btn" id="profileBtn" onclick="app.mostrarOpciones()"></button></span>
             </div>
         </div>
 

@@ -458,6 +458,7 @@ const app = {
     async init() {
         this._pintarIdentidadApp();
         this._instalarFirmaApi();
+        this._vigilarEnvios();
         // The update check must run even if any earlier step throws, otherwise a
         // single bug anywhere above strands the user on an old build forever.
         setTimeout(() => { try { this._checkForUpdates(); } catch(_) {} }, 1500);
@@ -1885,6 +1886,33 @@ const app = {
         this._actualizarAvatarPreview();
         this._actualizarTemaUI();
         this._actualizarInfoCopia();
+    },
+
+    // ── El círculo de envío en la foto de perfil ──
+    // Mientras haya algo saliendo hacia el servidor o Drive —guardar, un
+    // mensaje, una respuesta—, un círculo gira alrededor de la foto. Las
+    // lecturas no cuentan: solo lo que manda datos.
+    _vigilarEnvios() {
+        if (this._envioVigilado) return;
+        this._envioVigilado = true;
+        const antes = window.fetch.bind(window);
+        let enCurso = 0, desde = 0;
+        const pintar = () => document.getElementById('perfilEnvio')?.classList.toggle('enviando', enCurso > 0);
+        window.fetch = async (recurso, opciones) => {
+            const url = typeof recurso === 'string' ? recurso : recurso?.url || '';
+            const metodo = String(opciones?.method || (typeof recurso !== 'string' && recurso?.method) || 'GET').toUpperCase();
+            const cuenta = !['GET', 'HEAD', 'OPTIONS'].includes(metodo)
+                && /emt-palma-movilidad\.vercel\.app\/api\/(?!auth\/)|googleapis\.com\/(upload\/)?drive/.test(url);
+            if (cuenta) { if (!enCurso) desde = Date.now(); enCurso++; pintar(); }
+            try { return await antes(recurso, opciones); }
+            finally {
+                if (cuenta) {
+                    // Que se llegue a ver aunque el envío sea muy rápido
+                    const falta = Math.max(0, 700 - (Date.now() - desde));
+                    setTimeout(() => { enCurso = Math.max(0, enCurso - 1); pintar(); }, falta);
+                }
+            }
+        };
     },
 
     toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },
@@ -4625,6 +4653,7 @@ const app = {
 
     _iniciarSondeoChat() {
         this._pararSondeoChat();
+        window.AndroidBridge?.saveToPrefs?.('notifSoundChat', this.notifSoundChat || 'default');
         if (!this.usuarioActual?.email) return;
         this._timerChat = setInterval(() => this._sondearChat(), this.SONDEO_CHAT);
         // Y el aviso nativo, que es el que sigue mirando con la app de fondo:
@@ -4875,21 +4904,30 @@ const app = {
     guardarSonidoChat(sonido) {
         this.notifSoundChat = sonido;
         localStorage.setItem('notifSoundChat', sonido);
+        // Y al móvil, para que el aviso de la barra suene con este
+        window.AndroidBridge?.saveToPrefs?.('notifSoundChat', sonido);
         this._guardarPreferencias();
         if (sonido !== 'ninguno') this._previewNotifSound(sonido);
     },
 
     // Suena una vez cuando aparece algo nuevo, no en cada repintado
     _avisarSiHayNuevos() {
-        const n = this._totalSinLeer();
-        const antes = this._sinLeerPrevio ?? n;
-        this._sinLeerPrevio = n;
-        // Lo que ya estaba sin leer al abrir no es nuevo: de eso avisó la
-        // barra mientras la app estaba cerrada, y volver a sonar aquí era
-        // sonar dos veces por lo mismo. Y si la app no está delante, quien
-        // avisa es la barra, no esto.
-        if (n > antes && this.notifSoundChat !== 'ninguno' && !document.hidden) {
-            try { this._previewNotifSound(this.notifSoundChat); } catch (_) {}
+        // Solo suena lo que llega con la app abierta y delante. Lo que ya
+        // estaba al abrir lo avisó la barra, y volver a sonar al entrar era
+        // sonar dos veces por lo mismo: se mira la hora del último mensaje
+        // de los otros, no cuántos hay sin leer.
+        let ultimo = '';
+        (this._notas || []).forEach(n => {
+            if (n.archivada || !this._sinLeer(n)) return;
+            const m = this._ultimoMensaje(n);
+            if (m && !this._esMiMensaje(m, n) && (m.en || '') > ultimo) ultimo = m.en || '';
+        });
+        if (!this._chatSonadoHasta) this._chatSonadoHasta = new Date().toISOString();
+        if (ultimo > this._chatSonadoHasta) {
+            this._chatSonadoHasta = ultimo;
+            if (this.notifSoundChat !== 'ninguno' && !document.hidden) {
+                try { this._previewNotifSound(this.notifSoundChat); } catch (_) {}
+            }
         }
         this._pintarCampana();
         this._avisarEnLaBarra();
