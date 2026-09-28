@@ -10,7 +10,7 @@
     "diasMes": 20,
     "turno": "M",
     "puesto": "Control",
-    "actualizado": "2026-09-28T21:18:18.474Z",
+    "actualizado": "2026-09-28T21:24:07.747Z",
     "horaInicio": "09:00",
     "horaFin": "12:30",
     "horarioDe": "hoy",
@@ -1571,7 +1571,7 @@
       "trabajador"
     ],
     "oculto": false,
-    "comunicacion": false
+    "comunicacion": true
   },
   "prueba-1789758756867@prueba.local": {
     "nombre": "Toni Rodríguez",
