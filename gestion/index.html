@@ -2032,6 +2032,8 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                         <input type="email" id="grpAccEmail" class="ops-input" placeholder="correo@gmail.com" style="flex:1;font-size:13px;" />
                         <button onclick="app._addAcceso()" style="background:linear-gradient(135deg,var(--g1),var(--g2));color:white;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Añadir</button>
                     </div>
+                    <!-- Solo en la de desarrollador: comprobar que salen los correos de Gestión -->
+                    <button id="btnProbarCorreo" class="ops-btn" onclick="app.probarCorreo()" style="display:none;margin-top:10px;">📧 Probar el correo de Gestión <span class="ops-arrow">›</span></button>
                 </div>
             </div>
 
