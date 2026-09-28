@@ -2214,7 +2214,7 @@ const app = {
         aplicarPersonal(p);
         if (clave === 'tema') this._aplicarModoDelTema();
         this._pintarPersonal();
-        
+        this._guardarPreferencias();   // a Drive, para que vuelva al entrar otra vez
     },
 
     _pintarPersonal() {
@@ -10828,11 +10828,19 @@ const app = {
             backupFreq: this.backupFreq,
             vacaciones: this._getVacaciones(),
             workLocations: this._getWorkLocations(),
-            notifSound: this.notifSound
+            notifSound: this.notifSound,
+            // El tema, su versión clara u oscura, la letra…: que vuelvan al
+            // entrar otra vez, aunque al salir se borre todo del móvil
+            personal: leerPersonal()
         };
     },
 
     _aplicarPreferenciasDesde(prefs) {
+        if (prefs.personal && typeof prefs.personal === 'object') {
+            try { localStorage.setItem('personal', JSON.stringify({ ...PERSONAL_DEF, ...prefs.personal })); } catch (_) {}
+            aplicarPersonal(leerPersonal());
+            this._aplicarModoDelTema();
+        }
         if (prefs.darkMode !== undefined && prefs.darkMode !== this.darkMode && !TEMAS_APP[leerPersonal().tema]) {
             this.darkMode = prefs.darkMode;
             localStorage.setItem('darkMode', String(prefs.darkMode));
