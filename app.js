@@ -6244,6 +6244,7 @@ const app = {
         ['caMatricula', 'caNombre', 'caEmpresa', 'caVehiculo', 'caDepartamento'].forEach(id => v(id, ''));
         this._caAutorrellenado = {};
         this._caPintarPista('');
+        this._caPintarPersonas('');
     },
 
     // ── El directorio de visitantes: lo que se sabe de cada matrícula ──
@@ -6276,7 +6277,8 @@ const app = {
                 .sort((a, b) => (this._caClaveMatricula(b.matricula).startsWith(k) - this._caClaveMatricula(a.matricula).startsWith(k))
                                 || (a.matricula || '').localeCompare(b.matricula || ''))
                 .map(v => ({ valor: v.matricula, texto: v.matricula,
-                             sub: [v.nombre, v.empresa].filter(Boolean).join(' · ') }));
+                             sub: [v.nombre, v.empresa].filter(Boolean).join(' · ')
+                                  + (v.personas?.length > 1 ? ` · y ${v.personas.length - 1} más` : '') }));
         }
         const t = String(q || '').trim().toLowerCase();
         const base = campo === 'departamento' ? ['Taller', 'Obra', 'Paquetería taller'] : [];
@@ -6354,10 +6356,67 @@ const app = {
         // "Nueva" solo si no hay ninguna que la contenga: a medio escribir aún
         // puede ser una conocida, y para eso están las sugerencias
         const aMedias = !v && Object.keys(this._caVisitantes).some(k => k.includes(clave));
-        this._caPintarPista(!clave || aMedias ? '' : v ? `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`
+        const ps = this._caPintarPersonas(v ? clave : '');
+        this._caPintarPista(!clave || aMedias ? '' : v ? (ps.length > 1
+                ? `✅ Ya ha venido · la traen ${ps.length} personas: elige quién en el desplegable`
+                : `✅ Ya ha venido: ${[v.nombre, v.empresa].filter(Boolean).join(' · ')}`)
             : '🆕 Matrícula nueva: se recordará al registrarla');
     },
 
+
+    // ── Varias personas con el mismo coche ──
+    //
+    // Hay matrículas que traen personas distintas según el día. Si la que se
+    // escribe tiene más de una, sale un desplegable en el nombre con cada una
+    // (la última que vino, primero) y al elegirla se rellena lo suyo. Salen
+    // del directorio y, para lo de antes de que lo guardara, de los registros.
+    _caPersonasDe(clave) {
+        const k = n => String(n || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const v = this._caVisitantes[clave];
+        const lista = [...(Array.isArray(v?.personas) ? v.personas : [])];
+        Object.values(this._caPorId)
+            .filter(r => r.nombre && this._caClaveMatricula(r.matricula) === clave)
+            .sort((a, b) => `${b.fecha}${b.entrada}`.localeCompare(`${a.fecha}${a.entrada}`))
+            .forEach(r => lista.push({ nombre: r.nombre, empresa: r.empresa, vehiculo: r.vehiculo, departamento: r.departamento }));
+        if (v?.nombre) lista.push({ nombre: v.nombre, empresa: v.empresa, vehiculo: v.vehiculo, departamento: v.departamento });
+        const vistos = new Set();
+        return lista.filter(p => p?.nombre && !vistos.has(k(p.nombre)) && vistos.add(k(p.nombre)));
+    },
+
+    _caPintarPersonas(clave) {
+        const sel = document.getElementById('caNombreSel');
+        if (!sel) return [];
+        const ps = clave ? this._caPersonasDe(clave) : [];
+        this._caPersonas = ps;
+        if (ps.length < 2) { sel.hidden = true; sel.innerHTML = ''; return ps; }
+        const actual = (document.getElementById('caNombre')?.value || '').trim().toLowerCase();
+        const esc2 = t => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        sel.innerHTML = ps.map((p, i) => `<option value="${i}"${p.nombre.toLowerCase() === actual ? ' selected' : ''}>👤 ${esc2(p.nombre)}${
+                p.empresa ? ' · ' + esc2(p.empresa) : ''}</option>`).join('')
+            + '<option value="otra">✏️ Otra persona…</option>';
+        sel.hidden = false;
+        return ps;
+    },
+
+    _caElegirPersona(valor) {
+        const nom = document.getElementById('caNombre');
+        const auto = this._caAutorrellenado;
+        if (valor === 'otra') {
+            if (nom) { nom.value = ''; delete auto.caNombre; nom.focus(); }
+            return;
+        }
+        const p = (this._caPersonas || [])[+valor];
+        if (!p || !nom) return;
+        nom.value = p.nombre;
+        auto.caNombre = p.nombre;
+        // Lo de esa persona, sin pisar lo que se haya escrito a mano
+        const campos = { caEmpresa: 'empresa', caVehiculo: 'vehiculo', caDepartamento: 'departamento' };
+        Object.entries(campos).forEach(([id, k]) => {
+            const c = document.getElementById(id);
+            if (!c || !p[k]) return;
+            if (!c.value.trim() || auto[id] === c.value) { c.value = p[k]; auto[id] = p[k]; }
+        });
+    },
     _caPintarPista(t) {
         const el = document.getElementById('caPista');
         if (el) { el.textContent = t; el.hidden = !t; }

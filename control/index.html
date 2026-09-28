@@ -415,6 +415,7 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
                     </div>
                     <div class="r-pista" id="rPista" hidden></div>
                     <label class="lbl" for="rNombre">Nombre</label>
+                    <select id="rNombreSel" hidden style="margin-bottom:8px;" onchange="app._elegirPersona(this.value)"></select>
                     <input type="text" id="rNombre" maxlength="80" placeholder="Nombre y apellidos" autocomplete="off" style="margin-bottom:10px;">
                     <label class="lbl" for="rEmpresa">Empresa</label>
                     <input type="text" id="rEmpresa" maxlength="80" autocomplete="off" style="margin-bottom:10px;">
