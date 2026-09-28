@@ -174,32 +174,6 @@
     "deConductor": "💻",
     "estado": "pendiente"
   },
-  "20260928131413988-p12xl-0": {
-    "id": "20260928131413988-p12xl-0",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-28T13:14:13.988Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Soy gestion",
-        "adjuntos": [],
-        "en": "2026-09-28T13:14:13.988Z"
-      }
-    ],
-    "archivada": false,
-    "de": "gestor",
-    "tipo": "gestion",
-    "gestor": "Guillermo Rios",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T13:14:43.916Z"
-    }
-  },
   "20260928133613859-nhnn2-g": {
     "id": "20260928133613859-nhnn2-g",
     "tipo": "grupo",
