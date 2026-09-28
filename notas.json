@@ -54,5 +54,45 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T15:07:57.590Z"
     }
+  },
+  "20260928185644504-h07wq-g": {
+    "id": "20260928185644504-h07wq-g",
+    "tipo": "grupo",
+    "creado": "2026-09-28T18:56:44.504Z",
+    "creadoPor": "g.rioscorrea@gmail.com",
+    "email": "g.rioscorrea@gmail.com",
+    "participantes": [
+      {
+        "email": "g.rioscorrea@gmail.com",
+        "nombre": "Desarrollador",
+        "num": "💻"
+      },
+      {
+        "email": "guillermo.rc82@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1418-3"
+      }
+    ],
+    "conGestion": true,
+    "titulo": "Turno de mañana",
+    "emoji": "👥",
+    "leidos": {
+      "g.rioscorrea@gmail.com": {
+        "nombre": "Desarrollador",
+        "en": "2026-09-28T18:56:44.504Z"
+      }
+    },
+    "mensajes": [
+      {
+        "de": "g.rioscorrea@gmail.com",
+        "autor": "Desarrollador",
+        "texto": "Jj",
+        "adjuntos": [],
+        "en": "2026-09-28T18:56:44.504Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "estado": "pendiente"
   }
 }
