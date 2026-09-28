@@ -78,8 +78,8 @@
     "emoji": "👥",
     "leidos": {
       "g.rioscorrea@gmail.com": {
-        "nombre": "Desarrollador",
-        "en": "2026-09-28T18:56:44.504Z"
+        "nombre": "Guillermo Ríos Correa",
+        "en": "2026-09-28T18:58:25.362Z"
       },
       "guillermo.rc82@gmail.com": {
         "nombre": "Guillermo Ríos Correa",
@@ -104,6 +104,11 @@
     ],
     "archivada": false,
     "de": "trabajador",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "g.rioscorrea@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-28T18:58:25.362Z"
+    }
   }
 }
