@@ -82,18 +82,20 @@
         "texto": "Quitar esto de gestión: Notificaciones\n›\nAviso al llegar al trabajo\nRecibirás una notificación cuando el GPS detecte que estás cerca de una ubicación de trabajo guardada. En Android funciona en segundo plano.",
         "adjuntos": [],
         "en": "2026-09-27T14:29:17.720Z"
+      },
+      {
+        "de": "gestor",
+        "autor": "Guillermo Rios",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-28T13:52:24.874Z"
       }
     ],
     "archivada": false,
     "de": "gestor",
     "tipo": "gestion",
     "gestor": "Guillermo Rios",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-27T14:33:32.523Z"
-    }
+    "estado": "pendiente"
   },
   "20260927142257322-13hll-0": {
     "id": "20260927142257322-13hll-0",
