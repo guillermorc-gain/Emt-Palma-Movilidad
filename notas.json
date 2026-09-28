@@ -200,31 +200,5 @@
       "nombre": "Guillermo Rios",
       "en": "2026-09-28T13:46:27.217Z"
     }
-  },
-  "20260928134647113-llm57-0": {
-    "id": "20260928134647113-llm57-0",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-28T13:46:47.113Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-28T13:46:47.113Z"
-      }
-    ],
-    "archivada": false,
-    "de": "gestor",
-    "tipo": "gestion",
-    "gestor": "Guillermo Rios",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T13:50:17.421Z"
-    }
   }
 }
