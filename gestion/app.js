@@ -2089,6 +2089,7 @@ const app = {
         const cerrar = () => {
             velo.remove();
             try { localStorage.setItem('tutorialVisto', '1'); } catch (_) {}
+            this._apuntarTutorialVisto();
             this.mostrarApp();
             this.switchTab(0);
             if (typeof alCerrar === 'function') alCerrar();
@@ -2124,13 +2125,32 @@ const app = {
 
     // Al entrar: la primera vez, el tutorial; luego ya lo demás (el permiso
     // de batería), que si no se le echa encima
-    _tutorialPrimeraVez() {
+    async _tutorialPrimeraVez() {
         // La de Desarrollador no lleva tutorial
         if (ES_APP_DEV) { this._pedirBateriaSiHaceFalta(); return; }
         let visto = false;
         try { visto = localStorage.getItem('tutorialVisto') === '1'; } catch (_) {}
+        // Si esta cuenta ya lo vio en otro móvil o antes de cerrar sesión, el
+        // servidor lo sabe: no se vuelve a enseñar (está siempre en Ajustes)
+        if (!visto) visto = await this._tutorialVistoEnServidor();
         if (visto) { this._pedirBateriaSiHaceFalta(); return; }
         setTimeout(() => this.mostrarTutorial(() => this._pedirBateriaSiHaceFalta()), 600);
+    },
+
+    async _tutorialVistoEnServidor() {
+        try {
+            const r = await fetch(this.USUARIOS_URL + '?misMarcas=1', { cache: 'no-store' });
+            if (!r.ok) return false;
+            const m = await r.json();
+            if (!m?.['tutorialGestion']) return false;
+            localStorage.setItem('tutorialVisto', '1');
+            return true;
+        } catch (_) { return false; }
+    },
+
+    _apuntarTutorialVisto() {
+        fetch(this.USUARIOS_URL + '?ping=1', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ soloVersion: true, marca: 'tutorialGestion' }) }).catch(() => {});
     },
 
     // Las tarjetas del tutorial de gestión. La de Control de acceso, solo a
