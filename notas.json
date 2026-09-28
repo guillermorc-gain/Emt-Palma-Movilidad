@@ -83,7 +83,7 @@
       },
       "guillermo.rc82@gmail.com": {
         "nombre": "Guillermo Ríos Correa",
-        "en": "2026-09-28T18:57:33.985Z"
+        "en": "2026-09-28T18:59:38.731Z"
       }
     },
     "mensajes": [
@@ -100,15 +100,17 @@
         "texto": "Jeje",
         "adjuntos": [],
         "en": "2026-09-28T18:57:33.985Z"
+      },
+      {
+        "de": "guillermo.rc82@gmail.com",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Nn",
+        "adjuntos": [],
+        "en": "2026-09-28T18:59:38.731Z"
       }
     ],
     "archivada": false,
     "de": "trabajador",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T18:58:26.363Z"
-    }
+    "estado": "pendiente"
   }
 }
