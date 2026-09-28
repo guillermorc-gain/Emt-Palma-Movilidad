@@ -1402,6 +1402,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                 </div>
                 <div class="ca-pista" id="caPista" hidden></div>
                 <label class="ca-lbl" for="caNombre">Nombre</label>
+                <select class="ca-in" id="caNombreSel" hidden style="margin-bottom:8px;" onchange="app._caElegirPersona(this.value)"></select>
                 <input type="text" class="ca-in" id="caNombre" maxlength="80" placeholder="Nombre y apellidos" autocomplete="off" style="margin-bottom:10px;">
                 <label class="ca-lbl" for="caEmpresa">Empresa</label>
                 <input type="text" class="ca-in" id="caEmpresa" maxlength="80" autocomplete="off" style="margin-bottom:10px;">

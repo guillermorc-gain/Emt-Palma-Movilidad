@@ -12,7 +12,11 @@
 //   accesos.json    { "<id>": { id, fecha, entrada, salida, matricula, nombre,
 //                               empresa, vehiculo, departamento, obs, ... } }
 //   visitantes.json { "<MATRICULA>": { matricula, nombre, empresa, vehiculo,
-//                                      departamento, visto } }
+//                                      departamento, visto, personas } }
+//
+// Un mismo coche a veces lo traen personas distintas: personas guarda cada
+// una con lo suyo (nombre, empresa, departamento y cuándo vino), la última
+// primero, para que en la garita se pueda elegir quién viene hoy.
 import { emailDelToken, tokenDe, esGestorControl, esDelPuesto, GESTOR_PRINCIPAL } from './_auth.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 import { cifrar, descifrar } from './_cifrado.js';
@@ -26,6 +30,25 @@ const F_VISITANTES = 'visitantes.json';
 const MAX_REGISTROS  = 8000;   // unos años de garita; los más viejos se caen
 const MAX_VISITANTES = 3000;
 const MAX_TEXTO      = 120;
+const MAX_PERSONAS   = 10;     // por matrícula
+
+const claveNombre = n => String(n || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+// Quien viene en este registro pasa delante en la lista de esa matrícula
+function conPersona(personas, r, ahora) {
+  const lista = Array.isArray(personas) ? personas.filter(p => p && p.nombre) : [];
+  if (!r.nombre) return lista.slice(0, MAX_PERSONAS);
+  const k = claveNombre(r.nombre);
+  const previa = lista.find(p => claveNombre(p.nombre) === k) || {};
+  const nueva = {
+    nombre:       r.nombre,
+    empresa:      r.empresa      || previa.empresa      || '',
+    vehiculo:     r.vehiculo     || previa.vehiculo     || '',
+    departamento: r.departamento || previa.departamento || '',
+    visto:        ahora,
+  };
+  return [nueva, ...lista.filter(p => claveNombre(p.nombre) !== k)].slice(0, MAX_PERSONAS);
+}
 
 const ghHeaders = () => ({
   'User-Agent': 'horasemt-app',
@@ -124,6 +147,10 @@ function aprender(visitantes, r, ahora) {
     vehiculo:     r.vehiculo     || previo.vehiculo     || '',
     departamento: r.departamento || previo.departamento || '',
     visto:        ahora,
+    personas:     conPersona(previo.personas?.length ? previo.personas
+                    : (previo.nombre ? [{ nombre: previo.nombre, empresa: previo.empresa, vehiculo: previo.vehiculo,
+                                          departamento: previo.departamento, visto: previo.visto || '' }] : []),
+                    r, ahora),
   };
   const claves = Object.keys(out);
   if (claves.length <= MAX_VISITANTES) return out;
@@ -187,6 +214,11 @@ export default async function handler(req, res) {
             matricula: texto(b.matricula, 20).toUpperCase(), nombre: texto(b.nombre, 80),
             empresa: texto(b.empresa, 80), vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60),
             visto: data[antes || clave]?.visto || '', editado: new Date().toISOString(), editadoPor: quien,
+            // Las demás personas que traen ese coche siguen ahí; la de la
+            // ficha, delante
+            personas: conPersona(data[antes || clave]?.personas, { nombre: texto(b.nombre, 80),
+              empresa: texto(b.empresa, 80), vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60) },
+              data[antes || clave]?.visto || ''),
           };
           return out;
         }, `Ficha de ${clave} en el directorio`);
