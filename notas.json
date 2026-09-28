@@ -70,16 +70,18 @@
         "texto": "Jn",
         "adjuntos": [],
         "en": "2026-09-28T20:41:20.733Z"
+      },
+      {
+        "de": "g.rioscorrea@gmail.com",
+        "autor": "Desarrollador",
+        "texto": "Nsn",
+        "adjuntos": [],
+        "en": "2026-09-28T20:42:25.066Z"
       }
     ],
     "archivada": false,
     "de": "trabajador",
     "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T20:42:19.960Z"
-    }
+    "estado": "pendiente"
   }
 }
