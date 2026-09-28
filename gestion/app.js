@@ -822,7 +822,7 @@ const app = {
             }
             this.mostrarApp();
             this._caComprobarAcceso();
-            this._pedirBateriaSiHaceFalta();
+            this._tutorialPrimeraVez();
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
             this._aplicarPermisosGestor();
@@ -1971,6 +1971,106 @@ const app = {
         };
         new MutationObserver(contar).observe(bar, { subtree: true, attributes: true, attributeFilter: ['hidden', 'style'] });
         contar();
+    },
+
+    // ── Tutorial ─────────────────────────────────────────────────────────────
+    // Tarjetas sobre la propia app, que se pasan con «Siguiente» o deslizando.
+    // Sale solo la primera vez; después, desde Ajustes › Ayuda. Detrás se va
+    // abriendo la pestaña (o los Ajustes) de la que habla cada tarjeta.
+    mostrarTutorial(alCerrar) {
+        document.getElementById('tutVelo')?.remove();
+        const pasos = this._pasosTutorial();
+        if (!pasos.length) return;
+        const velo = document.createElement('div');
+        velo.className = 'tut-velo';
+        velo.id = 'tutVelo';
+        document.body.appendChild(velo);
+        let i = 0;
+        const ultimo = () => i === pasos.length - 1;
+        const cerrar = () => {
+            velo.remove();
+            try { localStorage.setItem('tutorialVisto', '1'); } catch (_) {}
+            this.mostrarApp();
+            this.switchTab(0);
+            if (typeof alCerrar === 'function') alCerrar();
+        };
+        const pintar = () => {
+            const p = pasos[i];
+            if (p.ajustes) this.mostrarOpciones();
+            else { this.mostrarApp(); if (p.tab !== undefined) this.switchTab(p.tab); }
+            velo.innerHTML = `<div class="tut-card" role="dialog" aria-modal="true" aria-label="Tutorial">
+                <div class="tut-ill">${p.ill}</div>
+                <h3>${p.h}</h3>
+                <p>${p.p}</p>
+                <div class="tut-dots">${pasos.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</div>
+                <div class="tut-btns">
+                    <button type="button" class="tut-skip">${ultimo() && i > 0 ? 'Atrás' : 'Saltar'}</button>
+                    <button type="button" class="tut-go">${i === 0 ? 'Empezar' : ultimo() ? '¡Listo!' : 'Siguiente'}</button>
+                </div></div>`;
+            velo.querySelector('.tut-skip').onclick = () => { if (ultimo() && i > 0) { i--; pintar(); } else cerrar(); };
+            velo.querySelector('.tut-go').onclick = () => { if (ultimo()) cerrar(); else { i++; pintar(); } };
+        };
+        // Deslizar: a la izquierda la siguiente, a la derecha la anterior
+        let x0 = null;
+        velo.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+        velo.addEventListener('touchend', e => {
+            if (x0 === null) return;
+            const dx = e.changedTouches[0].clientX - x0;
+            x0 = null;
+            if (dx < -50 && !ultimo()) { i++; pintar(); }
+            else if (dx > 50 && i > 0) { i--; pintar(); }
+        });
+        pintar();
+    },
+
+    // Al entrar: la primera vez, el tutorial; luego ya lo demás (el permiso
+    // de batería), que si no se le echa encima
+    _tutorialPrimeraVez() {
+        let visto = false;
+        try { visto = localStorage.getItem('tutorialVisto') === '1'; } catch (_) {}
+        if (visto) { this._pedirBateriaSiHaceFalta(); return; }
+        setTimeout(() => this.mostrarTutorial(() => this._pedirBateriaSiHaceFalta()), 600);
+    },
+
+    // Las tarjetas del tutorial de gestión. La de Control de acceso, solo a
+    // quien lo tenga autorizado.
+    _pasosTutorial() {
+        const fila = (txt, sub) => `<div class="tut-opt"><span>${txt}${sub ? `<em>${sub}</em>` : ''}</span><span style="color:#9aa5b8">›</span></div>`;
+        const pasos = [
+            { tab: 0, h: 'Bienvenido a Gestión',
+              ill: `<div class="tut-big">🛠️</div><div class="tut-row" style="justify-content:center"><span class="tut-chip on">Trabajadores</span><span class="tut-chip">Cuadrante</span><span class="tut-chip">Registro</span><span class="tut-chip">Chat</span></div>`,
+              p: 'Desde aquí organizas a la plantilla: quién está en cada sitio, el cuadrante del mes, las jornadas que registran y los mensajes. Lo que cambias le llega a cada trabajador con un aviso.' },
+            { tab: 0, h: '👥 Trabajadores y lugares',
+              ill: `<div class="tut-row" style="justify-content:space-between;font-size:12px;font-weight:700;color:#1f2d45"><span>‹</span><span>Hoy</span><span>›</span></div><div class="tut-row"><span class="tut-chip on">✓ Todos 42</span><span class="tut-chip">Activos 31</span><span class="tut-chip">Libres 8</span><span class="tut-chip">Sin turno 3</span></div>`,
+              p: 'Arriba ves quién está en cada lugar de trabajo. Debajo, la plantilla con filtros: activos, libres, sin turno, BE y vacaciones. Cambia de día con las flechas o deslizando.' },
+            { tab: 0, h: '✏️ Cambiar una jornada',
+              ill: `<div class="tut-t">ANA RUIZ · 1234<b style="font-size:13px">06:30–14:00 → 07:00–15:00</b>Son Castelló</div><div class="tut-notif"><span>✅</span><div><b>Cambio enviado</b>Ana lo ha confirmado</div></div>`,
+              p: 'Toca a un trabajador para ver o cambiar su horario y su lugar. Le llega un aviso y ves cuándo lo ha confirmado.' },
+            { tab: 1, h: '🗓️ Publicar el cuadrante',
+              ill: `<div class="tut-t" style="text-align:center;padding:10px">📤 <b style="display:inline;font-size:13px">Subir foto del cuadrante</b></div><div class="tut-notif"><span>🗓️</span><div><b>Cuadrante del mes publicado</b>Aviso enviado a la plantilla</div></div>`,
+              p: 'Sube la foto o el archivo del cuadrante del mes. La plantilla recibe un aviso y lo ve en su Historial.' },
+            { tab: 3, h: '📋 Registro de la plantilla',
+              ill: `<div class="tut-row"><span class="tut-chip on">Día</span><span class="tut-chip">Lugar</span><span class="tut-chip">Nº</span><span class="tut-chip">📊</span></div><div class="tut-opt"><span><b>1234</b> Ana Ruiz<em>Son Castelló</em></span><span>06:30–14:00 · 7,5h ✎</span></div>`,
+              p: 'Aquí salen las jornadas que registra cada trabajador, agrupadas por mes. Ordénalas por día, por lugar o por número, abre y cierra cada grupo, corrige el lugar con ✎ y expórtalas a una hoja de cálculo con 📊.' },
+            { tab: 2, h: '💬 Chat con la plantilla',
+              ill: `<div class="tut-bub"><small>Ana Ruiz · 1234</small>¿Puedo cambiar el turno del jueves?</div><div class="tut-bub yo"><small>Gestión</small>Sí, te lo cambio ahora</div>`,
+              p: 'Escribe a una persona, a varias o a toda la plantilla, o crea un grupo. Lo que escriben a gestión llega a la bandeja que compartís los gestores. Marca «visto» y el trabajador lo ve.' },
+        ];
+        if (ES_APP_DEV || this._caPermitido) pasos.push({ tab: 5, h: '🛡️ Control de acceso',
+            ill: `<div class="tut-row"><div class="tut-t">HOY<b>37</b>entradas</div><div class="tut-t">DENTRO<b>12</b>vehículos</div><div class="tut-t">VISITAS<b>4</b></div></div>`,
+            p: 'Tienes tres pestañas más: el acceso de hoy, el histórico y los visitantes con sus matrículas. Lo que apunta cada garita aparece al momento.' });
+        pasos.push(
+            { ajustes: true, h: '⚙️ Ajustes: lugares de trabajo',
+              ill: fila('🧩 Lugares de trabajo', 'Son Castelló, Aeropuerto, Son Rullan…') + fila('➕ Añadir lugar de trabajo', ''),
+              p: 'Toca tu foto para abrir Ajustes. En <b>Lugares de trabajo</b> das de alta, cambias o quitas los sitios donde se reparte a la plantilla.' },
+            { ajustes: true, h: '🎨 Ajustes: apariencia y avisos',
+              ill: `<div class="tut-row"><span class="tut-chip on">Medianoche</span><span class="tut-chip">Océano</span><span class="tut-chip">Grafito</span></div>` + fila('💬 Sonido de los mensajes', 'Burbuja'),
+              p: 'Elige el tema y su versión clara u oscura, el tamaño del texto y los sonidos. Si un aviso no llega, el botón 🩺 te dice por qué.' },
+            { ajustes: true, h: '☁️ Ajustes: copia de seguridad',
+              ill: fila('🔄 Copia automática', 'Cada hora, cada día o al cerrar la app') + fila('📆 Resumen mensual', 'Cada fin de mes, en tu Drive') + fila('⬆️ Exportar datos JSON', ''),
+              p: 'La app guarda sola una copia en tu Google Drive cuando elijas, y cada fin de mes un resumen. También puedes guardarla o restaurarla a mano, o exportarla e importarla como archivo. Este tutorial lo tienes siempre en <b>Ajustes › Ayuda</b>.' },
+        );
+        return pasos;
     },
 
     toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },

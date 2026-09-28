@@ -464,6 +464,7 @@ const app = {
         this._instalarFirmaApi();
         this._vigilarEnvios();
         this._vigilarPestanas();
+        this._ponerComunicacion(this.comunicacion, false);
         // The update check must run even if any earlier step throws, otherwise a
         // single bug anywhere above strands the user on an old build forever.
         setTimeout(() => { try { this._checkForUpdates(); } catch(_) {} }, 1500);
@@ -831,7 +832,7 @@ const app = {
             this.mostrarApp();
             this._sincronizarAvisosNativos();
             this._caArrancar();
-            this._pedirBateriaSiHaceFalta();
+            this._alEntrarPrimeraVez();
             this._pintarAvisoCambio();
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
@@ -2157,6 +2158,8 @@ const app = {
         document.getElementById('appScreen').classList.remove('active');
         document.getElementById('optionsScreen').classList.add('active');
         document.getElementById('darkModeToggle').checked = this.darkMode;
+        const comT = document.getElementById('comunicacionToggle');
+        if (comT) comT.checked = this.comunicacion !== false;
         const caToggle = document.getElementById('controlAccesoToggle');
         if (caToggle) caToggle.checked = !!this.controlAcceso;
         const turnoT = document.getElementById('avisoTurnoToggle');
@@ -2218,6 +2221,228 @@ const app = {
         };
         new MutationObserver(contar).observe(bar, { subtree: true, attributes: true, attributeFilter: ['hidden', 'style'] });
         contar();
+    },
+
+    // ── Tutorial ─────────────────────────────────────────────────────────────
+    // Tarjetas sobre la propia app, que se pasan con «Siguiente» o deslizando.
+    // Sale solo la primera vez; después, desde Ajustes › Ayuda. Detrás se va
+    // abriendo la pestaña (o los Ajustes) de la que habla cada tarjeta.
+    mostrarTutorial(alCerrar) {
+        document.getElementById('tutVelo')?.remove();
+        const pasos = this._pasosTutorial();
+        if (!pasos.length) return;
+        const velo = document.createElement('div');
+        velo.className = 'tut-velo';
+        velo.id = 'tutVelo';
+        document.body.appendChild(velo);
+        let i = 0;
+        const ultimo = () => i === pasos.length - 1;
+        const cerrar = () => {
+            velo.remove();
+            try { localStorage.setItem('tutorialVisto', '1'); } catch (_) {}
+            this.mostrarApp();
+            this.switchTab(0);
+            if (typeof alCerrar === 'function') alCerrar();
+        };
+        const pintar = () => {
+            const p = pasos[i];
+            if (p.ajustes) this.mostrarOpciones();
+            else { this.mostrarApp(); if (p.tab !== undefined) this.switchTab(p.tab); }
+            velo.innerHTML = `<div class="tut-card" role="dialog" aria-modal="true" aria-label="Tutorial">
+                <div class="tut-ill">${p.ill}</div>
+                <h3>${p.h}</h3>
+                <p>${p.p}</p>
+                <div class="tut-dots">${pasos.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</div>
+                <div class="tut-btns">
+                    <button type="button" class="tut-skip">${ultimo() && i > 0 ? 'Atrás' : 'Saltar'}</button>
+                    <button type="button" class="tut-go">${i === 0 ? 'Empezar' : ultimo() ? '¡Listo!' : 'Siguiente'}</button>
+                </div></div>`;
+            velo.querySelector('.tut-skip').onclick = () => { if (ultimo() && i > 0) { i--; pintar(); } else cerrar(); };
+            velo.querySelector('.tut-go').onclick = () => { if (ultimo()) cerrar(); else { i++; pintar(); } };
+        };
+        // Deslizar: a la izquierda la siguiente, a la derecha la anterior
+        let x0 = null;
+        velo.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+        velo.addEventListener('touchend', e => {
+            if (x0 === null) return;
+            const dx = e.changedTouches[0].clientX - x0;
+            x0 = null;
+            if (dx < -50 && !ultimo()) { i++; pintar(); }
+            else if (dx > 50 && i > 0) { i--; pintar(); }
+        });
+        pintar();
+    },
+
+    // Al entrar: la primera vez, el tutorial; luego ya lo demás (el permiso
+    // de batería), que si no se le echa encima
+    _tutorialPrimeraVez() {
+        let visto = false;
+        try { visto = localStorage.getItem('tutorialVisto') === '1'; } catch (_) {}
+        if (visto) { this._pedirBateriaSiHaceFalta(); return; }
+        setTimeout(() => this.mostrarTutorial(() => this._pedirBateriaSiHaceFalta()), 600);
+    },
+
+    // ── Comunicación con el Departamento ────────────────────────────────────
+    // Lo elige cada uno. Sin ella no hay chat, ni la campana de mensajes, ni
+    // avisos de gestión, ni el círculo de envío en la foto; y gestión deja de
+    // verle (lo decide el servidor con lo que se publica en el resumen). El
+    // cuadrante del mes lo sigue viendo.
+    comunicacion: localStorage.getItem('comunicacion') !== '0',
+
+    toggleComunicacion(on) { this._ponerComunicacion(!!on); },
+
+    _ponerComunicacion(on, guardar = true) {
+        this.comunicacion = !!on;
+        try { localStorage.setItem('comunicacion', on ? '1' : '0'); } catch (_) {}
+        window.AndroidBridge?.saveToPrefs?.('comunicacion', on ? '1' : '0');
+        document.body.classList.toggle('sin-comunicacion', !on);
+        const tab = document.querySelector('#tabBar .tab-btn[data-tab="2"]');
+        if (tab) tab.hidden = !on;
+        const campana = document.getElementById('campanaBtn');
+        if (campana) campana.style.display = on ? '' : 'none';
+        const t = document.getElementById('comunicacionToggle');
+        if (t) t.checked = !!on;
+        if (!on) {
+            if (this._activeTab === 2) this.switchTab(0);
+            const av = document.getElementById('cambioJornadaAviso');
+            if (av) av.style.display = 'none';
+        } else {
+            this._pintarAvisoCambio?.();
+            this._huellaChat = null;
+            this._sondearChat?.();
+        }
+        if (guardar) {
+            this._guardarPreferencias();
+            // Que gestión lo sepa ya: va en el resumen que se publica
+            try { localStorage.removeItem('resumenHuella'); } catch (_) {}
+            this._publicarResumen();
+        }
+    },
+
+    // ── Bienvenida ───────────────────────────────────────────────────────────
+    // La primera vez que se entra con una cuenta: si mantiene la comunicación
+    // con el Departamento y qué jornada tiene. Con eso sale el tutorial que le
+    // toca.
+    _bienvenidaPendiente() {
+        const email = (this.usuarioActual?.email || '').toLowerCase();
+        try { return !!email && !localStorage.getItem('bienvenida:' + email); } catch (_) { return false; }
+    },
+
+    _alEntrarPrimeraVez() {
+        if (this._bienvenidaPendiente()) setTimeout(() => this._mostrarBienvenida(), 400);
+        else this._tutorialPrimeraVez();
+    },
+
+    _mostrarBienvenida() {
+        document.getElementById('bienvenidaVelo')?.remove();
+        let com = this.comunicacion !== false;
+        let completa = this._esJornadaCompleta();
+        const nombre = String(this.usuarioActual?.name || '').split(' ')[0]
+            .replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        const v = document.createElement('div');
+        v.className = 'bienv';
+        v.id = 'bienvenidaVelo';
+        v.innerHTML = `<div class="bienv-in">
+            <div class="tut-big">🚌</div>
+            <h2>Bienvenido${nombre ? ', ' + nombre : ''}</h2>
+            <p>Ya estás dentro de EMT Palma · Movilidad. Antes de empezar, dos cosas:</p>
+            <button type="button" class="bienv-ask" id="bvCom" aria-pressed="true">
+                <div style="flex:1"><b>¿Desea mantener la comunicación con el Departamento?</b>
+                <span>Chat con gestión y compañeros, y avisos de cambios de jornada. Lo puedes cambiar cuando quieras en Ajustes.</span></div>
+                <i class="bienv-sw" id="bvSw"></i>
+            </button>
+            <div class="bienv-jor"><b>¿Qué jornada tienes?</b>
+                <div class="bienv-seg">
+                    <button type="button" id="bvMedia">Media jornada<small>Descuenta de las 777 h</small></button>
+                    <button type="button" id="bvCompleta">Jornada completa<small>Días extra en festivos</small></button>
+                </div>
+            </div>
+            <button type="button" class="bienv-go" id="bvSeguir">Continuar</button>
+        </div>`;
+        document.body.appendChild(v);
+        const pintar = () => {
+            v.querySelector('#bvSw').classList.toggle('off', !com);
+            v.querySelector('#bvCom').setAttribute('aria-pressed', String(com));
+            v.querySelector('#bvMedia').classList.toggle('on', !completa);
+            v.querySelector('#bvCompleta').classList.toggle('on', completa);
+        };
+        v.querySelector('#bvCom').onclick = () => { com = !com; pintar(); };
+        v.querySelector('#bvMedia').onclick = () => { completa = false; pintar(); };
+        v.querySelector('#bvCompleta').onclick = () => { completa = true; pintar(); };
+        v.querySelector('#bvSeguir').onclick = async () => {
+            v.remove();
+            try { localStorage.setItem('bienvenida:' + (this.usuarioActual?.email || '').toLowerCase(), '1'); } catch (_) {}
+            this._ponerComunicacion(com);
+            // La jornada: media va por las 777 h, completa por 1700 h
+            if (completa !== this._esJornadaCompleta()) {
+                if (completa && this.jornadaHoras < this.JORNADA_COMPLETA) {
+                    this.jornadaHoras = 7.5; localStorage.setItem('jornadaHoras', '7.5');
+                } else if (!completa && this.jornadaHoras >= this.JORNADA_COMPLETA) {
+                    this.jornadaHoras = 3.5; localStorage.setItem('jornadaHoras', '3.5');
+                }
+                this._actualizarJornadaDisplay();
+                await this.elegirAnuales(completa ? this.ANUALES_COMPLETA : 777);
+            }
+            this.mostrarTutorial(() => this._pedirBateriaSiHaceFalta());
+        };
+        pintar();
+    },
+
+    // Las tarjetas del tutorial de la app de trabajadores: sin comunicación no
+    // hay chat ni nada de gestión; y la de Registro, según su jornada.
+    _pasosTutorial() {
+        const con = this.comunicacion !== false;
+        const completa = this._esJornadaCompleta();
+        const opt = (txt, sub, on = true) => `<div class="tut-opt"><span>${txt}${sub ? `<em>${sub}</em>` : ''}</span><i class="tut-sw${on ? '' : ' off'}"></i></div>`;
+        const fila = (txt, sub) => `<div class="tut-opt"><span>${txt}${sub ? `<em>${sub}</em>` : ''}</span><span style="color:#9aa5b8">›</span></div>`;
+        const pasos = [
+            { tab: 0, h: 'Bienvenido a EMT Palma · Movilidad',
+              ill: `<div class="tut-big">🚌</div><div class="tut-row" style="justify-content:center"><span class="tut-chip on">Registro</span><span class="tut-chip">Historial</span>${con ? '<span class="tut-chip">Chat</span>' : ''}<span class="tut-chip">Nómina</span></div>`,
+              p: con ? 'Aquí registras tus jornadas, llevas la cuenta de tus horas, ves el cuadrante y tu nómina, y hablas con el Departamento. Te lo enseñamos en un momento.'
+                     : 'Aquí registras tus jornadas, llevas la cuenta de tus horas, ves el cuadrante y calculas tu nómina. Te lo enseñamos en un momento.' },
+            completa
+              ? { tab: 0, h: '🕐 Registra tu jornada',
+                  ill: `<div class="tut-row"><div class="tut-t a">ESTE MES<b>142</b>horas trabajadas</div><div class="tut-t a">DÍAS EXTRA<b>2</b>festivos o libres</div></div><div class="tut-row"><div class="tut-t">INICIO<b>06:30</b></div><div class="tut-t">FIN<b>14:00</b></div><div class="tut-t">HORAS<b>7,5</b></div></div>`,
+                  p: 'Pon la hora de inicio y de fin y el lugar, y toca <b>Registrar</b>. Tu jornada <b>no se descuenta de ninguna bolsa de horas</b>: la app suma lo que trabajas cada mes, y si vienes un festivo o un día libre te lo cuenta como <b>día extra</b> para la nómina.' }
+              : { tab: 0, h: '🕐 Registra tu jornada',
+                  ill: `<div class="tut-row"><div class="tut-t a">RESTANTES<b>412,5</b>de tus 777 h</div><div class="tut-t a">TRABAJADAS<b>364,5</b>horas del año</div></div><div class="tut-row"><div class="tut-t">INICIO<b>06:30</b></div><div class="tut-t">FIN<b>10:00</b></div><div class="tut-t">HORAS<b>3,5</b></div></div>`,
+                  p: 'Pon la hora de inicio y de fin y el lugar, y toca <b>Registrar</b>. Cada jornada se <b>descuenta de tus 777 h del año</b>: en <b>Restantes</b> ves las que te quedan. Si pasas de las 777 h, lo que sobra va a horas extras.' },
+            con
+              ? { tab: 0, h: '📍 Tu jornada de hoy',
+                  ill: `<div class="tut-notif"><span>📍</span><div><b>Parece que estás en el trabajo</b>¿Registras la jornada de hoy?</div></div><div class="tut-notif"><span>🔄</span><div><b>Te han cambiado la jornada de hoy</b>Ahora: 07:00–15:00 · Son Castelló</div></div>`,
+                  p: 'Arriba tienes tu horario y lugar de hoy. Si gestión te lo cambia, te llega un aviso. Al llegar al trabajo la app te propone registrar, y si se te olvida, te lo recuerda.' }
+              : { tab: 0, h: '📍 Registrar sin olvidos',
+                  ill: `<div class="tut-notif"><span>📍</span><div><b>Parece que estás en el trabajo</b>¿Registras la jornada de hoy?</div></div><div class="tut-notif"><span>⏰</span><div><b>¿Registramos la jornada?</b>Hoy aún no has apuntado nada</div></div>`,
+                  p: 'Al llegar al trabajo la app te propone registrar, y si se te olvida, te lo recuerda al acabar tu turno.' },
+            { tab: 1, h: '🗓️ Historial y cuadrante',
+              ill: `<div class="tut-t" style="text-align:center;padding:10px">🗓️ <b style="display:inline;font-size:13px">Cuadrante del mes</b></div><div class="tut-line" style="width:80%"></div><div class="tut-line" style="width:60%"></div>`,
+              p: con ? 'El cuadrante del mes aparece aquí cuando gestión lo publica, y te llega un aviso. Debajo están tus jornadas anteriores, para corregirlas o exportarlas.'
+                     : 'Aquí ves el cuadrante del mes en cuanto se publica, y te llega un aviso. Debajo están tus jornadas anteriores, para corregirlas o exportarlas.' },
+        ];
+        if (con) pasos.push({ tab: 2, h: '💬 Chat',
+            ill: `<div class="tut-bub"><small>Gestión</small>Mañana entras a las 7:00 en Son Castelló</div><div class="tut-bub yo">Perfecto, gracias 👍</div>`,
+            p: 'Escribe al Departamento o a un compañero, o crea un grupo con varios. Puedes contestar desde la notificación sin abrir la app. La 🔔 de arriba cuenta los que tienes sin leer.' });
+        pasos.push(
+            { tab: 3, h: '💶 Tu nómina',
+              ill: `<div class="tut-row"><div class="tut-t">Plus asistencia<b>92,18 €</b></div><div class="tut-t">Nocturnidad<b>41,60 €</b></div></div><div class="tut-row"><div class="tut-t a">Líquido estimado<b>1.846,33 €</b></div></div>`,
+              p: 'Calcula la nómina con lo que has registrado: pluses, nocturnas, festivos y asistencia. Compárala con la que te pagan y guárdala.' },
+            { ajustes: true, h: '⚙️ Ajustes: tú y tu trabajo',
+              ill: fila('👤 Perfil', 'Foto, número de trabajador, fecha de entrada') + fila('💼 Trabajo', 'Tu jornada, precios de las horas, vacaciones')
+                   + (con ? opt('💬 Comunicación con el Departamento', 'Chat y avisos de gestión') : ''),
+              p: 'Toca tu foto, arriba a la derecha, para abrir Ajustes. En <b>Perfil</b> van tu foto, tu número y la fecha de entrada. En <b>Trabajo</b>, tu jornada, los precios de las horas y las vacaciones'
+                 + (con ? ', y si mantienes la comunicación con el Departamento.' : '.') },
+            { ajustes: true, h: '🎨 Ajustes: apariencia',
+              ill: `<div class="tut-row"><span class="tut-chip on">Medianoche</span><span class="tut-chip">Océano</span><span class="tut-chip">Bosque</span><span class="tut-chip">Retro 80</span></div>` + opt('🌙 Modo oscuro', 'Cada tema en claro u oscuro', false),
+              p: 'Elige un tema y su versión clara u oscura, el tamaño del texto, la pestaña con la que se abre la app y los cuadros que quieres ver en Registro.' },
+            { ajustes: true, h: '🔔 Ajustes: notificaciones',
+              ill: fila('🔊 Sonido de notificación', 'Campana') + (con ? fila('💬 Sonido de los mensajes', 'Burbuja') : '') + fila('🩺 ¿Por qué no me llegan los avisos?', ''),
+              p: con ? 'Elige el sonido de los avisos y el de los mensajes, y activa el aviso de tu turno y el recordatorio para registrar. Si algo no llega, el botón 🩺 te dice qué pasa y cómo arreglarlo.'
+                     : 'Elige el sonido de los avisos, y activa el aviso de tu turno y el recordatorio para registrar. Si algo no llega, el botón 🩺 te dice qué pasa y cómo arreglarlo.' },
+            { ajustes: true, h: '📍 Ajustes: detección de trabajo',
+              ill: fila('Ubicaciones guardadas', '2 lugares') + fila('Activar GPS entre', '05:30 – 22:00'),
+              p: 'Guarda los sitios donde trabajas y la app te avisa al llegar para que registres. Puedes limitar el GPS a unas horas para ahorrar batería. Este tutorial lo tienes siempre en <b>Ajustes › Ayuda</b>.' },
+        );
+        return pasos;
     },
 
     toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },
@@ -3054,6 +3279,7 @@ const app = {
     },
 
     async _cargarNotas() {
+        if (this.comunicacion === false) return;    // sin chat no hay nada que traer
         if (!this.usuarioActual?.email) return;
         try {
             const r = await fetch(`${this.NOTAS_URL}?email=${encodeURIComponent(this.usuarioActual.email)}`,
@@ -3392,7 +3618,7 @@ const app = {
     },
 
     async _sondearChat() {
-        if (!this.usuarioActual?.email || document.hidden) return;
+        if (!this.usuarioActual?.email || document.hidden || this.comunicacion === false) return;
         try {
             const r = await fetch(`${this.NOTAS_URL}?resumen=1&email=${encodeURIComponent(this.usuarioActual.email)}`, { cache: 'no-store' });
             if (!r.ok) return;
@@ -5865,6 +6091,12 @@ const app = {
     },
 
     _pintarAvisoCambio() {
+        if (this.comunicacion === false) {
+            const el = document.getElementById('cambioJornadaAviso');
+            if (el) el.style.display = 'none';
+            this._pintarCampana?.();
+            return;
+        }
         // La campana cuenta esto también, así que se repinta con el aviso
         this._pintarCampana();
         const el = document.getElementById('cambioJornadaAviso');
@@ -8249,6 +8481,9 @@ const app = {
                 horaFin:      ultimo?.horaFin || '',
                 horarioDe:    deHoy.length ? 'hoy' : 'anterior',
                 jornadas,
+                // Si mantiene la comunicación con el Departamento: sin ella,
+                // el servidor no le enseña a gestión
+                comunicacion: this.comunicacion !== false,
             };
             // Publicar cuando algo cambie de verdad, no una vez al día: si no, al
             // actualizar la app el nuevo número de versión no llegaba a gestión
@@ -8257,7 +8492,7 @@ const app = {
                                            payload.diasMes, payload.turno, payload.conductor, payload.horasAnuales,
                                            payload.jornadaHoras, JSON.stringify(payload.dias), JSON.stringify(payload.vacaciones),
                                            payload.nombre, payload.horaInicio, payload.horaFin,
-                                           payload.horarioDe, jornadas.length,
+                                           payload.horarioDe, jornadas.length, payload.comunicacion,
                                            // Que cambiar la foto se publique ya, sin esperar a otro cambio
                                            (payload.avatar || '').length, (payload.avatar || '').slice(-32),
                                            jornadas.length ? jornadas[jornadas.length - 1].f : '',
@@ -9065,6 +9300,7 @@ const app = {
             notifSound: this.notifSound,
             notifSoundChat: this.notifSoundChat,
             controlAcceso: !!this.controlAcceso,
+            comunicacion: this.comunicacion !== false,
             avisoTurno: !!this.avisoTurno,
             avisoRegistrar: !!this.avisoRegistrar,
             personal: leerPersonal()
@@ -9087,6 +9323,9 @@ const app = {
                 localStorage.setItem('avisoRegistrar', prefs.avisoRegistrar ? '1' : '0');
             }
             this._sincronizarAvisosNativos();
+        }
+        if (typeof prefs.comunicacion === 'boolean' && prefs.comunicacion !== this.comunicacion) {
+            this._ponerComunicacion(prefs.comunicacion, false);
         }
         if (typeof prefs.controlAcceso === 'boolean' && prefs.controlAcceso !== this.controlAcceso) {
             this._ponerControlAcceso(prefs.controlAcceso, false);
