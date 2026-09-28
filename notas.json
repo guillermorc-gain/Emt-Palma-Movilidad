@@ -209,6 +209,11 @@
     "deEmail": "guillermo.rc82@gmail.com",
     "deNombre": "Guillermo Ríos Correa",
     "deConductor": "1418-3",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "g.rioscorrea@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-28T14:50:26.445Z"
+    }
   }
 }
