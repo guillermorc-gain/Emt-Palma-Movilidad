@@ -173,5 +173,28 @@
     "deNombre": "Guillermo Ríos Correa",
     "deConductor": "1418-3",
     "estado": "pendiente"
+  },
+  "20260928144859813-xib37-0": {
+    "id": "20260928144859813-xib37-0",
+    "email": "g.rioscorrea@gmail.com",
+    "creado": "2026-09-28T14:48:59.813Z",
+    "nombre": "Desarrollador",
+    "conductor": "💻",
+    "mensajes": [
+      {
+        "de": "guillermo.rc82@gmail.com",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-28T14:48:59.813Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "companero",
+    "deEmail": "guillermo.rc82@gmail.com",
+    "deNombre": "Guillermo Ríos Correa",
+    "deConductor": "1418-3",
+    "estado": "pendiente"
   }
 }
