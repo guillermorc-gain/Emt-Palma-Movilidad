@@ -240,5 +240,43 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T13:14:43.916Z"
     }
+  },
+  "20260928133613859-nhnn2-g": {
+    "id": "20260928133613859-nhnn2-g",
+    "tipo": "grupo",
+    "creado": "2026-09-28T13:36:13.859Z",
+    "creadoPor": "guillermo.rc82@gmail.com",
+    "email": "guillermo.rc82@gmail.com",
+    "participantes": [
+      {
+        "email": "guillermo.rc82@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1418-3"
+      },
+      {
+        "email": "g.rioscorrea@gmail.com",
+        "nombre": "Desarrollador",
+        "num": "💻"
+      },
+      {
+        "email": "guillermo.rcxx@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1234-5"
+      }
+    ],
+    "conGestion": true,
+    "titulo": "",
+    "mensajes": [
+      {
+        "de": "guillermo.rc82@gmail.com",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-28T13:36:13.859Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "estado": "pendiente"
   }
 }
