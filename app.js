@@ -246,6 +246,20 @@ function sonarTramos(id) {
     return true;
 }
 
+// La matrícula con sus guiones aunque se escriban sin ellos: las de ahora,
+// 1234ABC → 1234-ABC, y las de provincia de antes, PM1234AB → PM-1234-AB.
+// Lo que no tenga una de esas formas (extranjeras, remolques…) se deja
+// como se escribió, solo en mayúsculas.
+function formatoMatricula(m) {
+    const t = String(m || '').trim().toUpperCase();
+    const k = t.replace(/[^A-Z0-9]/g, '');
+    let x = /^(\d{4})([A-Z]{3})$/.exec(k);
+    if (x) return `${x[1]}-${x[2]}`;
+    x = /^([A-Z]{1,2})(\d{4})([A-Z]{1,2})$/.exec(k);
+    if (x) return `${x[1]}-${x[2]}-${x[3]}`;
+    return t;
+}
+
 const app = {
     accessToken: localStorage.getItem('gAccessToken') || null,
     tokenExpiry: parseInt(localStorage.getItem('gTokenExpiry') || '0'),
@@ -6351,7 +6365,7 @@ const app = {
                 delete this._caAutorrellenado[id];
             }
         });
-        if (v) el.value = v.matricula || el.value;
+        if (v) el.value = formatoMatricula(v.matricula || el.value);
         const clave = this._caClaveMatricula(el.value);
         // "Nueva" solo si no hay ninguna que la contenga: a medio escribir aún
         // puede ser una conocida, y para eso están las sugerencias
@@ -6429,7 +6443,7 @@ const app = {
         if (h && !h.dataset.tocada) h.value = this._caHoraAhora();
         const g = id => (document.getElementById(id)?.value || '').trim();
         const r = {
-            fecha: this._caDia, entrada: g('caEntrada'), matricula: g('caMatricula').toUpperCase(),
+            fecha: this._caDia, entrada: g('caEntrada'), matricula: formatoMatricula(g('caMatricula')),
             nombre: g('caNombre'), empresa: g('caEmpresa'), vehiculo: g('caVehiculo'), departamento: g('caDepartamento'),
         };
         if (!/^\d{2}:\d{2}$/.test(r.entrada)) { this._mostrarToast('❌ Falta la hora de entrada', 3000); return; }
@@ -6678,7 +6692,7 @@ const app = {
         const g = k => (document.getElementById(k)?.value || '').trim();
         const cuerpo = {
             id, fecha: this._caAClave(g('caeFecha')), entrada: g('caeEntrada'), salida: g('caeSalida'),
-            matricula: g('caeMatricula').toUpperCase(), nombre: g('caeNombre'), empresa: g('caeEmpresa'),
+            matricula: formatoMatricula(g('caeMatricula')), nombre: g('caeNombre'), empresa: g('caeEmpresa'),
             vehiculo: g('caeVehiculo'), departamento: g('caeDepartamento'),
         };
         if (cuerpo.fecha.length !== 8 || !/^\d{2}:\d{2}$/.test(cuerpo.entrada)) {

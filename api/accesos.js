@@ -114,6 +114,17 @@ const esHora  = h => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(h || ''));
 // La matrícula se escribe de mil maneras —con guion, sin él, en minúsculas—:
 // para buscarla solo cuentan las letras y los números.
 export const claveMatricula = m => String(m || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+// Con sus guiones aunque vengan sin ellos (lo mismo que hacen las apps, para
+// lo que llegue de las que aún no se han actualizado)
+export function formatoMatricula(m) {
+  const t = String(m || '').trim().toUpperCase();
+  const k = claveMatricula(t);
+  let x = /^(\d{4})([A-Z]{3})$/.exec(k);
+  if (x) return `${x[1]}-${x[2]}`;
+  x = /^([A-Z]{1,2})(\d{4})([A-Z]{1,2})$/.exec(k);
+  if (x) return `${x[1]}-${x[2]}-${x[3]}`;
+  return t;
+}
 
 function limpiarRegistro(b, previo) {
   const v = (k, max) => (b[k] !== undefined ? texto(b[k], max) : (previo?.[k] || ''));
@@ -123,7 +134,7 @@ function limpiarRegistro(b, previo) {
     fecha:        esFecha(b.fecha) ? b.fecha : (previo?.fecha || ''),
     entrada:      esHora(b.entrada) ? b.entrada : (previo?.entrada || ''),
     salida:       b.salida === '' ? '' : (esHora(b.salida) ? b.salida : (previo?.salida || '')),
-    matricula:    v('matricula', 20).toUpperCase(),
+    matricula:    formatoMatricula(v('matricula', 20)),
     nombre:       v('nombre', 80),
     empresa:      v('empresa', 80),
     vehiculo:     v('vehiculo', 80),
@@ -211,7 +222,7 @@ export default async function handler(req, res) {
           const out = { ...data };
           if (antes && antes !== clave) delete out[antes];
           out[clave] = {
-            matricula: texto(b.matricula, 20).toUpperCase(), nombre: texto(b.nombre, 80),
+            matricula: formatoMatricula(texto(b.matricula, 20)), nombre: texto(b.nombre, 80),
             empresa: texto(b.empresa, 80), vehiculo: texto(b.vehiculo, 80), departamento: texto(b.departamento, 60),
             visto: data[antes || clave]?.visto || '', editado: new Date().toISOString(), editadoPor: quien,
             // Las demás personas que traen ese coche siguen ahí; la de la
