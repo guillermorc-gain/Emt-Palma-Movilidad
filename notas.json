@@ -162,36 +162,6 @@
     "deConductor": "1418-3",
     "estado": "pendiente"
   },
-  "20260927170430308-0ai6x-0": {
-    "id": "20260927170430308-0ai6x-0",
-    "email": "guillermo.rc82@gmail.com",
-    "creado": "2026-09-27T17:04:30.308Z",
-    "nombre": "Guillermo Ríos Correa",
-    "conductor": "1418-3",
-    "mensajes": [
-      {
-        "de": "g.rioscorrea@gmail.com",
-        "autor": "Desarrollador",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T17:04:30.308Z"
-      },
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T17:17:13.455Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "companero",
-    "deEmail": "g.rioscorrea@gmail.com",
-    "deNombre": "Desarrollador",
-    "deConductor": "💻",
-    "estado": "pendiente"
-  },
   "20260927170430308-2npeq-1": {
     "id": "20260927170430308-2npeq-1",
     "email": "guillermo.rcxx@gmail.com",
