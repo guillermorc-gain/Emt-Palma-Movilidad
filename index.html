@@ -804,6 +804,19 @@
         html[data-tema="mediterraneo"] .app-header{background:#fbfaf7 !important;border-bottom:4px solid transparent;border-image:repeating-linear-gradient(90deg,#1d4e89 0 14px,#fbfaf7 14px 20px,#c8553d 20px 34px,#fbfaf7 34px 40px) 4;}
         html[data-tema="mediterraneo"] .app-header,html[data-tema="mediterraneo"] .app-header *{color:#1d3557 !important;}
         html[data-tema="mediterraneo"] .stat-card.accent{background:#1d4e89 !important;}
+        /* Cada tema en su otra versión (clara u oscura): lo que no sale solo
+           de cambiar los colores */
+        html[data-tema="grafito"][data-modo="claro"] .app-header{background:#26272b !important;}
+        html[data-tema="grafito"][data-modo="claro"] .stat-value{color:#a87c0d;}
+        html[data-tema="grafito"][data-modo="claro"] .stat-card.accent .stat-value{color:#fff;}
+        html[data-tema="retro"][data-modo="claro"] .stat-value{color:#784ba0;}
+        html[data-tema="retro"][data-modo="claro"] .stat-card.accent .stat-value{color:#fff;}
+        html[data-tema="oceano"][data-modo="oscuro"] .app-header::after{background:radial-gradient(circle at 10px -4px,transparent 11px,#06222e 12px) repeat-x;background-size:20px 10px;}
+        html[data-tema="mediterraneo"][data-modo="oscuro"] .app-header{background:#0f1a2b !important;border-image:repeating-linear-gradient(90deg,#7fb2f0 0 14px,#0f1a2b 14px 20px,#e07a5f 20px 34px,#0f1a2b 34px 40px) 4;}
+        html[data-tema="mediterraneo"][data-modo="oscuro"] .app-header,html[data-tema="mediterraneo"][data-modo="oscuro"] .app-header *{color:#e8eef6 !important;}
+        /* Los adornos de la cabecera van por detrás: la foto, la campana y
+           el texto siempre encima */
+        html[data-tema] .app-header > *{position:relative;z-index:1;}
         /* La pantalla de inicio, con los colores del tema */
         html[data-tema="medianoche"] #splashScreen{background:linear-gradient(160deg,#101a3a,#0b1020) !important;}
         html[data-tema="amanecer"] #splashScreen{background:linear-gradient(135deg,#ff8a4c,#ff5f7e) !important;}
@@ -1068,7 +1081,7 @@
     </script>
 </head>
 <body>
-<script>try { var pp = JSON.parse(localStorage.getItem('personal') || '{}'); if (pp.tema) document.documentElement.dataset.tema = pp.tema; } catch (e) {}</script>
+<script>try { var pp = JSON.parse(localStorage.getItem('personal') || '{}'); if (pp.tema) { document.documentElement.dataset.tema = pp.tema; document.documentElement.dataset.modo = (typeof pp.temaOscuro === 'boolean' ? pp.temaOscuro : /^(medianoche|grafito|retro)$/.test(pp.tema)) ? 'oscuro' : 'claro'; } } catch (e) {}</script>
 
 <!-- La barrera de la insignia del icono de Control de acceso, dibujada una
      vez y usada donde haga falta -->
