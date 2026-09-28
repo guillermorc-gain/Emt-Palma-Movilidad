@@ -2761,9 +2761,27 @@ const app = {
         try { return !!email && !localStorage.getItem('bienvenida:' + email); } catch (_) { return false; }
     },
 
-    _alEntrarPrimeraVez() {
-        if (this._bienvenidaPendiente()) setTimeout(() => this._mostrarBienvenida(), 400);
-        else this._tutorialPrimeraVez();
+    // Solo la primera vez que esa cuenta entra en la app, en cualquier móvil:
+    // si ya la vio (o ya tiene jornadas de antes), el servidor lo sabe aunque
+    // aquí se haya borrado al cerrar sesión o reinstalar. Luego se cambia en
+    // Ajustes.
+    async _alEntrarPrimeraVez() {
+        if (this._bienvenidaPendiente() && !(await this._bienvenidaYaVistaEnServidor())) {
+            setTimeout(() => this._mostrarBienvenida(), 400);
+        } else this._tutorialPrimeraVez();
+    },
+
+    async _bienvenidaYaVistaEnServidor() {
+        const email = (this.usuarioActual?.email || '').toLowerCase();
+        if (!email) return false;
+        try {
+            const r = await fetch(`${this.USUARIOS_URL}?mio=${encodeURIComponent(email)}`, { cache: 'no-store' });
+            if (!r.ok) return false;
+            const a = await r.json();
+            if (!a?.bienvenida) return false;
+            localStorage.setItem('bienvenida:' + email, '1');
+            return true;
+        } catch (_) { return false; }
     },
 
     _mostrarBienvenida() {
@@ -2805,6 +2823,7 @@ const app = {
         v.querySelector('#bvSeguir').onclick = async () => {
             v.remove();
             try { localStorage.setItem('bienvenida:' + (this.usuarioActual?.email || '').toLowerCase(), '1'); } catch (_) {}
+            this._bienvenidaRecienVista = true;   // va en el próximo resumen al servidor
             this._ponerComunicacion(com);
             // La jornada: media va por las 777 h, completa por 1700 h
             if (completa !== this._esJornadaCompleta()) {
@@ -9245,6 +9264,8 @@ const app = {
                 // Si mantiene la comunicación con el Departamento: sin ella,
                 // el servidor no le enseña a gestión
                 comunicacion: this.comunicacion !== false,
+                // Que ya pasó por la bienvenida: no se le vuelve a enseñar
+                ...(this._bienvenidaRecienVista || !this._bienvenidaPendiente() ? { bienvenidaVista: true } : {}),
             };
             // Publicar cuando algo cambie de verdad, no una vez al día: si no, al
             // actualizar la app el nuevo número de versión no llegaba a gestión
@@ -9253,7 +9274,7 @@ const app = {
                                            payload.diasMes, payload.turno, payload.conductor, payload.horasAnuales,
                                            payload.jornadaHoras, JSON.stringify(payload.dias), JSON.stringify(payload.vacaciones),
                                            payload.nombre, payload.horaInicio, payload.horaFin,
-                                           payload.horarioDe, jornadas.length, payload.comunicacion, payload.avatarEmoji, payload.avatarBg,
+                                           payload.horarioDe, jornadas.length, payload.comunicacion, payload.avatarEmoji, payload.avatarBg, !!payload.bienvenidaVista,
                                            // Que cambiar la foto se publique ya, sin esperar a otro cambio
                                            (payload.avatar || '').length, (payload.avatar || '').slice(-32),
                                            jornadas.length ? jornadas[jornadas.length - 1].f : '',
