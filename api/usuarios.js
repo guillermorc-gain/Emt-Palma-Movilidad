@@ -524,6 +524,8 @@ export default async function handler(req, res) {
         // móvil nuevo sin tener que volver a escribirlo.
         return res.status(200).json({ ...(loQueLeToca(u, f) || { fecha: f, lugar: '', horario: null }),
                                       conductor: u?.conductor || '',
+                                      // Ya vio la bienvenida, o es de antes (ya tenía jornadas)
+                                      bienvenida: !!(u?.bienvenidaVista || (u?.jornadas || []).length),
                                       // Los permisos retribuidos que le ha marcado gestión
                                       prs: Array.isArray(u?.prs) ? u.prs : [] });
       }
@@ -634,6 +636,8 @@ export default async function handler(req, res) {
           grupo:        previo.grupo ?? null,
           // Si mantiene la comunicación con el Departamento (lo elige él)
           comunicacion: typeof b.comunicacion === 'boolean' ? b.comunicacion : (previo.comunicacion ?? true),
+          // Ya pasó por la bienvenida de la app (solo sale la primera vez)
+          bienvenidaVista: b.bienvenidaVista === true || !!previo.bienvenidaVista,
           actualizado:  new Date().toISOString(),
         };
         return data;
