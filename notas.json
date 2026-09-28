@@ -1,32 +1,4 @@
 {
-  "20260921192559171-uwbgg-0": {
-    "id": "20260921192559171-uwbgg-0",
-    "email": "guillermo.rcxx@gmail.com",
-    "creado": "2026-09-21T19:25:59.171Z",
-    "nombre": "Guillermo Ríos Correa",
-    "conductor": "1234-5",
-    "mensajes": [
-      {
-        "de": "gestor",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Hju",
-        "adjuntos": [],
-        "en": "2026-09-21T19:25:59.171Z"
-      },
-      {
-        "de": "guillermo.rcxx@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "Err",
-        "adjuntos": [],
-        "en": "2026-09-21T19:28:20.993Z"
-      }
-    ],
-    "archivada": true,
-    "de": "gestor",
-    "tipo": "gestion",
-    "gestor": "Guillermo Ríos Correa",
-    "estado": "pendiente"
-  },
   "20260928135449366-gi099-0": {
     "id": "20260928135449366-gi099-0",
     "email": "g.rioscorrea@gmail.com",
