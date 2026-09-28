@@ -415,6 +415,14 @@
         .cv-card.ok,.cv-card.visto{border-left-color:#27ae60;}
         .cv-card.companero{border-left-color:#8e44ad;} .cv-card.gestor{border-left-color:var(--g1);}
         .cv-card.archivada{opacity:.6;}
+        /* Caras (foto, emoji o inicial) en el chat */
+        .cara{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;background:var(--g1);color:#fff;font-weight:700;font-size:15px;object-fit:cover;overflow:hidden;line-height:1;}
+        .cara.cara-ico{background:rgba(127,140,141,.18);font-size:18px;}
+        .cara-chica{width:22px;height:22px;font-size:12px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;background:var(--g1);color:#fff;font-weight:700;object-fit:cover;overflow:hidden;vertical-align:middle;margin-right:5px;line-height:1;}
+        .cara-chica.cara-ico{background:rgba(127,140,141,.18);font-size:13px;}
+        .cv-card .cv-cara{float:left;margin:1px 10px 4px 0;}
+        .cv-card::after{content:'';display:block;clear:both;}
+        .cond-avatar.emo{font-size:22px;}
         .cv-top{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
         .cv-quien{flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
         .cv-fecha{font-size:10px;font-weight:700;color:#7f8c8d;flex-shrink:0;}
@@ -1344,13 +1352,13 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <p class="rol-s">¿Cómo quieres usarla?</p>
             <button class="rol-btn" onclick="app.elegirModo('apk')">
                 <span class="rol-ico">⬇️</span>
-                <span class="rol-txt"><b>Descargar la aplicación</b><span id="modoApkSub">Para Android</span></span>
+                <span class="rol-txt"><b>Descargar la aplicación para Android</b><span id="modoApkSub">Para Android</span></span>
             </button>
             <button class="rol-btn" onclick="app.elegirModo('navegador')">
                 <span class="rol-ico">🌐</span>
                 <span class="rol-txt"><b>Seguir en el navegador</b><span>Sin instalar nada</span></span>
             </button>
-            <p class="rol-pie">La aplicación avisa de los mensajes aunque esté cerrada; el navegador no. Puedes descargarla luego desde Opciones → Aplicación.</p>
+            <p class="rol-pie">La aplicación (solo para móviles Android) avisa de los mensajes aunque esté cerrada; el navegador no. Puedes descargarla luego desde Opciones → Aplicación.</p>
         </div>
     </div>
 
@@ -1795,7 +1803,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                     ondragstart="app._tabDragStart(event)" ondragend="app._tabDragEnd(event)"
                     ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
                     ondrop="app._tabDrop(event)">
-                <span class="tab-ico">🛡️</span><span class="tab-lbl">Control</span>
+                <span class="tab-ico">📝</span><span class="tab-lbl">Control</span>
             </button>
             <!-- Control de acceso: solo con autorización (Usuarios con acceso →
                  Control (Gestión)); las enciende _caComprobarAcceso -->
@@ -2651,7 +2659,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
         </div>
         <div class="modal-body">
             <div class="edit-row">
-                <div class="edit-field"><label>Nº trabajador</label><input type="text" id="fNum" inputmode="numeric" placeholder="14183"></div>
+                <div class="edit-field"><label>Nº trabajador</label><input type="text" id="fNum" inputmode="numeric" maxlength="6" placeholder="14183 o 9879"></div>
                 <div class="edit-field"><label>Nombre</label><input type="text" id="fNombre" placeholder="Ana López"></div>
             </div>
             <div class="edit-field"><label>Lugar de trabajo</label><select id="fPuesto" class="f-sel"></select></div>

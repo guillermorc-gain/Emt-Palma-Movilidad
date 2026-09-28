@@ -500,7 +500,8 @@ export default async function handler(req, res) {
       if (directorio !== undefined) {
         return res.status(200).json(Object.values(data)
           .filter(u => u && u.email && !u.ficticio && !u.oculto)
-          .map(u => ({ email: u.email, nombre: u.nombre || '', conductor: u.conductor || '' }))
+          .map(u => ({ email: u.email, nombre: u.nombre || '', conductor: u.conductor || '',
+                       ...(u.avatarEmoji ? { avatarEmoji: u.avatarEmoji, avatarBg: u.avatarBg || null } : {}) }))
           .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es')));
       }
       return res.status(200).json(data);
@@ -559,6 +560,10 @@ export default async function handler(req, res) {
           nombre:       typeof b.nombre === 'string' ? b.nombre.slice(0, 80) : previo.nombre || '',
           conductor:    typeof b.conductor === 'string' ? b.conductor.slice(0, 12) : previo.conductor || '',
           avatar:       b.avatar ?? previo.avatar ?? null,
+          // El avatar de emoji y su color, para quien no ha puesto foto
+          avatarEmoji:  typeof b.avatarEmoji === 'string' ? b.avatarEmoji.slice(0, 16) || null
+                      : b.avatarEmoji === null ? null : previo.avatarEmoji ?? null,
+          avatarBg:     /^#[0-9a-f]{3,8}$/i.test(b.avatarBg || '') ? b.avatarBg : (b.avatarEmoji === null ? null : previo.avatarBg ?? null),
           version:      typeof b.version === 'string' ? b.version.slice(0, 20) : previo.version || '',
           horasMes:     Number(b.horasMes) || 0,
           horasTotales: Number(b.horasTotales) || 0,

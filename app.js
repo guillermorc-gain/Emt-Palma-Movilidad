@@ -2288,6 +2288,7 @@ const app = {
         document.getElementById('avatarPickerModal').classList.remove('show');
         this.actualizarBotonesPerfil(); this._actualizarAvatarPreview();
         this._guardarPreferencias();
+        this._publicarResumen();      // que gestión y el chat vean el nuevo
     },
 
     mostrarAvatarPicker() {
@@ -3616,6 +3617,7 @@ const app = {
     async _cargarNotas() {
         if (this.comunicacion === false) return;    // sin chat no hay nada que traer
         if (!this.usuarioActual?.email) return;
+        this._cargarCaras();
         try {
             const r = await fetch(`${this.NOTAS_URL}?email=${encodeURIComponent(this.usuarioActual.email)}`,
                 { cache: 'no-store' });
@@ -3681,6 +3683,7 @@ const app = {
             const nueva = this._sinLeer(n);
             return `<div class="cv-card ${clase}${n.archivada ? ' archivada' : ''}${nueva ? ' nueva' : ''}"
                     onclick="app.abrirHilo('${q}')">
+                <span class="cv-cara">${this._caraHilo(n)}</span>
                 <div class="cv-top">
                     ${nueva ? '<span class="cv-punto"></span>' : ''}
                     <span class="cv-quien">${esc(this._tituloHilo(n))}</span>
@@ -3733,7 +3736,27 @@ const app = {
     A_GESTION: '__gestion__',
     _elegidos: [],
     _notaPara: [],
-    _directorio: [],
+    _directorio: (() => { try { return JSON.parse(localStorage.getItem('directorio') || '[]'); } catch (_) { return []; } })(),
+    _avatares: (() => { try { return JSON.parse(localStorage.getItem('avatares') || '{}'); } catch (_) { return {}; } })(),
+
+    // Las caras de los compañeros para el chat: quién es quién (con su emoji)
+    // y las fotos, que van aparte. Como mucho una vez cada media hora.
+    async _cargarCaras() {
+        if (Date.now() - (this._carasEn || 0) < 30 * 60 * 1000) return;
+        this._carasEn = Date.now();
+        try {
+            const [d, a] = await Promise.all([
+                fetch(`${this.USUARIOS_URL}?directorio=1`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
+                fetch(`${this.USUARIOS_URL}?avatares=1`).then(r => r.ok ? r.json() : null),
+            ]);
+            if (Array.isArray(d)) { this._directorio = d; localStorage.setItem('directorio', JSON.stringify(d)); }
+            if (a && typeof a === 'object') {
+                this._avatares = a;
+                try { localStorage.setItem('avatares', JSON.stringify(a)); } catch (_) {}
+            }
+            this._renderNotas();
+        } catch (_) { /* con lo guardado vale; si no, salen las iniciales */ }
+    },
 
     // Quien lleva la aplicación. Sale con nombre propio en la lista de a
     // quién escribir, en las dos apps, para poder contarle un fallo o pedirle
@@ -4394,12 +4417,36 @@ const app = {
         if (nuevo) this._pintarTituloHilo(nuevo);
     },
 
+    // La cara de alguien en el chat y en las listas: su foto; si no tiene, el
+    // emoji que eligió con su color; y si tampoco, la inicial de su nombre.
+    _caraDe(email, nombre, clase = 'cara') {
+        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        const e = String(email || '').toLowerCase();
+        if (e === this.DEV_EMAIL) return `<span class="${clase} cara-ico">💻</span>`;
+        if (e === this.A_GESTION) return `<span class="${clase} cara-ico">🛠️</span>`;
+        const u = (this._directorio || []).find(x => String(x.email || '').toLowerCase() === e) || {};
+        const foto = u.avatar || (this._avatares || {})[e];
+        if (foto) return `<img class="${clase}" src="${esc(foto)}" alt="">`;
+        if (u.avatarEmoji) return `<span class="${clase}" style="background:${esc(u.avatarBg || '#667eea')}">${esc(u.avatarEmoji)}</span>`;
+        const ini = (String(nombre || u.nombre || e || '?').trim()[0] || '?').toUpperCase();
+        return `<span class="${clase}">${esc(ini)}</span>`;
+    },
+
+    // La cara de una conversación: la del otro, o el emoji del grupo
+    _caraHilo(n, clase = 'cara') {
+        if (n?.tipo === 'grupo') return `<span class="${clase} cara-ico">${String(n.emoji || '👥').replace(/[<>&"]/g, '')}</span>`;
+        const otro = (this._otrosEnHilo(n) || [])[0];
+        if (!otro) return '';
+        if (otro.gestion) return this._caraDe(this.A_GESTION, '', clase);
+        return this._caraDe(otro.email, otro.nombre, clase);
+    },
+
     // El título del hilo, con el lápiz para cambiar nombre y emoji si es un grupo
     _pintarTituloHilo(n) {
         const el = document.getElementById('hiloQuien');
         if (!el) return;
         const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
-        el.innerHTML = esc(this._tituloHilo(n))
+        el.innerHTML = this._caraHilo(n, 'cara-chica') + esc(this._tituloHilo(n))
             + (n?.tipo === 'grupo' ? ' <button type="button" class="hilo-ed" title="Cambiar nombre y emoji" onclick="app._editarGrupo()">✏️</button>' : '');
     },
 
@@ -8996,6 +9043,9 @@ const app = {
                 // la que ya tenía.
                 ...(this._avisoVisto() ? { avisoVisto: this._avisoVisto() } : {}),
                 avatar:       await this._avatarParaPublicar(),
+                // Sin foto, el emoji que haya elegido (y su color)
+                avatarEmoji:  localStorage.getItem('avatarPhoto') ? null : (localStorage.getItem('avatarEmoji') || null),
+                avatarBg:     localStorage.getItem('avatarPhoto') ? null : (localStorage.getItem('avatarBg') || null),
                 version:      (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
                 horasMes:     Math.round(delMes.reduce((s, r) => s + (parseFloat(r.horas) || 0), 0) * 10) / 10,
                 horasTotales: t.anualReal,
@@ -9024,7 +9074,7 @@ const app = {
                                            payload.diasMes, payload.turno, payload.conductor, payload.horasAnuales,
                                            payload.jornadaHoras, JSON.stringify(payload.dias), JSON.stringify(payload.vacaciones),
                                            payload.nombre, payload.horaInicio, payload.horaFin,
-                                           payload.horarioDe, jornadas.length, payload.comunicacion,
+                                           payload.horarioDe, jornadas.length, payload.comunicacion, payload.avatarEmoji, payload.avatarBg,
                                            // Que cambiar la foto se publique ya, sin esperar a otro cambio
                                            (payload.avatar || '').length, (payload.avatar || '').slice(-32),
                                            jornadas.length ? jornadas[jornadas.length - 1].f : '',
