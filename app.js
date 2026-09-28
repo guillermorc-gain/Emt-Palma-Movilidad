@@ -7762,6 +7762,43 @@ const app = {
             : `📍 Lugar: ${cerca.nombre}`, 5000);
     },
 
+    // La foto que ve gestión: pequeña (80 px), para que quepa. La de Google
+    // bajada en el móvil venía a 200 px y pasaba del máximo del servidor, que
+    // la tiraba sin decir nada: el trabajador tenía foto y gestión no la veía.
+    async _avatarParaPublicar() {
+        const foto = localStorage.getItem('avatarPhoto') || '';
+        if (!foto) return null;
+        if (localStorage.getItem('avatarPubDe') === foto.slice(-64) + foto.length) {
+            const hecho = localStorage.getItem('avatarPub');
+            if (hecho) return hecho;
+        }
+        const pequena = await new Promise(resolve => {
+            try {
+                const img = new Image();
+                if (/^https?:/.test(foto)) img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = 80; c.height = 80;
+                        const lado = Math.min(img.width, img.height);
+                        c.getContext('2d').drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, 80, 80);
+                        resolve(c.toDataURL('image/jpeg', 0.85));
+                    } catch (_) { resolve(null); }
+                };
+                img.onerror = () => resolve(null);
+                img.src = foto;
+                setTimeout(() => resolve(null), 8000);
+            } catch (_) { resolve(null); }
+        });
+        // Si no se ha podido reducir y es una dirección, va la dirección, que es corta
+        const final = pequena || (/^https?:/.test(foto) ? foto : (foto.length <= 40000 ? foto : null));
+        try {
+            localStorage.setItem('avatarPubDe', foto.slice(-64) + foto.length);
+            if (final) localStorage.setItem('avatarPub', final);
+        } catch (_) {}
+        return final;
+    },
+
     async _publicarResumen() {
         if (!this.usuarioActual?.email) return;
         if (this._lecturaOk === false) return;   // no mandar lo que no se ha podido leer
@@ -7810,7 +7847,7 @@ const app = {
                 // pone hora cuando cambia, así que mandarlo siempre no mueve
                 // la que ya tenía.
                 ...(this._avisoVisto() ? { avisoVisto: this._avisoVisto() } : {}),
-                avatar:       localStorage.getItem('avatarPhoto') || null,
+                avatar:       await this._avatarParaPublicar(),
                 version:      (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
                 horasMes:     Math.round(delMes.reduce((s, r) => s + (parseFloat(r.horas) || 0), 0) * 10) / 10,
                 horasTotales: t.anualReal,
@@ -7837,6 +7874,8 @@ const app = {
                                            payload.jornadaHoras, JSON.stringify(payload.dias), JSON.stringify(payload.vacaciones),
                                            payload.nombre, payload.horaInicio, payload.horaFin,
                                            payload.horarioDe, jornadas.length,
+                                           // Que cambiar la foto se publique ya, sin esperar a otro cambio
+                                           (payload.avatar || '').length, (payload.avatar || '').slice(-32),
                                            jornadas.length ? jornadas[jornadas.length - 1].f : '',
                                            new Date().toISOString().slice(0, 10)]);
             if (localStorage.getItem('resumenHuella') === huella) return;
