@@ -9436,8 +9436,8 @@ const app = {
             const ausente = this._ausencia(u, fecha, j);
             // Si mantiene la comunicación con el Departamento (lo elige él)
             const comunica = u.ficticio ? '' : u.comunicacion === false
-                ? '<span class="cond-com off" title="Ha quitado la comunicación con el Departamento">sin conexión</span>'
-                : '<span class="cond-com on" title="Mantiene la comunicación con el Departamento">conectado</span>';
+                ? '<span class="cond-com off" title="Ha quitado la comunicación con el Departamento">Sin conexión</span>'
+                : '<span class="cond-com on" title="Mantiene la comunicación con el Departamento">Conectado</span>';
             const turno = sitios.length > 1 || ausente ? ''
                 : (this._turnoDe(lugarHoy, j?.i) || (esHoy ? u.turno : ''));
             // El horario del día, para verlo junto al lugar: con el sitio solo
@@ -9472,7 +9472,7 @@ const app = {
                         <div class="cond-nombre compacta${ES_APP_DEV ? '' : ' una-linea'}"><span class="cond-nom-txt">${esc(u.nombre) || esc(u.email)}</span>
                             ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}${
                             ES_APP_DEV ? '' : comunica}
-                            ${u.ficticio ? '<span class="pr-badge2">VIRTUAL</span>' : ''}
+                            ${u.ficticio ? '<span class="pr-badge2">Virtual</span>' : ''}
                             ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${
                             ES_APP_DEV ? this._chipConexion(u.email) + comunica : ''}</div>
                         <div class="cond-num">${esc(u.conductor) || 'sin nº'}${
