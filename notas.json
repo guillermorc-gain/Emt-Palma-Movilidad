@@ -91,6 +91,11 @@
     ],
     "archivada": false,
     "de": "trabajador",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "guillermo.rcvpn@gmail.com",
+      "nombre": "Guillermo Rios",
+      "en": "2026-09-28T16:56:59.767Z"
+    }
   }
 }
