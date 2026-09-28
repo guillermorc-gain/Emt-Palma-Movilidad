@@ -4663,8 +4663,10 @@ const app = {
         });
 
         const devengado = r2(devengos.reduce((t, l) => t + l.i, 0));
-        const prorrata  = r2(Number(g.prorrata ?? 0));
-        const base      = r2(devengado + prorrata);
+        // La base de cotización es el devengado del mes. Las pagas extra no
+        // van prorrateadas: se cobran enteras en julio y en diciembre.
+        const prorrata  = 0;
+        const base      = devengado;
         const sindicato = r2(Number(g.sindicato ?? 12));
         const pct = (c, sobre, p) => ({ c, base: sobre, pct: p, i: r2(sobre * p / 100) });
         const deducciones = [
@@ -4795,8 +4797,7 @@ const app = {
             <div class="nom-l" style="font-weight:800;"><span class="nom-l-c">A deducir</span>
                 <span class="nom-l-i">−${this._eur(c.aDeducir)}</span></div>
             <div class="nom-sec">Base de cotización</div>
-            <div class="nom-l"><span class="nom-l-c">${c.prorrata
-                ? 'Devengado + prorrata de pagas extra' : 'Devengado'}</span>
+            <div class="nom-l"><span class="nom-l-c">Devengado</span>
                 <span class="nom-l-i">${this._eur(c.base)}</span></div>
             <div class="nom-sec">Días del mes</div>
             <div class="nom-datos">
@@ -4931,9 +4932,7 @@ const app = {
             filas.push(['Deducciones', '', '', '']);
             c.deducciones.forEach(l => filas.push([l.c, l.pct ? `${l.pct} %` : '', '', -l.i]));
             filas.push(['A deducir', '', '', -c.aDeducir]);
-            filas.push([c.prorrata
-                ? 'Base de cotización · Devengado + prorrata de pagas extra'
-                : 'Base de cotización · Devengado', '', '', c.base]);
+            filas.push(['Base de cotización · Devengado', '', '', c.base]);
             filas.push(['Días del mes', '', '', '']);
             filas.push(['· De salario base', c.dias.base, '', '']);
             if (c.dias.vacaciones) filas.push(['· De vacaciones', c.dias.vacaciones, '', '']);
@@ -5164,8 +5163,7 @@ const app = {
             // ── Base de cotización y líquido ─────────────────────────────────
             sitio(30 + 54);
             caja(M, y, ANCHO, 26, FONDO);
-            txt(c.prorrata ? 'Base de cotización · devengado + prorrata de pagas extra'
-                           : 'Base de cotización · devengado',
+            txt('Base de cotización · devengado',
                 M + 12, y + 17, 8.6, false, GRIS);
             der(eur(c.base), xImporte, y + 17, 9.5, true, TINTA);
             y += 26 + 10;
