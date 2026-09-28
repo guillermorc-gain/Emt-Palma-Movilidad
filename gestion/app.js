@@ -234,35 +234,35 @@ const MARCAS_BATERIA = [
 // de siempre y la de alt, que cambia los colores de fondo y de texto.
 const TEMAS_APP = {
     medianoche:   { nombre: 'Medianoche', oscuro: true, estilo: '', muestra: ['#0b1020', '#22d3ee', '#6366f1'],
-                    bg: '#0b1020', card: '#141c33', soft: '#1a2444', tint: '#1b2d6b', ink: '#dce6ff', sub: '#8b9ac4', line: '#26345e',
-                    alt: { bg: '#eef2fb', card: '#ffffff', soft: '#e6ecf8', tint: '#dfe6fb', ink: '#16203d', sub: '#5d6a8f', line: '#d5dcef', tab: '#ffffff', on: '#4f46e5' } },
+                    bg: '#0b1020', card: '#141c33', soft: '#1a2444', tint: '#1b2d6b', ink: '#dce6ff', sub: '#8b9ac4', line: '#26345e', acento: '#22d3ee',
+                    alt: { bg: '#eef2fb', card: '#ffffff', soft: '#e6ecf8', tint: '#dfe6fb', ink: '#16203d', sub: '#5d6a8f', line: '#d5dcef', tab: '#ffffff', on: '#4f46e5', acento: '#4338ca' } },
     amanecer:     { nombre: 'Amanecer', oscuro: false, estilo: 'redondeado', muestra: ['#fff7f0', '#ff8a4c', '#ff5f7e'],
-                    bg: '#fff7f0', card: '#ffffff', soft: '#fff0e6', tint: '#ffe7d8', ink: '#3b2a24', sub: '#9b7d70', line: '#ffd9c2',
-                    alt: { bg: '#1f1512', card: '#2a1d18', soft: '#33231d', tint: '#4a2a1f', ink: '#ffe9dc', sub: '#c09a88', line: '#4a342a', tab: '#1a1210', on: '#ff8a4c' } },
+                    bg: '#fff7f0', card: '#ffffff', soft: '#fff0e6', tint: '#ffe7d8', ink: '#3b2a24', sub: '#9b7d70', line: '#ffd9c2', acento: '#c2410c',
+                    alt: { bg: '#1f1512', card: '#2a1d18', soft: '#33231d', tint: '#4a2a1f', ink: '#ffe9dc', sub: '#c09a88', line: '#4a342a', tab: '#1a1210', on: '#ff8a4c', acento: '#ff9a66' } },
     bosque:       { nombre: 'Bosque', oscuro: false, estilo: 'plano', muestra: ['#f1efe6', '#2f5a3e', '#6b8f47'],
-                    bg: '#f1efe6', card: '#fbfaf5', soft: '#ece8da', tint: '#e3ecdc', ink: '#233127', sub: '#6f7a68', line: '#dcd7c5',
-                    alt: { bg: '#141c16', card: '#1c261f', soft: '#223027', tint: '#2a3d2f', ink: '#e3eadb', sub: '#9aa892', line: '#2f3f33', tab: '#121914', on: '#8fbf6a' } },
+                    bg: '#f1efe6', card: '#fbfaf5', soft: '#ece8da', tint: '#e3ecdc', ink: '#233127', sub: '#6f7a68', line: '#dcd7c5', acento: '#2f5a3e',
+                    alt: { bg: '#141c16', card: '#1c261f', soft: '#223027', tint: '#2a3d2f', ink: '#e3eadb', sub: '#9aa892', line: '#2f3f33', tab: '#121914', on: '#8fbf6a', acento: '#8fbf6a' } },
     oceano:       { nombre: 'Océano', oscuro: false, estilo: 'redondeado', muestra: ['#e0f7fa', '#00a6b8', '#1565c0'],
-                    bg: '#e6f6fa', card: 'rgba(255, 255, 255, 0.8)', soft: '#dff1f7', tint: '#d3eef6', ink: '#0f3b4c', sub: '#5b7f8f', line: '#c9e3ec',
-                    alt: { bg: '#06222e', card: '#0b2f3d', soft: '#0f3848', tint: '#10455a', ink: '#d6f3fb', sub: '#7fb0c0', line: '#15485a', tab: '#072630', on: '#3fd0e0' } },
+                    bg: '#e6f6fa', card: 'rgba(255, 255, 255, 0.8)', soft: '#dff1f7', tint: '#d3eef6', ink: '#0f3b4c', sub: '#5b7f8f', line: '#c9e3ec', acento: '#0a6f94',
+                    alt: { bg: '#06222e', card: '#0b2f3d', soft: '#0f3848', tint: '#10455a', ink: '#d6f3fb', sub: '#7fb0c0', line: '#15485a', tab: '#072630', on: '#3fd0e0', acento: '#3fd0e0' } },
     grafito:      { nombre: 'Grafito', oscuro: true, estilo: 'recto', muestra: ['#1a1b1e', '#f4c542', '#34353a'],
-                    bg: '#1a1b1e', card: '#232428', soft: '#2a2b30', tint: '#3a3320', ink: '#e6e3dc', sub: '#9a978f', line: '#34353a',
-                    alt: { bg: '#f2f1ee', card: '#ffffff', soft: '#eae8e3', tint: '#f7eecd', ink: '#26272b', sub: '#6d6b66', line: '#dedbd3', tab: '#ffffff', on: '#a87c0d' } },
+                    bg: '#1a1b1e', card: '#232428', soft: '#2a2b30', tint: '#3a3320', ink: '#e6e3dc', sub: '#9a978f', line: '#34353a', acento: '#f4c542',
+                    alt: { bg: '#f2f1ee', card: '#ffffff', soft: '#eae8e3', tint: '#f7eecd', ink: '#26272b', sub: '#6d6b66', line: '#dedbd3', tab: '#ffffff', on: '#a87c0d', acento: '#8a6508' } },
     pastel:       { nombre: 'Pastel', oscuro: false, estilo: 'redondeado', muestra: ['#f6f3ff', '#c9b8ff', '#a8e6cf'],
-                    bg: '#f6f3ff', card: '#ffffff', soft: '#f1edff', tint: '#ece6ff', ink: '#3d3654', sub: '#8a83a3', line: '#e5defa',
-                    alt: { bg: '#1e1b2e', card: '#28243d', soft: '#2f2a48', tint: '#3a3358', ink: '#ece6ff', sub: '#a79fc4', line: '#3d3660', tab: '#1a1728', on: '#c9b8ff' } },
+                    bg: '#f6f3ff', card: '#ffffff', soft: '#f1edff', tint: '#ece6ff', ink: '#3d3654', sub: '#8a83a3', line: '#e5defa', acento: '#6d4fe0',
+                    alt: { bg: '#1e1b2e', card: '#28243d', soft: '#2f2a48', tint: '#3a3358', ink: '#ece6ff', sub: '#a79fc4', line: '#3d3660', tab: '#1a1728', on: '#c9b8ff', acento: '#c9b8ff' } },
     retro:        { nombre: 'Retro 80', oscuro: true, estilo: 'recto', muestra: ['#1b0f33', '#ff3cac', '#ffd319'],
-                    bg: '#1b0f33', card: '#251548', soft: '#2d1a57', tint: '#3a2468', ink: '#f3e9ff', sub: '#b7a3d9', line: '#784ba0',
-                    alt: { bg: '#fff0fa', card: '#ffffff', soft: '#fbe6f5', tint: '#f3e0ff', ink: '#2b1640', sub: '#7a5c96', line: '#e9c6f0', tab: '#ffffff', on: '#d10f86' } },
+                    bg: '#1b0f33', card: '#251548', soft: '#2d1a57', tint: '#3a2468', ink: '#f3e9ff', sub: '#b7a3d9', line: '#784ba0', acento: '#ffd319',
+                    alt: { bg: '#fff0fa', card: '#ffffff', soft: '#fbe6f5', tint: '#f3e0ff', ink: '#2b1640', sub: '#7a5c96', line: '#e9c6f0', tab: '#ffffff', on: '#d10f86', acento: '#b00d72' } },
     mediterraneo: { nombre: 'Mediterráneo', oscuro: false, estilo: '', muestra: ['#fbfaf7', '#1d4e89', '#c8553d'],
-                    bg: '#fbfaf7', card: '#ffffff', soft: '#f4f1ea', tint: '#e8eef6', ink: '#1d3557', sub: '#6b7a8f', line: '#e7e2d8',
-                    alt: { bg: '#0f1a2b', card: '#16243a', soft: '#1b2c46', tint: '#1d3557', ink: '#e8eef6', sub: '#93a4bd', line: '#26395a', tab: '#0d1726', on: '#7fb2f0' } },
+                    bg: '#fbfaf7', card: '#ffffff', soft: '#f4f1ea', tint: '#e8eef6', ink: '#1d3557', sub: '#6b7a8f', line: '#e7e2d8', acento: '#1d4e89',
+                    alt: { bg: '#0f1a2b', card: '#16243a', soft: '#1b2c46', tint: '#1d3557', ink: '#e8eef6', sub: '#93a4bd', line: '#26395a', tab: '#0d1726', on: '#7fb2f0', acento: '#7fb2f0' } },
 };
 // Los colores fijos de la app, por su papel (en claro y en oscuro)
 const COLORES_FIJOS = {
     fondo: {
         card: ['white', 'rgb(255, 255, 255)', 'rgb(30, 42, 58)'],
-        soft: ['rgb(238, 241, 246)', 'rgb(244, 246, 249)', 'rgb(238, 242, 247)', 'rgb(232, 234, 240)', 'rgb(245, 247, 250)',
+        soft: ['rgb(240, 240, 240)', 'rgb(238, 241, 246)', 'rgb(244, 246, 249)', 'rgb(238, 242, 247)', 'rgb(232, 234, 240)', 'rgb(245, 247, 250)',
                'rgb(22, 32, 46)', 'rgb(35, 43, 69)', 'rgb(22, 31, 46)', 'rgb(29, 39, 56)', 'rgb(45, 53, 97)'],
         bg:   ['rgb(17, 24, 39)'],
         tint: ['rgb(234, 242, 253)', 'rgb(20, 40, 63)'],
@@ -321,6 +321,12 @@ function reglasDeTema(id, oscuro) {
                 const nuevo = v && mapa[tipo][v];
                 if (nuevo) decl.push(`${p}:${nuevo}${r.style.getPropertyPriority(p) ? ' !important' : ''}`);
             });
+            // El color del tema usado como letra: el de relleno (--g1) no se
+            // lee en todas las versiones, así que va el acento del tema
+            const letra = r.style.getPropertyValue('color');
+            if (t.acento && /var\(--g[12]\)/.test(letra)) {
+                decl.push(`color:${t.acento}${r.style.getPropertyPriority('color') ? ' !important' : ''}`);
+            }
             // El fondo dado con la abreviatura y un color solo
             const bg = r.style.getPropertyValue('background');
             if (bg && !r.style.getPropertyValue('background-color') && mapa.fondo[bg.trim()]) {
@@ -340,7 +346,35 @@ function reglasDeTema(id, oscuro) {
                   + `${pre}[data-modo]{--tema-tab:${t.tab};--tema-on:${t.on}}`;
     return css;
 }
+// Sin tema y en oscuro, el azul de la app como letra no se lee sobre las
+// tarjetas oscuras: esas letras pasan a un azul claro. Se saca de las hojas
+// de estilo, como los temas, para no tener que ir regla por regla.
+function letraDeAcentoEnOscuro() {
+    if (document.getElementById('pAcentoOscuro')) return;
+    const pre = 'html:not([data-tema]) body.dark';
+    const reglas = [];
+    const recorrer = lista => {
+        for (const r of lista) {
+            if (r.type === 4 && r.cssRules) { recorrer(r.cssRules); continue; }
+            if (r.type !== 1 || !r.selectorText) continue;
+            if (!/var\(--g[12]\)/.test(r.style.getPropertyValue('color'))) continue;
+            const sel = r.selectorText.split(/,(?![^(]*\))/).map(x => x.trim())
+                .filter(x => !/^(html|:root|body)\b/.test(x)).map(x => `${pre} ${x}`).join(', ');
+            if (sel) reglas.push(`${sel}{color:#6fb1ff !important}`);
+        }
+    };
+    for (const hoja of document.styleSheets) {
+        if (['pEstiloCss', 'pTemaCss'].includes(hoja.ownerNode?.id)) continue;
+        try { recorrer(hoja.cssRules); } catch (_) {}
+    }
+    const el = document.createElement('style');
+    el.id = 'pAcentoOscuro';
+    el.textContent = reglas.join('');
+    document.head.appendChild(el);
+}
+
 function aplicarTemaApp(p) {
+    letraDeAcentoEnOscuro();
     const h = document.documentElement;
     const id = TEMAS_APP[p.tema] ? p.tema : '';
     if (id) h.dataset.tema = id; else delete h.dataset.tema;
@@ -2857,7 +2891,7 @@ const app = {
         list.innerHTML = '';
         const registros = Object.entries(this._historialMap).sort((a, b) => b[1].timestamp - a[1].timestamp);
         if (registros.length === 0) {
-            list.innerHTML = '<li style="text-align:center;padding:24px;color:#95a5a6;font-size:13px;">Sin registros</li>';
+            list.innerHTML = '<li style="text-align:center;padding:24px;color:#7f8c8d;font-size:13px;">Sin registros</li>';
             return;
         }
         let mesActual = null;
@@ -2895,7 +2929,7 @@ const app = {
             const nocheStr = reg.horasNocturnas
                 ? `<div style="font-size:10px;color:#856404;font-weight:600;">🌙 ${reg.horasNocturnas}h noct. · +${(reg.extraNoche||0).toFixed(2)}€</div>` : '';
             const horario = (reg.horaInicio && reg.horaFin)
-                ? `<span style="color:#95a5a6;font-size:10px;font-style:italic;">${reg.horaInicio}–${reg.horaFin}</span>` : '';
+                ? `<span style="color:#7f8c8d;font-size:10px;font-style:italic;">${reg.horaInicio}–${reg.horaFin}</span>` : '';
             const prBadge     = reg.pr      ? `<span class="pr-badge">PR</span>` : '';
             const festivoBadge= reg.festivo ? `<span class="festivo-badge">🎉 Festivo</span>` : '';
             const vacBadge    = reg.vacaciones ? `<span class="vacaciones-badge">🏖️ Vacaciones</span>` : '';
@@ -9890,7 +9924,7 @@ const app = {
         if (!container) return;
         const meses = this._calcTodosMeses(historial);
         const keys  = Object.keys(meses).sort((a, b) => b.localeCompare(a)).slice(0, 6);
-        if (keys.length === 0) { container.innerHTML = '<div style="text-align:center;color:#95a5a6;font-size:12px;padding:8px;">Sin datos</div>'; return; }
+        if (keys.length === 0) { container.innerHTML = '<div style="text-align:center;color:#7f8c8d;font-size:12px;padding:8px;">Sin datos</div>'; return; }
         container.innerHTML = keys.map(k => {
             const m = meses[k];
             const barPct = Math.min((m.horas / (this.horasAnualesCustom / 12)) * 100, 100);
@@ -10069,7 +10103,7 @@ const app = {
         if (!container) return;
         const locs = this._getWorkLocations();
         if (locs.length === 0) {
-            container.innerHTML = '<div style="font-size:12px;color:#95a5a6;padding:4px 0;">Sin ubicaciones guardadas</div>';
+            container.innerHTML = '<div style="font-size:12px;color:#7f8c8d;padding:4px 0;">Sin ubicaciones guardadas</div>';
             return;
         }
         const isDark = this.darkMode;
