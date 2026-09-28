@@ -1,6 +1,6 @@
 import { emailDelToken, tokenDe, exigirGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { avisarPersonas, avisarGestion } from './_push.js';
-import { apuntarPresencia, leerPresencia } from './_presencia.js';
+import { apuntarPresencia, leerPresencia, apuntarVersion, leerVersiones } from './_presencia.js';
 import { hayBaseDeDatos, leerUsuarios, leerUsuario, leerAvatares, guardarUsuario, borrarUsuario } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
@@ -452,19 +452,21 @@ export default async function handler(req, res) {
       return res.status(200).json(await leerPresencia());
     }
 
+    // Con qué versión anda cada uno en cada app (solo para el desarrollador)
+    if (req.method === 'GET' && req.query?.versiones !== undefined) {
+      res.setHeader('Cache-Control', 'no-store');
+      const pide = await emailDelToken(tokenDe(req)).catch(() => null);
+      if (pide !== GESTOR_PRINCIPAL) return res.status(403).json({ error: 'Solo para el desarrollador' });
+      return res.status(200).json(await leerVersiones());
+    }
+
     if (req.method === 'GET') {
       let data = await leerTodo();
       res.setHeader('Cache-Control', 'no-store');
-      // Quien quitó la comunicación con el Departamento no sale para gestión:
-      // ni sus jornadas, ni en los lugares, ni para escribirle. Solo lo sigue
-      // viendo todo el gestor principal (que es también el desarrollador).
-      // Su propia consulta (?mio=) no cambia.
-      if (req.query?.mio === undefined && Object.values(data).some(u => u?.comunicacion === false)) {
-        const pide = await emailDelToken(tokenDe(req)).catch(() => null);
-        if (pide !== GESTOR_PRINCIPAL) {
-          data = Object.fromEntries(Object.entries(data).filter(([k, u]) => u?.comunicacion !== false || k === pide));
-        }
-      }
+      // Quien quitó la comunicación con el Departamento sigue saliendo en la
+      // lista de gestión (con "sin conexión"), pero no para sus compañeros:
+      // ni en los lugares ni para escribirle. Eso se filtra más abajo.
+      const sinComunicacion = u => u?.comunicacion === false;
       // Con ?lugar= se devuelve solo quién trabaja ahí ese día. Lo usa la app
       // del trabajador para enseñarle con quién va, sin bajarse todo.
       const { lugar, fecha, directorio, avatares, mio } = req.query || {};
@@ -481,7 +483,7 @@ export default async function handler(req, res) {
         return res.status(200).json(out);
       }
       if (lugar !== undefined) {
-        return res.status(200).json(quienHayEn(data, lugar, fecha));
+        return res.status(200).json(quienHayEn(Object.fromEntries(Object.entries(data).filter(([, u]) => !sinComunicacion(u))), lugar, fecha));
       }
       // Lo que le toca a uno ese día. Es lo que mira su app para la cabecera,
       // y así no se baja la plantilla entera para leer dos datos suyos.
@@ -499,7 +501,7 @@ export default async function handler(req, res) {
       // un compañero sin bajarse las jornadas de toda la plantilla.
       if (directorio !== undefined) {
         return res.status(200).json(Object.values(data)
-          .filter(u => u && u.email && !u.ficticio && !u.oculto)
+          .filter(u => u && u.email && !u.ficticio && !u.oculto && !sinComunicacion(u))
           .map(u => ({ email: u.email, nombre: u.nombre || '', conductor: u.conductor || '',
                        ...(u.avatarEmoji ? { avatarEmoji: u.avatarEmoji, avatarBg: u.avatarBg || null } : {}) }))
           .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es')));
@@ -520,7 +522,12 @@ export default async function handler(req, res) {
       // La señal de "estoy conectado": solo con la sesión, y va aparte
       if (req.query?.ping !== undefined || b.ping) {
         if (!delToken) return res.status(401).json({ error: 'Falta la sesión' });
-        await apuntarPresencia(delToken);
+        // Gestión y desarrollador solo dicen su versión: su uso no es el
+        // "en línea" de un trabajador
+        await Promise.all([
+          b.soloVersion ? null : apuntarPresencia(delToken),
+          b.app && b.version ? apuntarVersion(delToken, b.app, b.version).catch(() => {}) : null,
+        ]);
         return res.status(200).json({ ok: true });
       }
       if (typeof b.avatar === 'string' && b.avatar.length > MAX_AVATAR) b.avatar = null;
@@ -784,10 +791,7 @@ export default async function handler(req, res) {
       }
       if (sinPR) return res.status(409).json({ error: `Ya ha usado los ${PR_ANUALES} PR de este año` });
       if (!nuevo) return res.status(500).json({ error: 'No se pudo guardar' });
-      // La lista que se devuelve, igual que en el GET: sin los que no mantienen
-      // la comunicación, salvo para el gestor principal
-      return res.status(200).json(quienGestiona === GESTOR_PRINCIPAL ? nuevo
-        : Object.fromEntries(Object.entries(nuevo).filter(([, u]) => u?.comunicacion !== false)));
+      return res.status(200).json(nuevo);
     }
 
     return res.status(405).end();

@@ -46,3 +46,37 @@ export async function apuntarPresencia(email) {
     if (r.status !== 409) return;
   }
 }
+
+// Con qué versión anda cada uno en cada app (trabajador, gestión,
+// desarrollador), para verlo en Usuarios autorizados. '0' es el navegador.
+// Va en su fichero y solo se escribe cuando cambia.
+const VERSIONES = 'versiones.json';
+async function leerFichero(nombre) {
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${nombre}?ref=${BRANCH}&t=${Date.now()}`,
+    { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' });
+  if (r.status === 404) return { data: {}, sha: null };
+  if (!r.ok) throw new Error('GitHub ' + r.status + ' al leer ' + nombre);
+  const meta = await r.json();
+  const texto = meta.content ? Buffer.from(meta.content, 'base64').toString('utf8') : '';
+  return { data: texto.trim() ? JSON.parse(texto) : {}, sha: meta.sha };
+}
+export async function leerVersiones() {
+  return (await leerFichero(VERSIONES)).data;
+}
+export async function apuntarVersion(email, app, version) {
+  email = String(email || '').toLowerCase();
+  app = String(app || '');
+  version = String(version || '').slice(0, 24);
+  if (!email.includes('@') || !['trabajador', 'gestion', 'desarrollador'].includes(app) || !version) return;
+  for (let intento = 0; intento < 3; intento++) {
+    const { data, sha } = await leerFichero(VERSIONES);
+    if (data[email]?.[app] === version) return;
+    const nuevo = { ...data, [email]: { ...(data[email] || {}), [app]: version } };
+    const body = { message: `Versión de ${email} en ${app}: ${version}`, branch: BRANCH,
+                   content: Buffer.from(JSON.stringify(nuevo, null, 1) + '\n').toString('base64') };
+    if (sha) body.sha = sha;
+    const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${VERSIONES}`, {
+      method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.status !== 409) return;
+  }
+}

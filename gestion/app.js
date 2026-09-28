@@ -866,6 +866,7 @@ const app = {
             }
             this.mostrarApp();
             this._avisarRecienAutorizado();
+            this._decirVersion();
             this._caComprobarAcceso();
             this._cargarSolicitudes();
             this._tutorialPrimeraVez();
@@ -4698,7 +4699,7 @@ const app = {
         const q = (document.getElementById('destBuscar')?.value || '').toLowerCase().trim();
         // Los de prueba no existen de verdad: no se les puede escribir
         return this._conductoresVisibles()
-            .filter(u => !u.ficticio && !String(u.email || '').endsWith('@prueba.local'))
+            .filter(u => !u.ficticio && !String(u.email || '').endsWith('@prueba.local') && u.comunicacion !== false)
             .filter(u => !q || `${u.conductor || ''} ${u.nombre || ''} ${u.email}`.toLowerCase().includes(q))
             .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
     },
@@ -6101,10 +6102,25 @@ const app = {
     // horario, y vale como decidido.
     DECIDIDO: ['ok', 'plan', 'real'],
 
+    // Si ese día no trabaja —baja, vacaciones, permiso retribuido o porque
+    // no fue—, qué es; si trabaja, ''. Ese día no se le pide lugar ni horario,
+    // ni se le compara el horario con el de gestión.
+    _ausencia(u, fecha, j) {
+        const f = String(fecha || '').slice(0, 8);
+        const delDia = (u?.jornadas || []).filter(x => String(x?.f || '').slice(0, 8) === f);
+        const con = k => !!j?.[k] || delDia.some(x => x[k]);
+        if (con('b') || this._enBaja(u, f)) return 'BE';
+        if (con('v') || this._enVacaciones(u, f)) return 'Vacaciones';
+        if (con('p') || this._prsDe(u, f.slice(0, 4)).has(f)) return 'PR';
+        if (con('na')) return 'No vino';
+        return '';
+    },
+
     _desajustes(u, mes) {
         const revis = u?.revisiones || {};
         return (u?.jornadas || []).filter(j => {
             if (!j?.i) return false;
+            if (this._ausencia(u, j.f, j)) return false;
             if (mes && this._mesDe(j.f) !== mes) return false;
             if (this.DECIDIDO.includes(revis[j.f])) return false;
             const h = this._horasPlan(u, j.f);
@@ -6939,6 +6955,32 @@ const app = {
         }
     },
 
+    // Con qué versión anda esta app: la ve el desarrollador en Usuarios
+    // autorizados. No cuenta como "en línea": eso es de los trabajadores.
+    _decirVersion() {
+        fetch(this.USUARIOS_URL + '?ping=1', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ soloVersion: true, app: ES_APP_DEV ? 'desarrollador' : 'gestion',
+                                   version: typeof APP_VERSION === 'undefined' ? '0' : APP_VERSION }) }).catch(() => {});
+    },
+
+    async _cargarVersiones() {
+        if (!this._soyElGestor() || Date.now() - (this._versionesEn || 0) < 60 * 1000) return;
+        this._versionesEn = Date.now();
+        try {
+            const r = await fetch(this.USUARIOS_URL + '?versiones=1', { cache: 'no-store' });
+            if (!r.ok) return;
+            this._versiones = await r.json();
+            this._renderAcceso(this._appAcc);
+        } catch (_) {}
+    },
+
+    // "v2.30", o "🌐 navegador" si la usa sin instalar
+    _textoVersion(v) {
+        if (!v) return '';
+        const n = parseInt(String(v).replace(/\D+/g, ''), 10) || 0;
+        return n ? this._buildNumToVersion(n) : '🌐 navegador';
+    },
+
     _renderAcceso(id) {
         const el = document.getElementById('grpAccLista');
         if (!el) return;
@@ -6949,14 +6991,20 @@ const app = {
             return;
         }
         const esc = t => String(t || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-        // A los trabajadores se les enseña con qué versión andan, que es la
-        // única lista de la que sabemos eso.
+        // Con qué versión anda cada uno en la app de esa lista (en la de
+        // gestión, también la de desarrollador si la tiene)
         const porEmail = this._conductores || {};
+        const vers = this._versiones || {};
+        this._cargarVersiones();
         el.innerHTML = correos.map(correo => {
-            const u = id === 'worker' ? porEmail[String(correo).toLowerCase()] : null;
-            const ver = u?.version
-                ? this._buildNumToVersion(parseInt(String(u.version).replace('build-', ''), 10) || 0)
-                : '';
+            const e = String(correo).toLowerCase();
+            const v = vers[e] || {};
+            let ver = '';
+            if (id === 'worker' || id === 'control') ver = this._textoVersion(v.trabajador || porEmail[e]?.version);
+            else {
+                ver = [v.gestion ? '✏️ ' + this._textoVersion(v.gestion) : '',
+                       v.desarrollador ? '🛠️ ' + this._textoVersion(v.desarrollador) : ''].filter(Boolean).join(' · ');
+            }
             return `<div class="access-user-item">
                 <span class="access-user-email">${esc(correo)}${ver ? `<br><span class="access-user-ver">${ver}</span>` : ''}</span>
                 <button class="access-user-remove" title="Quitar"
@@ -8513,7 +8561,9 @@ const app = {
         const horasBaja = Math.round(diasBaja * horasDeBaja * 10) / 10;
         const tope = Math.max(0, objetivoAnual - horasBaja);
         const mes  = hasta.slice(0, 6);
-        let anual = 0, extras = 0, delMes = 0, festTrabajados = 0;
+        let anual = 0, extras = 0, delMes = 0, festTrabajados = 0, nocturnas = 0;
+        const libresTrabajados = new Set();
+        const año = hasta.slice(0, 4);
         // Días distintos, no jornadas: quien parte el día entre dos sitios
         // registra dos y seguía siendo un día trabajado.
         const diasDelMes = new Set();
@@ -8521,6 +8571,13 @@ const app = {
             if (!j || j.f > hasta) return;
             const h = j.h || 0;
             if (j.f.slice(0, 6) === mes) { delMes += h; diasDelMes.add(j.f); }
+            // Del año: horas de noche y días de descanso en que trabajó
+            if (j.f.startsWith(año)) {
+                nocturnas += Number(j.n) || 0;
+                if (h > 0 && !j.v && !j.b && !j.p && !j.na && !this._trabajaEseDia(u, j.f.slice(0, 8))) {
+                    libresTrabajados.add(j.f.slice(0, 8));
+                }
+            }
             if (j.x === 1) { extras += h; return; }
             if (j.fe && h > 0) festTrabajados++;
             anual += this._horasEfectivas(j, jor, u);
@@ -8528,6 +8585,7 @@ const app = {
         const exceso = Math.max(0, anual - tope);
         const r1 = n => Math.round(n * 10) / 10;
         return { mes: r1(delMes), dias: diasDelMes.size, extras: r1(extras + exceso), festTrabajados,
+                 nocturnas: r1(nocturnas), libresTrabajados: libresTrabajados.size,
                  diasBaja, horasBaja, objetivo: r1(tope),
                  realizadas: r1(anual), restantes: r1(Math.max(0, tope - anual)) };
     },
@@ -8997,6 +9055,8 @@ const app = {
         if (this._enBaja(u, fecha) || (!this._bajasDe(u).length && u.baja)) return 'be';
         const { j } = this._jornadaVisible(u, fecha);
         if (j?.v || this._enVacaciones(u, fecha)) return 'vacaciones';
+        // Con permiso retribuido o sin ir, ese día no trabaja
+        if (['PR', 'No vino'].includes(this._ausencia(u, fecha, j))) return 'libre';
         // Libre: ese día de la semana no es suyo y no ha registrado nada
         if (!j && !this._trabajaEseDia(u, fecha)) return 'libre';
         return 'activo';
@@ -9140,7 +9200,12 @@ const app = {
             const lugarHoy  = sitios.length > 1 ? sitios.join(' · ') : this._lugarDe(u, fecha, j);
             const excepcion = sitios.length < 2 && !!(u.lugares && u.lugares[fecha])
                 && this._clavePuesto(lugarHoy) !== this._clavePuesto(u.puesto);
-            const turno = sitios.length > 1 ? ''
+            const ausente = this._ausencia(u, fecha, j);
+            // Si mantiene la comunicación con el Departamento (lo elige él)
+            const comunica = u.ficticio ? '' : u.comunicacion === false
+                ? '<span class="cond-com off" title="Ha quitado la comunicación con el Departamento">sin conexión</span>'
+                : '<span class="cond-com on" title="Mantiene la comunicación con el Departamento">conectado</span>';
+            const turno = sitios.length > 1 || ausente ? ''
                 : (this._turnoDe(lugarHoy, j?.i) || (esHoy ? u.turno : ''));
             // El horario del día, para verlo junto al lugar: con el sitio solo
             // no se sabe a qué hora entra, que es lo primero que se mira.
@@ -9153,7 +9218,7 @@ const app = {
                 // Sin foto, el emoji que eligió en su app, con su color
                 : u.avatarEmoji ? `<div class="cond-avatar emo" style="background:${esc(u.avatarBg || '#667eea')}">${esc(u.avatarEmoji)}</div>`
                 : `<div class="cond-avatar">${esc(ini)}</div>`;
-            const ver = u.version ? this._buildNumToVersion(parseInt(String(u.version).replace('build-',''),10) || 0) : '—';
+            const ver = u.version ? this._textoVersion(u.version) : '—';
             const cerrada = this._estaPlegado('t:' + u.email, true);
             const enBaja = this._enBaja(u, fecha) || (!this._bajasDe(u).length && !!u.baja);
             const enVac  = this._enVacaciones(u, fecha);
@@ -9169,22 +9234,26 @@ const app = {
                     ${av}
                     <div class="cond-id">
                         <div class="cond-nombre compacta${ES_APP_DEV ? '' : ' una-linea'}"><span class="cond-nom-txt">${esc(u.nombre) || esc(u.email)}</span>
-                            ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}
+                            ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}${
+                            ES_APP_DEV ? '' : comunica}
                             ${u.ficticio ? '<span class="pr-badge2">VIRTUAL</span>' : ''}
                             ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${
-                            ES_APP_DEV ? this._chipConexion(u.email) : ''}</div>
+                            ES_APP_DEV ? this._chipConexion(u.email) + comunica : ''}</div>
                         <div class="cond-num">${esc(u.conductor) || 'sin nº'}${
                             this._desviaciones(u) ? `<span class="cond-alerta" title="Horarios que no cuadran"
                                 onclick="event.stopPropagation();app.revisarHorarios('${esc(u.email)}')">❗${
                                 this._desviaciones(u)}</span>` : ''}
-                            <span class="cond-puesto puesto-click" onclick="event.stopPropagation();app.ponerJornada('${esc(u.email)}','${esc(fecha)}','${esc(lugarHoy)}')">· ${esc(lugarHoy) || 'asignar lugar'}${
-                                horasHoy ? ` <span class="cond-hora">${esc(horasHoy)}</span>` : ''}${excepcion ? ' ·' : ''} ✎</span>${
+                            ${ausente
+                                // Ese día no trabaja: ni lugar ni horario, solo el motivo
+                                ? `<span class="cond-ausente">· ${esc(ausente)}</span>`
+                                : `<span class="cond-puesto puesto-click" onclick="event.stopPropagation();app.ponerJornada('${esc(u.email)}','${esc(fecha)}','${esc(lugarHoy)}')">· ${esc(lugarHoy) || 'asignar lugar'}${
+                                horasHoy ? ` <span class="cond-hora">${esc(horasHoy)}</span>` : ''}${excepcion ? ' ·' : ''} ✎</span>`}${
                             // Lo ha dado por leído él: el cambio le ha llegado
                             this._vistoDe(u, fecha)}${
                             // Con lugar pero sin hora tampoco tiene servicio, y
                             // sin decirlo no hay manera de saber por qué sale
                             // en el filtro.
-                            estado === 'activo' && lugarHoy.trim() && this._sinServicio(u, fecha)
+                            !ausente && estado === 'activo' && lugarHoy.trim() && this._sinServicio(u, fecha)
                                 ? `<span class="cond-falta" title="Ponerle horario"
                                         onclick="event.stopPropagation();app.ponerJornada('${esc(u.email)}','${esc(fecha)}','${esc(lugarHoy)}')">sin horario ✎</span>`
                                 : ''}</div>
@@ -9199,14 +9268,22 @@ const app = {
                     <button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
                             onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>
                     </div>
-                    <span class="cond-chev">▾</span>
                 </div>
                 <div class="cond-cuerpo">
                     ${
                     // Quien solo entra por Control de acceso no registra sus
                     // horas en la app de conductores: sin ella esos cuatro
                     // números serían ceros que no dicen nada.
-                    this._sinAppTrabajador(u) ? '' : `<div class="cond-stats">
+                    this._sinAppTrabajador(u) ? '' : this._esCompleta(u)
+                    // Jornada completa: no va por un tope de horas, así que lo
+                    // que interesa es la noche, las extras y los días de más
+                    ? `<div class="cond-stats">
+                        <div class="cond-stat"><div class="cond-stat-v">${t.nocturnas.toFixed(1)}</div><div class="cond-stat-l">h nocturnas</div></div>
+                        <div class="cond-stat"><div class="cond-stat-v">${t.extras.toFixed(1)}</div><div class="cond-stat-l">horas extras</div></div>
+                        <div class="cond-stat"><div class="cond-stat-v">${t.festTrabajados}</div><div class="cond-stat-l">festivos trab.</div></div>
+                        <div class="cond-stat"><div class="cond-stat-v">${t.libresTrabajados}</div><div class="cond-stat-l">libres trab.</div></div>
+                    </div>`
+                    : `<div class="cond-stats">
                         <div class="cond-stat"><div class="cond-stat-v">${t.mes.toFixed(1)}</div><div class="cond-stat-l">este mes</div></div>
                         <div class="cond-stat"><div class="cond-stat-v">${t.extras.toFixed(1)}</div><div class="cond-stat-l">horas extras</div></div>
                         <div class="cond-stat"><div class="cond-stat-v">${t.realizadas.toFixed(1)}</div><div class="cond-stat-l">realizadas</div></div>

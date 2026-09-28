@@ -1666,6 +1666,11 @@ const app = {
         }
         if (horas < 0) { alert('❌ Las horas no pueden ser negativas'); return; }
         if (fechaHasta < fecha) { alert('❌ La fecha "hasta" no puede ser anterior a la de inicio'); return; }
+        // Lo que no ha pasado no se registra; solo las vacaciones, que se
+        // apuntan con tiempo
+        if (!esVacaciones && fechaHasta > this._hoyISO()) {
+            alert('❌ No puedes registrar días que todavía no han llegado.'); return;
+        }
         const fechas = this._rangoDeFechas(fecha, fechaHasta);
         if (fechas.length > 62) { alert('❌ El rango es demasiado largo (máximo dos meses)'); return; }
         const horaInicio     = document.getElementById('horaInicio').value;
@@ -1778,6 +1783,10 @@ const app = {
     async _guardarDesdeModal() {
         if (!this.usuarioActual || !this.editingId) return;
         const fecha     = document.getElementById('editModalFecha').value;
+        const esVacEdit = !!document.getElementById('editModalVacaciones')?.checked;
+        if (fecha && fecha > this._hoyISO() && !esVacEdit) {
+            alert('❌ No puedes poner un día que todavía no ha llegado.'); return;
+        }
         let   horas     = parseFloat(document.getElementById('editModalHoras').value);
         const horaInicio= document.getElementById('editModalInicio').value;
         let   horaFin   = document.getElementById('editModalFin').value;
@@ -2014,11 +2023,28 @@ const app = {
             if (!u.emailVerified) {
                 this._fbPendiente = d.idToken;
                 this._apuntarPendiente(d);
-                this.mostrarMensaje('⏳ Tu cuenta está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: '
-                    + 'entonces te llegará un correo con un enlace para seguir. Si ya te llegó, ábrelo. ¿No lo encuentras? Mira en spam '
-                    + 'o pulsa «Reenviar el correo».', 'error');
                 const re = document.getElementById('cReenviar');
                 if (re) re.hidden = false;
+                // Si ya la han autorizado, el correo de confirmación se le
+                // vuelve a mandar solo (como mucho uno cada 10 minutos): pudo
+                // perderse o acabar en correo no deseado.
+                const ultimo = Number(localStorage.getItem('reenvioAuto:' + d0.email) || 0);
+                if (Date.now() - ultimo > 10 * 60 * 1000) {
+                    try {
+                        await this._pedirAlta(d.idToken, 'reenviar');
+                        localStorage.setItem('reenvioAuto:' + d0.email, String(Date.now()));
+                        this.mostrarMensaje(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${d0.email} para `
+                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».', 'success');
+                        return;
+                    } catch (_) { /* aún sin autorizar: se dice abajo */ }
+                } else {
+                    this.mostrarMensaje(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
+                        + '(mira también en «Correo no deseado»). Si no llega, pulsa «Reenviar el correo».', 'success');
+                    return;
+                }
+                this.mostrarMensaje('⏳ Tu cuenta está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: '
+                    + 'entonces te llegará un correo con un enlace para seguir. Si ya te llegó, ábrelo. ¿No lo encuentras? Mira en '
+                    + '«Correo no deseado» o pulsa «Reenviar el correo».', 'error');
                 return;
             }
             this._guardarSesionCorreo(d, u.displayName || '');
@@ -2049,7 +2075,7 @@ const app = {
         if (!this._fbPendiente) return;
         try {
             await this._pedirAlta(this._fbPendiente, 'reenviar');
-            this.mostrarMensaje('📧 Correo de confirmación enviado otra vez.', 'success');
+            this.mostrarMensaje('📧 Correo de confirmación enviado otra vez. Si no lo ves, mira en «Correo no deseado».', 'success');
         } catch (e) { this.mostrarMensaje(e.message, 'error'); }
     },
 
@@ -2104,8 +2130,19 @@ const app = {
                 if (cE && claims.email) cE.value = claims.email;
                 const re = document.getElementById('cReenviar');
                 if (re) re.hidden = false;
+                // Si ya está autorizada, el correo se reenvía solo (uno cada 10 min)
+                const ultimo = Number(localStorage.getItem('reenvioAuto:' + claims.email) || 0);
+                if (claims.email && Date.now() - ultimo > 10 * 60 * 1000) {
+                    try {
+                        await this._pedirAlta(j.id_token, 'reenviar');
+                        localStorage.setItem('reenvioAuto:' + claims.email, String(Date.now()));
+                        this.mostrarMensaje(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${claims.email} para `
+                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».', 'success');
+                        return;
+                    } catch (_) { /* aún sin autorizar */ }
+                }
                 this.mostrarMensaje(`⏳ La cuenta ${claims.email || ''} sigue pendiente de autorización. Cuando el Departamento la autorice `
-                    + 'te llegará un correo con el enlace para seguir.', 'error');
+                    + 'te llegará un correo con el enlace para seguir (mira también en «Correo no deseado»).', 'error');
                 return;
             }
             ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k));
@@ -2367,6 +2404,11 @@ const app = {
     guardarPerfil() {
         this.actualizarBotonesPerfil();
         alert('✅ Perfil guardado');
+    },
+
+    _hoyISO() {
+        const h = new Date();
+        return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
     },
 
     establecerFechaHoy() {
@@ -3885,7 +3927,8 @@ const app = {
     // Para que el desarrollador vea quién está conectado y cuándo lo estuvo
     _senalConexion() {
         if (!this.usuarioActual?.email || document.hidden) return;
-        fetch(this.USUARIOS_URL + '?ping=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        fetch(this.USUARIOS_URL + '?ping=1', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app: 'trabajador', version: typeof APP_VERSION === 'undefined' ? '0' : APP_VERSION }) })
             .catch(() => {});
     },
 
@@ -8413,14 +8456,17 @@ const app = {
         const meses = {};
         // Chronological pass: hours past the annual cap are overtime, and this is
         // the only way to attribute them to the month they actually happened in.
+        // Cada jornada cuenta en el mes del día trabajado, no en el que se
+        // apuntó: las de marzo registradas en abril son de marzo.
         const orden = Object.entries(historial || {})
-            .filter(([, r]) => r.timestamp)
-            .sort((a, b) => a[1].timestamp - b[1].timestamp)
-            .map(([id, r]) => ({ ...r, _fecha: this._fechaDeId(id) }));
+            .filter(([id, r]) => r.timestamp || /^\d{8}/.test(id))
+            .map(([id, r]) => ({ ...r, _fecha: this._fechaDeId(id) }))
+            .sort((a, b) => a._fecha.localeCompare(b._fecha) || (a.timestamp || 0) - (b.timestamp || 0));
         const tope = this.horasAnualesCustom;
         let acumulado = 0;
         orden.forEach(reg => {
-            const d   = new Date(reg.timestamp);
+            const f = reg._fecha;
+            const d = /^\d{8}$/.test(f) ? new Date(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8)) : new Date(reg.timestamp);
             const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
             if (!meses[key]) meses[key] = { horas:0, nocturnas:0, extra:0, horasExtras:0, dias:0, label:'', año:d.getFullYear(), mes:d.getMonth()+1 };
             const h = parseFloat(reg.horas) || 0;
@@ -9000,10 +9046,9 @@ const app = {
         try {
             const hist = this._historialFull || {};
             const ahora = new Date();
-            const delMes = Object.values(hist).filter(r => {
-                const d = new Date(r.timestamp);
-                return d.getFullYear() === ahora.getFullYear() && d.getMonth() === ahora.getMonth();
-            });
+            // Por el día trabajado, no por cuándo se apuntó
+            const mesId = `${ahora.getFullYear()}${String(ahora.getMonth() + 1).padStart(2, '0')}`;
+            const delMes = Object.entries(hist).filter(([id]) => this._fechaDeId(id).startsWith(mesId)).map(([, r]) => r);
             const t = this._calcTotales(hist);
             // Horario de hoy si lo hay; si no, el del último día registrado.
             // Gestión lo usa para ver si el puesto queda cubierto.
@@ -9016,10 +9061,10 @@ const app = {
             // Jornadas del año en curso, compactas: gestión las agrupa por mes.
             // Claves cortas a propósito, son ~220 al año por trabajador.
             // Desde el 1 de enero del año en curso
-            const desde = new Date(ahora.getFullYear(), 0, 1).getTime();
+            const anioId = String(ahora.getFullYear());
             const jornadas = Object.entries(hist)
-                .filter(([, r]) => r.timestamp && r.timestamp >= desde)
-                .sort((a, b) => a[1].timestamp - b[1].timestamp)
+                .filter(([id]) => this._fechaDeId(id).startsWith(anioId))
+                .sort((a, b) => this._fechaDeId(a[0]).localeCompare(this._fechaDeId(b[0])) || (a[1].timestamp || 0) - (b[1].timestamp || 0))
                 .map(([id, r]) => ({
                     f: this._fechaDeId(id),
                     h: parseFloat(r.horas) || 0,
@@ -9033,6 +9078,7 @@ const app = {
                     ...(r.be ? { b: 1 } : {}),
                     ...(Array.isArray(r.tramos) && r.tramos.length ? { tr: r.tramos } : {}),
                     ...(r.pr ? { p: 1 } : {}),
+                    ...(r.sinAsistencia ? { na: 1 } : {}),
                 }));
             const payload = {
                 nombre:       this.usuarioActual.name || '',
@@ -9135,7 +9181,12 @@ const app = {
         const container = document.getElementById('mensualTable');
         if (!container) return;
         const meses = this._calcTodosMeses(historial);
-        const keys  = Object.keys(meses).sort((a, b) => b.localeCompare(a)).slice(0, 6);
+        // Todo el año en curso (de enero a hoy); si aún no hay nada de este
+        // año, los últimos seis meses
+        const anio = String(new Date().getFullYear());
+        const todos = Object.keys(meses).sort((a, b) => b.localeCompare(a));
+        const delAnio = todos.filter(k => k.startsWith(anio));
+        const keys  = delAnio.length ? delAnio : todos.slice(0, 6);
         if (keys.length === 0) { container.innerHTML = '<div style="text-align:center;color:#7f8c8d;font-size:12px;padding:8px;">Sin datos</div>'; return; }
         container.innerHTML = keys.map(k => {
             const m = meses[k];
