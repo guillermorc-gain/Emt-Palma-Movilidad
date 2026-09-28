@@ -296,6 +296,11 @@
     "de": "gestor",
     "tipo": "gestion",
     "gestor": "Guillermo Rios",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "g.rioscorrea@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-28T13:14:42.821Z"
+    }
   }
 }
