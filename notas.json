@@ -55,29 +55,6 @@
       "en": "2026-09-27T17:02:21.179Z"
     }
   },
-  "20260927140808133-budxf-2": {
-    "id": "20260927140808133-budxf-2",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-27T14:08:08.133Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "g.rioscorrea@gmail.com",
-        "autor": "Desarrollador",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T14:08:08.133Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "companero",
-    "deEmail": "g.rioscorrea@gmail.com",
-    "deNombre": "Desarrollador",
-    "deConductor": "💻",
-    "estado": "pendiente"
-  },
   "20260927141935277-vavve-0": {
     "id": "20260927141935277-vavve-0",
     "email": "g.rioscorrea@gmail.com",
