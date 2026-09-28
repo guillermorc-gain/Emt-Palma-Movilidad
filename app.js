@@ -765,7 +765,9 @@ const app = {
     },
 
     async _ensureToken() {
-        return !!(this.accessToken && Date.now() < this.tokenExpiry);
+        if (this.accessToken && Date.now() < this.tokenExpiry) return true;
+        if (this._esCuentaCorreo()) return this._renovarCorreo();
+        return false;
     },
 
     _saveToken(response) {
@@ -801,11 +803,17 @@ const app = {
         try {
             const ok = await this._ensureToken();
             if (!ok) { this._silentReauth(); return; }
-            const resp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: { Authorization: `Bearer ${this.accessToken}` }
-            });
-            if (!resp.ok) { this.mostrarAuth(); this.mostrarMensaje('Error al obtener perfil: ' + resp.status, 'error'); return; }
-            this.usuarioActual = await resp.json();
+            if (this._esCuentaCorreo()) {
+                const email = localStorage.getItem('fbEmail') || '';
+                if (!email) { this.mostrarAuth(); return; }
+                this.usuarioActual = { email, name: localStorage.getItem('fbNombre') || email.split('@')[0] };
+            } else {
+                const resp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                    headers: { Authorization: `Bearer ${this.accessToken}` }
+                });
+                if (!resp.ok) { this.mostrarAuth(); this.mostrarMensaje('Error al obtener perfil: ' + resp.status, 'error'); return; }
+                this.usuarioActual = await resp.json();
+            }
             const prevEmail = localStorage.getItem('gUserEmail');
             if (prevEmail && prevEmail.toLowerCase() !== this.usuarioActual.email.toLowerCase()) {
                 this._olvidarLoDelAnterior();
@@ -833,6 +841,7 @@ const app = {
             this._sincronizarAvisosNativos();
             this._caArrancar();
             this._alEntrarPrimeraVez();
+            this._recordarCopiaLocal();
             this._pintarAvisoCambio();
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
@@ -1029,6 +1038,7 @@ const app = {
     },
 
     async _silentReauth() {
+        if (this._esCuentaCorreo()) { await this._renovarCorreo(); return; }
         if (this.refreshToken) {
             try {
                 const resp = await fetch('https://emt-palma-movilidad.vercel.app/api/auth/refresh', {
@@ -1327,11 +1337,13 @@ const app = {
     },
 
     async _driveGet(url) {
+        if (this._esCuentaCorreo()) throw new Error('Tu cuenta no es de Google: no hay Drive');
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
         return fetch(url, { headers: { Authorization: `Bearer ${this.accessToken}` } });
     },
 
     async _drivePatch(url, body) {
+        if (this._esCuentaCorreo()) throw new Error('Tu cuenta no es de Google: no hay Drive');
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
         return fetch(url, {
             method: 'PATCH',
@@ -1421,6 +1433,10 @@ const app = {
     // null significa "todavía no hay copia", nunca "no se ha podido leer": un
     // fallo de lectura tiene que doler aquí y no acabar borrando el historial.
     async _readDriveFile() {
+        // Sin cuenta de Google, los datos viven en el móvil
+        if (this._esCuentaCorreo()) {
+            try { return JSON.parse(localStorage.getItem('datosLocales') || 'null'); } catch (_) { return null; }
+        }
         const fileId = await this._getDriveFileId();
         if (!fileId) return null;
         const resp = await this._driveGet(
@@ -1441,6 +1457,10 @@ const app = {
     },
 
     async _writeDriveFile(data) {
+        if (this._esCuentaCorreo()) {
+            localStorage.setItem('datosLocales', JSON.stringify({ ...data, preferencias: this._getPreferencias() }));
+            return;
+        }
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
         const payload = { ...data, preferencias: this._getPreferencias() };
         const json    = JSON.stringify(payload);
@@ -1819,8 +1839,11 @@ const app = {
             usuario: this.usuarioActual.email,
             horasAnuales: this.horasAnualesCustom,
             horasTrabajadas: data.horasTrabajadas || 0,
-            historial
+            historial,
+            // La personalización y los ajustes, para recuperarlo todo
+            preferencias: this._getPreferencias(),
         }, null, 2);
+        localStorage.setItem('ultimaExportacion', String(Date.now()));
         const filename = `horas-emt-${new Date().toISOString().slice(0,10)}.json`;
         const blob = new Blob([json], { type: 'application/json' });
         const file = new File([blob], filename, { type: 'application/json' });
@@ -1869,12 +1892,169 @@ const app = {
                 else Object.assign(historialObj, datos.historial);
                 const restored = { horasTrabajadas: datos.horasTrabajadas, historial: historialObj };
                 await this._writeDriveFile(restored);
+                if (datos.preferencias && typeof datos.preferencias === 'object') this._aplicarPreferenciasDesde(datos.preferencias);
                 if (datos.horasAnuales) { this.horasAnualesCustom = datos.horasAnuales; localStorage.setItem('horasAnuales', datos.horasAnuales); }
                 this.actualizarUI(restored);
                 await this._notificarBackup('💾 Copia restaurada', 'Los datos se han importado correctamente');
             } catch(err) { alert('❌ Error al leer el archivo: ' + err.message); }
         });
         input.click();
+    },
+
+    // ── Entrar con un correo que no es de Google ────────────────────────────
+    // Hay quien no tiene cuenta de Google. Esos entran con su correo y una
+    // contraseña (Firebase Authentication); el servidor comprueba la sesión
+    // igual que la de Google. Sin Google no hay Drive: sus jornadas y su
+    // personalización se guardan en el propio móvil, y se le recuerda que
+    // exporte una copia, porque si desinstala la app se pierden.
+    FIREBASE_KEY: 'AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI',
+
+    _esCuentaCorreo() {
+        try { return localStorage.getItem('authTipo') === 'correo'; } catch (_) { return false; }
+    },
+
+    async _fbPost(accion, cuerpo) {
+        let r;
+        try {
+            r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${accion}?key=${this.FIREBASE_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+        } catch (_) { throw new Error('Sin conexión. Inténtalo otra vez.'); }
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(this._fbError(d?.error?.message));
+        return d;
+    },
+
+    _fbError(c) {
+        c = String(c || '');
+        const m = {
+            EMAIL_EXISTS: 'Ese correo ya tiene cuenta: entra con tu contraseña.',
+            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo.',
+            INVALID_PASSWORD: 'La contraseña no es correcta.',
+            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos.',
+            USER_DISABLED: 'Esta cuenta está desactivada.',
+            INVALID_EMAIL: 'Ese correo no es válido.',
+            MISSING_PASSWORD: 'Escribe la contraseña.',
+            TOO_MANY_ATTEMPTS_TRY_LATER: 'Demasiados intentos. Espera un poco y vuelve a probar.',
+            CONFIGURATION_NOT_FOUND: 'La entrada con correo aún no está activada. Avisa al Departamento.',
+            OPERATION_NOT_ALLOWED: 'La entrada con correo aún no está activada. Avisa al Departamento.',
+        };
+        if (m[c]) return m[c];
+        if (c.startsWith('WEAK_PASSWORD')) return 'La contraseña tiene que tener al menos 6 caracteres.';
+        return 'No se ha podido: ' + (c || 'error desconocido');
+    },
+
+    mostrarEntradaCorreo(mostrar = true) {
+        const f = document.getElementById('correoForm');
+        const g = document.getElementById('loginForm');
+        if (f) f.hidden = !mostrar;
+        if (g) g.hidden = mostrar;
+        if (mostrar) setTimeout(() => document.getElementById('cEmail')?.focus(), 50);
+    },
+
+    _datosCorreo() {
+        const email = (document.getElementById('cEmail')?.value || '').trim().toLowerCase();
+        const password = document.getElementById('cPass')?.value || '';
+        if (!email.includes('@')) { this.mostrarMensaje('Escribe tu correo.', 'error'); return null; }
+        if (password.length < 6) { this.mostrarMensaje('La contraseña tiene que tener al menos 6 caracteres.', 'error'); return null; }
+        return { email, password };
+    },
+
+    async entrarConCorreo() {
+        const d0 = this._datosCorreo();
+        if (!d0) return;
+        try {
+            const d = await this._fbPost('signInWithPassword', { ...d0, returnSecureToken: true });
+            const info = await this._fbPost('lookup', { idToken: d.idToken });
+            const u = info.users?.[0] || {};
+            if (!u.emailVerified) {
+                this._fbPendiente = d.idToken;
+                this.mostrarMensaje('Falta confirmar tu correo: abre el enlace que te enviamos y vuelve a darle a Entrar. '
+                    + '¿No te ha llegado? Mira en spam o pulsa «Reenviar el correo».', 'error');
+                const re = document.getElementById('cReenviar');
+                if (re) re.hidden = false;
+                return;
+            }
+            this._guardarSesionCorreo(d, u.displayName || '');
+            this._loadUserAndStart();
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    async crearCuentaCorreo() {
+        const d0 = this._datosCorreo();
+        if (!d0) return;
+        const nombre = (document.getElementById('cNombre')?.value || '').trim();
+        if (!nombre) { this.mostrarMensaje('Escribe tu nombre y apellidos para crear la cuenta.', 'error'); return; }
+        try {
+            const d = await this._fbPost('signUp', { ...d0, returnSecureToken: true });
+            await this._fbPost('update', { idToken: d.idToken, displayName: nombre.slice(0, 80), returnSecureToken: false }).catch(() => {});
+            await this._fbPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: d.idToken });
+            this.mostrarMensaje(`✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarlo y luego pulsa Entrar.`, 'success');
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    async reenviarVerificacion() {
+        if (!this._fbPendiente) return;
+        try {
+            await this._fbPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: this._fbPendiente });
+            this.mostrarMensaje('📧 Correo de confirmación enviado otra vez.', 'success');
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    async olvideContrasena() {
+        const email = (document.getElementById('cEmail')?.value || '').trim().toLowerCase();
+        if (!email.includes('@')) { this.mostrarMensaje('Escribe arriba tu correo y vuelve a pulsar.', 'error'); return; }
+        try {
+            await this._fbPost('sendOobCode', { requestType: 'PASSWORD_RESET', email });
+            this.mostrarMensaje(`📧 Si ${email} tiene cuenta, te llegará un correo para poner una contraseña nueva.`, 'success');
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    _guardarSesionCorreo(d, nombre) {
+        localStorage.setItem('authTipo', 'correo');
+        localStorage.setItem('fbRefresh', d.refreshToken);
+        localStorage.setItem('fbEmail', String(d.email || '').toLowerCase());
+        localStorage.setItem('fbNombre', nombre || String(d.email || '').split('@')[0]);
+        // Sin la renovación de Google: la de Firebase va aparte
+        this.refreshToken = null;
+        localStorage.removeItem('gRefreshToken');
+        this._saveToken({ access_token: d.idToken, expires_in: d.expiresIn || 3600 });
+    },
+
+    // La sesión de Firebase dura una hora; se renueva con su propio token
+    async _renovarCorreo() {
+        const rt = localStorage.getItem('fbRefresh');
+        if (!rt) { this.mostrarAuth(); return false; }
+        try {
+            const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${this.FIREBASE_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt }) });
+            if (!r.ok) {
+                if (r.status === 400 || r.status === 401 || r.status === 403) { localStorage.removeItem('fbRefresh'); this.mostrarAuth(); }
+                return false;
+            }
+            const j = await r.json();
+            localStorage.setItem('fbRefresh', j.refresh_token);
+            this._saveToken({ access_token: j.id_token, expires_in: j.expires_in || 3600 });
+            if (!this.usuarioActual) this._loadUserAndStart();
+            return true;
+        } catch (_) { return false; }
+    },
+
+    // Sin Drive, lo que no esté exportado se pierde al desinstalar. Una vez
+    // por semana, si hace más de un mes de la última copia, se le recuerda.
+    _recordarCopiaLocal() {
+        if (!this._esCuentaCorreo()) return;
+        const ultima = Number(localStorage.getItem('ultimaExportacion') || 0);
+        const avisado = Number(localStorage.getItem('copiaRecordada') || 0);
+        if (Date.now() - ultima < 30 * 864e5 || Date.now() - avisado < 7 * 864e5) return;
+        localStorage.setItem('copiaRecordada', String(Date.now()));
+        setTimeout(() => {
+            if (confirm('Tu cuenta no es de Google, así que tus jornadas y tu personalización solo están en este móvil. '
+                + 'Si desinstalas la aplicación o cambias de móvil, se pierden.\n\n'
+                + '¿Exportas ahora una copia? Guárdala en un sitio seguro: con «Importar archivo JSON» lo recuperas todo.')) {
+                this.exportarDatos();
+            }
+        }, 4000);
     },
 
     // Otro correo en el mismo móvil es otra persona. Lo que dejó aquí el
@@ -1886,7 +2066,7 @@ const app = {
     // estaba.
     _olvidarLoDelAnterior() {
         const sesion = {};
-        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken'].forEach(k => {
+        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken', 'authTipo', 'fbRefresh', 'fbEmail', 'fbNombre'].forEach(k => {
             const v = localStorage.getItem(k);
             if (v !== null) sesion[k] = v;
         });
@@ -1906,7 +2086,11 @@ const app = {
     },
 
     async cerrarSesion() {
-        if (this.accessToken) {
+        // Sin Google, lo suyo solo está en este móvil y salir lo borra
+        if (this._esCuentaCorreo() && !confirm('Tu cuenta no es de Google: al cerrar sesión se borran de este móvil '
+                + 'tus jornadas y tu personalización.\n\nSi no tienes una copia, cancela y exporta antes una '
+                + '(Ajustes › Copia de seguridad › Exportar datos JSON).\n\n¿Cerrar sesión de todas formas?')) return;
+        if (this.accessToken && !this._esCuentaCorreo()) {
             fetch('https://oauth2.googleapis.com/revoke?token=' + this.accessToken, { method: 'POST' }).catch(() => {});
         }
         this.accessToken   = null;
@@ -1916,7 +2100,8 @@ const app = {
         // Se va todo, no solo la sesión: el móvil puede pasar a otras manos, y
         // salir tiene que dejarlo como estaba antes de entrar.
         this._olvidarLoDelAnterior();
-        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken'].forEach(k => localStorage.removeItem(k));
+        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken', 'authTipo', 'fbRefresh', 'fbEmail', 'fbNombre']
+            .forEach(k => localStorage.removeItem(k));
         // En el navegador, a la bienvenida de la página; en la app, a entrar
         if (!_enLaApp()) { window.location.replace('/'); return; }
         this.mostrarAuth();
@@ -2158,6 +2343,7 @@ const app = {
         document.getElementById('appScreen').classList.remove('active');
         document.getElementById('optionsScreen').classList.add('active');
         document.getElementById('darkModeToggle').checked = this.darkMode;
+        document.body.classList.toggle('cuenta-correo', this._esCuentaCorreo());
         const comT = document.getElementById('comunicacionToggle');
         if (comT) comT.checked = this.comunicacion !== false;
         const caToggle = document.getElementById('controlAccesoToggle');

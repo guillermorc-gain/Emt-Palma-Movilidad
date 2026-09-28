@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { REPO_DATOS, RAMA_DATOS, ghFetch } from './_datos.js';
 // Quién hace la petición se comprobaba con una cabecera que rellena el propio
 // cliente, así que cualquiera podía decir que era el gestor. Aquí se valida el
@@ -32,6 +33,9 @@ export async function revisarToken(token) {
   limpiar();
   const guardado = cache.get(token);
   if (guardado) return { email: guardado.email };
+  // Las cuentas de correo que no es de Google entran con Firebase: su sesión
+  // es un JWT firmado por Google, que se comprueba aquí sin preguntar a nadie
+  if (/^eyJ[\w-]*\.[\w-]+\.[\w-]+$/.test(token)) return revisarFirebase(token);
   let r;
   try {
     r = await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(token));
@@ -52,6 +56,47 @@ export async function revisarToken(token) {
   return { email };
 }
 
+// ── Sesiones de Firebase (correo y contraseña) ──────────────────────────────
+// La firma se comprueba con los certificados públicos de Google, que cambian
+// cada pocos días: se guardan lo que dice su caché. El proyecto tiene que ser
+// el nuestro y el correo, verificado (si no, cualquiera podría darse de alta
+// con el correo de otro).
+const PROYECTO_FIREBASE = process.env.FIREBASE_PROJECT_ID || 'emt---palma---movilidad';
+let certificados = { claves: null, hasta: 0 };
+async function certificadosFirebase() {
+  if (certificados.claves && certificados.hasta > Date.now()) return certificados.claves;
+  const r = await fetch('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com');
+  if (!r.ok) throw new Error('certificados ' + r.status);
+  const edad = Number((/max-age=(\d+)/.exec(r.headers.get('cache-control') || '') || [])[1] || 3600);
+  certificados = { claves: await r.json(), hasta: Date.now() + Math.min(edad, 6 * 3600) * 1000 };
+  return certificados.claves;
+}
+async function revisarFirebase(token) {
+  const [h, p, s] = token.split('.');
+  let cab, datos;
+  try {
+    cab = JSON.parse(Buffer.from(h, 'base64url').toString('utf8'));
+    datos = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'));
+  } catch (_) { return { motivo: 'token_raro' }; }
+  if (cab.alg !== 'RS256' || !cab.kid) return { motivo: 'token_raro' };
+  let claves;
+  try { claves = await certificadosFirebase(); } catch (_) { return { motivo: 'google_no_responde' }; }
+  const cert = claves[cab.kid];
+  if (!cert) return { motivo: 'token_caducado' };
+  const valida = crypto.createVerify('RSA-SHA256').update(`${h}.${p}`).verify(cert, Buffer.from(s, 'base64url'));
+  if (!valida) return { motivo: 'token_raro' };
+  const ahora = Math.floor(Date.now() / 1000);
+  if (datos.aud !== PROYECTO_FIREBASE || datos.iss !== `https://securetoken.google.com/${PROYECTO_FIREBASE}`) {
+    return { motivo: 'otra_aplicacion' };
+  }
+  if (!datos.sub || !(datos.exp > ahora) || datos.iat > ahora + 300) return { motivo: 'token_caducado' };
+  if (datos.email_verified !== true) return { motivo: 'correo_sin_verificar' };
+  const email = String(datos.email || '').toLowerCase().trim();
+  if (!email.includes('@')) return { motivo: 'token_sin_correo' };
+  cache.set(token, { email, hasta: Math.min(Date.now() + TTL, datos.exp * 1000) });
+  return { email };
+}
+
 // Devuelve el correo que Google asocia al token, o '' si no vale.
 export async function emailDelToken(token) {
   return (await revisarToken(token)).email || '';
@@ -62,7 +107,7 @@ const MENSAJES = {
   token_raro: ['Sesión no válida. Vuelve a entrar en la app.', 401],
   token_caducado: ['Tu sesión de Google ha caducado. Cierra y vuelve a entrar en la app.', 401],
   otra_aplicacion: ['Esa sesión no es de esta aplicación.', 401],
-  correo_sin_verificar: ['Tu cuenta de Google no tiene el correo verificado.', 401],
+  correo_sin_verificar: ['Tu correo no está verificado: abre el enlace que te enviamos y vuelve a entrar.', 401],
   token_sin_correo: ['La sesión no incluye el correo. Vuelve a entrar en la app.', 401],
   google_no_responde: ['No se ha podido comprobar la sesión con Google. Inténtalo en un minuto.', 503],
 };
