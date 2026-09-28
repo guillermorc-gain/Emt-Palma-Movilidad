@@ -7928,7 +7928,8 @@ const app = {
     async _toggleOcultoFicticio(email) {
         const u = (this._conductores || {})[email];
         if (!u) return;
-        const ficticio = { ...u, oculto: !u.oculto };
+        const { ocultoPor, ...resto } = u;
+        const ficticio = { ...resto, oculto: !u.oculto, ...(!u.oculto ? { ocultoPor: 'desarrollador' } : {}) };
         try {
             const resp = await fetch(this.USUARIOS_URL, {
                 method: 'PATCH',
@@ -8032,7 +8033,7 @@ const app = {
             const resp = await fetch(this.USUARIOS_URL, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'X-Admin-Email': this.usuarioActual?.email || '' },
-                body: JSON.stringify({ email, oculto })
+                body: JSON.stringify({ email, oculto, desde: ES_APP_DEV ? 'desarrollador' : 'gestion' })
             });
             const data = await resp.json();
             if (!resp.ok) { this._mostrarToast('❌ ' + (data.error || resp.status), 4000); return; }
@@ -8997,10 +8998,11 @@ const app = {
         const esHoy = this._puestosOffset === 0;
         const orden = localStorage.getItem('ordenTrabajadores') || 'nombre';
         // Aquí sí entran los ocultos —el filtro "Ocultos" es el único sitio
-        // desde donde se pueden volver a mostrar—. Los de prueba, en gestión
-        // solo si el desarrollador los ha dejado a la vista; ocultos, solo él.
+        // desde donde se pueden volver a mostrar—. Los de prueba que ha
+        // ocultado el desarrollador desde su app no salen en gestión ni ahí.
         const soyGestor = this._soyElGestor();
-        const todos = Object.values(this._conductores || {}).filter(u => soyGestor || !u.ficticio || !u.oculto);
+        const todos = Object.values(this._conductores || {})
+            .filter(u => soyGestor || !u.ficticio || !u.oculto || u.ocultoPor === 'gestion');
         const filtro = localStorage.getItem('filtroTrabajadores') || 'todos';
         this._renderFiltrosCond(todos, fecha);
         const lista = todos
@@ -9090,8 +9092,8 @@ const app = {
                             onclick="event.stopPropagation();app.editarBajas('${esc(u.email)}')">BE</button>
                     <button class="be-btn pr-btn${this._prsDe(u, fecha.slice(0, 4)).has(fecha) ? ' on' : ''}" title="Permiso retribuido (2 al año)"
                             onclick="event.stopPropagation();app.marcarPR('${esc(u.email)}','${esc(fecha)}',this)">PR</button>
-                    ${u.ficticio && !soyGestor ? '' : `<button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
-                            onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>`}
+                    <button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
+                            onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>
                     </div>
                     <span class="cond-chev">▾</span>
                 </div>
