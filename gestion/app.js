@@ -9064,6 +9064,7 @@ const app = {
                                         onclick="event.stopPropagation();app.ponerJornada('${esc(u.email)}','${esc(fecha)}','${esc(lugarHoy)}')">sin horario ✎</span>`
                                 : ''}</div>
                     </div>
+                    <div class="cond-btns${ES_APP_DEV ? ' cuadro' : ''}">
                     <button class="be-btn vc-btn${enVac ? ' on' : ''}" title="Vacaciones"
                             onclick="event.stopPropagation();app.editarVacaciones('${esc(u.email)}')">VC</button>
                     <button class="be-btn${enBaja ? ' on' : ''}" title="Fechas de baja"
@@ -9072,6 +9073,7 @@ const app = {
                             onclick="event.stopPropagation();app.marcarPR('${esc(u.email)}','${esc(fecha)}',this)">PR</button>
                     <button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
                             onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>
+                    </div>
                     <span class="cond-chev">▾</span>
                 </div>
                 <div class="cond-cuerpo">
