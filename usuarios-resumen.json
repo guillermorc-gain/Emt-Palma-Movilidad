@@ -1663,7 +1663,10 @@
     ],
     "email": "prueba-1789759132382@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-09-28T23:19:57.197Z"
+    "actualizado": "2026-09-28T23:19:57.197Z",
+    "prs": [
+      "20261001"
+    ]
   },
   "prueba-1789759539366@prueba.local": {
     "nombre": "Juan",
