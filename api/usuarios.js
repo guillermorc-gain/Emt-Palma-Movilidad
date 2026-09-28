@@ -672,7 +672,15 @@ export default async function handler(req, res) {
         // Ocultar un trabajador real de la pestaña Trabajadores, sin borrar sus
         // datos: para el que ya no está en plantilla pero cuya nómina o
         // jornadas siguen queriéndose consultar.
-        else if (data[clave] && oculto !== undefined) data[clave].oculto = !!oculto;
+        // Quién lo oculta cuenta: si es el desarrollador desde su app, gestión
+        // deja de verlo del todo (sus usuarios de prueba); si es gestión, lo
+        // tiene en su filtro "Ocultos" para volver a mostrarlo.
+        else if (data[clave] && oculto !== undefined) {
+          data[clave].oculto = !!oculto;
+          if (oculto) data[clave].ocultoPor = quienGestiona === GESTOR_PRINCIPAL
+            && req.body?.desde === 'desarrollador' ? 'desarrollador' : 'gestion';
+          else delete data[clave].ocultoPor;
+        }
         // Días de la semana: se sella la hora para que gane el último que los
         // toque, venga del cuadrante o de la app del trabajador.
         else if (data[clave] && dias !== undefined) {
