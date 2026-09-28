@@ -150,5 +150,28 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T13:37:13.421Z"
     }
+  },
+  "20260928135449366-gi099-0": {
+    "id": "20260928135449366-gi099-0",
+    "email": "g.rioscorrea@gmail.com",
+    "creado": "2026-09-28T13:54:49.366Z",
+    "nombre": "Desarrollador",
+    "conductor": "💻",
+    "mensajes": [
+      {
+        "de": "guillermo.rc82@gmail.com",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Si elijo jornada completa la nómina tiene que ser de jornada completa. Los de jornada completa tienen el contrato de conductor todavía y tienen otros sueldos. Te paso una nómina de chofer y que sea todo como en la media jornada que son Movilidad pero con otro precio por día trabajado y otros pluses que los de Movilidad no tienen además de que pueden venir sus dias libres.",
+        "adjuntos": [],
+        "en": "2026-09-28T13:54:49.366Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "companero",
+    "deEmail": "guillermo.rc82@gmail.com",
+    "deNombre": "Guillermo Ríos Correa",
+    "deConductor": "1418-3",
+    "estado": "pendiente"
   }
 }
