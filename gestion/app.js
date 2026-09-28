@@ -5076,6 +5076,7 @@ const app = {
     // cierra sin contestar y queda en la campana.
     _mostrarSolicitudes(forzar) {
         if (forzar) this._solCerrada = '';
+        this._cerrarAvisos();                                    // uno cada vez
         this._pintarSolicitudes();
     },
 
@@ -5092,6 +5093,8 @@ const app = {
         if (!lista.length) return;
         // Cerrada sin contestar: no vuelve a salir sola hasta que llegue otra
         if (this._solCerrada && this._solCerrada === lista.map(s => s.email).sort().join(',')) return;
+        // Con la lista de avisos abierta no se pone encima: sale al tocarla
+        if (document.getElementById('avisosCaja')) return;
         const esc = t => String(t || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
         const caja = document.createElement('div');
         caja.id = 'solicitudesCaja';
@@ -5461,6 +5464,7 @@ const app = {
 
     _abrirAvisos() {
         this._cerrarAvisos();
+        document.getElementById('solicitudesCaja')?.remove();   // uno cada vez
         const esc = t => String(t || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
         const avisos = this._avisosSueltos();
         const sinLeer = this._totalSinLeer();
@@ -6226,7 +6230,12 @@ const app = {
     DIAS_LETRA: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
     DIAS_ORDEN: [1, 2, 3, 4, 5, 6, 0],
 
-    _esCompleta(u) { return (Number(u?.horasAnuales) || 777) >= this.ANUALES_COMPLETA; },
+    // Jornada completa: la de 7 h al día (o más), o la que va por las 1700 h
+    // al año. Hay quien tiene puestas otras horas anuales (1500, por ejemplo)
+    // y sigue siendo de jornada completa por las horas de cada día.
+    _esCompleta(u) {
+        return (Number(u?.jornadaHoras) || 0) >= 7 || (Number(u?.horasAnuales) || 777) >= this.ANUALES_COMPLETA;
+    },
 
     // Horario puesto desde el cuadrante: entrada y salida, mes a mes. Lo que
     // guardaron versiones anteriores (un horario suelto, o solo la letra del
@@ -8778,7 +8787,7 @@ const app = {
         // La baja descuenta media jornada por día no trabajado a quien va por
         // las 777h, aunque esos días haga 7h seguidas. La jornada completa
         // descuenta lo suyo.
-        const horasDeBaja = objetivoAnual >= this.ANUALES_COMPLETA ? jor : this.HORAS_BAJA;
+        const horasDeBaja = this._esCompleta(u) ? jor : this.HORAS_BAJA;
         const diasBaja = this._diasBaja(u, hasta);
         const horasBaja = Math.round(diasBaja * horasDeBaja * 10) / 10;
         const tope = Math.max(0, objetivoAnual - horasBaja);
@@ -8822,8 +8831,7 @@ const app = {
         // Un día de baja apuntado por el trabajador cuenta como jornada hecha:
         // media jornada 3,5h y jornada completa las suyas.
         if (j.b && h === 0) {
-            return (Number(u?.horasAnuales) || 777) >= this.ANUALES_COMPLETA
-                ? (Number(u?.jornadaHoras) || 7) : this.HORAS_BAJA;
+            return this._esCompleta(u) ? (Number(u?.jornadaHoras) || 7) : this.HORAS_BAJA;
         }
         return (j.fe && h === 0) ? jornada : h;
     },
@@ -10083,8 +10091,7 @@ const app = {
             </div>`).join('')
             || '<div class="baja-vacio">Sin bajas registradas</div>';
         const u = (this._conductores || {})[this._bajaEditando] || {};
-        const anual = u.horasAnuales || 777;
-        const h = anual >= this.ANUALES_COMPLETA ? (u.jornadaHoras || 7) : this.HORAS_BAJA;
+        const h = this._esCompleta(u) ? (u.jornadaHoras || 7) : this.HORAS_BAJA;
         const dias = this._diasBajaTmp();
         document.getElementById('bajaResumen').textContent = dias
             ? `${dias} día${dias === 1 ? '' : 's'} suyos · −${(dias * h).toFixed(1).replace('.', ',')}h de su objetivo`

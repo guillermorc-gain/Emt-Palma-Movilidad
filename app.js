@@ -9476,8 +9476,9 @@ const app = {
     // A partir de aquí es jornada completa; por debajo, media
     JORNADA_COMPLETA: 7,
 
+    // La de 7 h al día (o más), o la que va por las 1700 h al año
     _esJornadaCompleta() {
-        return this.horasAnualesCustom >= this.ANUALES_COMPLETA;
+        return (Number(this.jornadaHoras) || 0) >= this.JORNADA_COMPLETA || this.horasAnualesCustom >= this.ANUALES_COMPLETA;
     },
 
     _actualizarCampoFestivo() {
