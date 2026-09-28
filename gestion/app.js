@@ -4852,10 +4852,13 @@ const app = {
           prefijo: 'gestion-build-',  clave: 'gestion',
           quien: 'los demás de gestión',
           deAcceso: 'Quién puede entrar en la app de gestión.' },
-        { id: 'control',  rotulo: '🛡️ Control',    acceso: 'control',
-          prefijo: 'control-build-',  clave: 'control',
+        // La app de la garita está desactivada: no tiene versiones que
+        // repartir. Su lista de cuentas sigue, porque es la que deja usar la
+        // pestaña de Control de acceso de la app de Trabajador.
+        { id: 'control',  rotulo: '🛡️ Control (Trabajador)', acceso: 'control',
+          prefijo: 'control-build-',  clave: 'control', sinVersiones: true,
           quien: 'los de control de acceso',
-          deAcceso: 'Quién puede entrar en la app de Control de acceso, la de quien hace el turno en la garita.' },
+          deAcceso: 'Quién puede usar la pestaña de Control de acceso en la app de Trabajador (registrar entradas y salidas del puesto).' },
         { id: 'gcontrol', rotulo: '🗝️ Gestión control', acceso: 'gestion-control',
           prefijo: 'gcontrol-build-', clave: 'gestionControl',
           quien: 'los de gestión de control de acceso',
@@ -4867,10 +4870,10 @@ const app = {
 
     _appPorId(id) { return this.APPS_TODAS.find(a => a.id === id) || this.APPS_TODAS[0]; },
 
-    _pintarBotonesApp(contenedor, activo, fn) {
+    _pintarBotonesApp(contenedor, activo, fn, soloConVersiones = false) {
         const cont = document.getElementById(contenedor);
         if (!cont) return;
-        cont.innerHTML = this.APPS_TODAS.map(a =>
+        cont.innerHTML = this.APPS_TODAS.filter(a => !soloConVersiones || !a.sinVersiones).map(a =>
             `<button class="grp-app${a.id === activo ? ' activo' : ''}"
                      onclick="app.${fn}('${a.id}')">${a.rotulo}</button>`).join('');
     },
@@ -4878,7 +4881,8 @@ const app = {
     // ── Qué versión recibe cada una ─────────────────────────────────────────
     _verVersionesDe(id) {
         if (id) this._appVer = id;
-        this._pintarBotonesApp('grpVerApps', this._appVer, '_verVersionesDe');
+        if (this._appPorId(this._appVer).sinVersiones) this._appVer = 'worker';
+        this._pintarBotonesApp('grpVerApps', this._appVer, '_verVersionesDe', true);
         const cfg = this._appPorId(this._appVer);
         const sub = document.getElementById('grpVerSub');
         if (sub) sub.textContent = `Qué versión reciben ${cfg.quien}. Tú siempre ves la más `

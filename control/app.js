@@ -13,7 +13,10 @@
         const q = new URLSearchParams(window.location.search);
         const gc = q.get('app') === 'gestion-control'
             || /(^|:)com\.guillermorc\.gcontrolemt$/.test(q.get('state') || '');
-        if (!gc) return;
+        // La de la garita está desactivada: su registro está ahora en la app
+        // de Trabajador (Ajustes → Trabajo → Control de acceso). En la web
+        // solo queda la del puesto; lo demás vuelve a la bienvenida.
+        if (!gc) { window.location.replace('/'); return; }
         document.querySelector('meta[name="app-rol"]')?.setAttribute('content', 'gestion-control');
         // Al instalarla desde el navegador tiene que abrir esta y no la de la garita
         document.querySelector('link[rel="manifest"]')?.setAttribute('href', 'manifest-gc.json');

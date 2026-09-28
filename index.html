@@ -993,10 +993,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                 <span class="rol-ico">🕐</span>
                 <span class="rol-txt"><b>Trabajador</b><span>Registrar mis jornadas</span></span>
             </button>
-            <button class="rol-btn" onclick="app.elegirRol('control')">
-                <span class="rol-ico">🛡️</span>
-                <span class="rol-txt"><b>Control de acceso</b><span>El parte del turno en la garita</span></span>
-            </button>
+            <!-- Control de acceso (la de la garita) está desactivada -->
             <button class="rol-btn" onclick="app.elegirRol('gestion')">
                 <span class="rol-ico">🛠️</span>
                 <span class="rol-txt"><b>Gestión</b><span>Llevar la plantilla o el puesto</span></span>
@@ -1694,7 +1691,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                          entradas y salidas aquí mismo, sin instalar la otra app -->
                     <div class="ops-row">
                         <span class="ops-row-label" style="flex:1;min-width:0;"><svg class="ca-barrera" viewBox="0 0 100 100" aria-hidden="true"><use href="#caBarrera"/></svg><span>Control de acceso
-                            <span class="ops-row-sub">Añade las pestañas de Control de acceso y de su historial, para no tener que instalar la otra app</span></span></span>
+                            <span class="ops-row-sub">Añade las pestañas de Control de acceso y de su historial: el registro de entradas y salidas del puesto</span></span></span>
                         <input type="checkbox" id="controlAccesoToggle" onchange="app.toggleControlAcceso(this.checked)">
                     </div>
                     <div class="ops-field">
