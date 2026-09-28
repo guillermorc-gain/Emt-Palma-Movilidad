@@ -224,6 +224,13 @@ jobs:
                       getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                           .edit().putString("abrirNotas", "1").apply();
                   }
+                  // Los avisos de cuenta nueva o de días marcados: la app se
+                  // abre directamente en ellos
+                  String aviso = intent == null ? null : intent.getStringExtra("abrirAviso");
+                  if (aviso != null && !aviso.isEmpty()) {
+                      getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                          .edit().putString("abrirAviso", aviso).apply();
+                  }
               }
 
               private void requestNotificationPermission() {
@@ -1214,7 +1221,7 @@ jobs:
                       // delante y no hace nada.
                       try { if ("chat".equals(tipo)) ChatReceiver.mirarChat(ctx); } catch (Exception ignored) {}
                       // Una cuenta nueva por aprobar: el aviso con lo que manda el servidor
-                      if ("solicitud".equals(tipo) || "registro".equals(tipo)) {
+                      if ("solicitud".equals(tipo) || "registro".equals(tipo) || "ausencia".equals(tipo)) {
                           try {
                               String tit = msg.getData().get("titulo"), txt = msg.getData().get("texto");
                               NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -1222,13 +1229,16 @@ jobs:
                                   | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
                               Intent oi = new Intent(ctx, MainActivity.class);
                               oi.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                              nm.notify("registro".equals(tipo) ? 1008 : 1007, new NotificationCompat.Builder(ctx, canalChat(ctx))
+                              // Al tocarlo, la app se abre en ese aviso
+                              oi.putExtra("abrirAviso", tipo);
+                              int idAviso = "registro".equals(tipo) ? 1008 : "ausencia".equals(tipo) ? 1009 : 1007;
+                              nm.notify(idAviso, new NotificationCompat.Builder(ctx, canalChat(ctx))
                                   .setSmallIcon(R.drawable.ic_stat_chat)
                                   .setContentTitle(tit == null ? "Cuenta nueva por aprobar" : tit)
                                   .setContentText(txt == null ? "" : txt)
                                   .setStyle(new NotificationCompat.BigTextStyle().bigText(txt == null ? "" : txt))
                                   .setPriority(NotificationCompat.PRIORITY_HIGH)
-                                  .setContentIntent(PendingIntent.getActivity(ctx, 7, oi, fl))
+                                  .setContentIntent(PendingIntent.getActivity(ctx, idAviso, oi, fl))
                                   .setAutoCancel(true)
                                   .build());
                           } catch (Exception ignored) {}

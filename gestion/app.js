@@ -869,6 +869,7 @@ const app = {
             this._decirVersion();
             this._caComprobarAcceso();
             this._cargarSolicitudes();
+            this._abrirAvisoNativo();
             this._tutorialPrimeraVez();
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
@@ -1133,6 +1134,7 @@ const app = {
                 window.AndroidBridge?.removePref?.('abrirNotas');
                 this.switchTab(2);
             }
+            this._abrirAvisoNativo();
             if (this.usuarioActual) this._cargarNotasGestor();
             // Puede haber cambiado algo mientras la app estaba de fondo
             if (this.usuarioActual) this._cargarConductores(true);
@@ -4076,11 +4078,16 @@ const app = {
                 `<row r="2" ht="22.5" customHeight="1">${this.CA_CABECERAS.map((h, i) => texto(col(i) + '2', h, 1)).join('')}</row>`,
                 ...this._caFilasMes(m).map((f, n) => {
                     const r = n + 3;
-                    return `<row r="${r}" ht="21" customHeight="1">` + f.map((v, i) => {
+                    // Donde empieza cada día, una línea por encima de la fila
+                    // entera, hasta la última columna (la H): los días se
+                    // distinguen de un vistazo. Los estilos con línea son +4.
+                    const raya = n > 0 && !!f[0] ? 4 : 0;
+                    const celdas = Array.from({ length: this.CA_CABECERAS.length }, (_, i) => f[i] ?? '');
+                    return `<row r="${r}" ht="21" customHeight="1">` + celdas.map((v, i) => {
                         const ref = col(i) + r;
-                        if (i === 0) return v ? numero(ref, serial(v), 3) : `<c r="${ref}" s="2"/>`;
-                        if ((i === 5 || i === 6) && /^\d{2}:\d{2}$/.test(v || '')) return numero(ref, hora(v), 4);
-                        return texto(ref, v, 2);
+                        if (i === 0) return v ? numero(ref, serial(v), 3 + raya) : `<c r="${ref}" s="${2 + raya}"/>`;
+                        if ((i === 5 || i === 6) && /^\d{2}:\d{2}$/.test(v || '')) return numero(ref, hora(v), 4 + raya);
+                        return texto(ref, v, 2 + raya);
                     }).join('') + '</row>';
                 }),
             ].join('');
@@ -4128,15 +4135,20 @@ const app = {
               + `<font><b/><sz val="14"/><color rgb="FF156082"/><name val="${fuente}"/></font></fonts>`
               + '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
               + '<fill><patternFill patternType="solid"><fgColor rgb="FFC0E4F5"/><bgColor indexed="64"/></patternFill></fill></fills>'
-              + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+              + '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'
+              + '<border><left/><right/><top style="thin"><color rgb="FF7F8C8D"/></top><bottom/><diagonal/></border></borders>'
               + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-              + '<cellXfs count="6">'
+              + '<cellXfs count="9">'
               + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
               + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
               + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
               + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
               + '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
               + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              // 6, 7 y 8: los mismos que 2, 3 y 4 con la línea de arriba
+              + '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+              + '<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
               + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
             ...hojas.map((texto, i) => ({ nombre: `xl/worksheets/sheet${i + 1}.xml`, texto })),
         ]);
@@ -4990,15 +5002,32 @@ const app = {
         } catch (_) {}
     },
 
+    // Se enseña sola cuando llega una nueva o al tocar su aviso; con la X se
+    // cierra sin contestar y queda en la campana.
+    _mostrarSolicitudes(forzar) {
+        if (forzar) this._solCerrada = '';
+        this._pintarSolicitudes();
+    },
+
+    _cerrarSolicitudes() {
+        this._solCerrada = (this._solicitudes || []).map(s => s.email).sort().join(',');
+        document.getElementById('solicitudesCaja')?.remove();
+        this._pintarCampana();
+    },
+
     _pintarSolicitudes() {
         document.getElementById('solicitudesCaja')?.remove();
         const lista = Array.isArray(this._solicitudes) ? this._solicitudes : [];
+        this._pintarCampana();
         if (!lista.length) return;
+        // Cerrada sin contestar: no vuelve a salir sola hasta que llegue otra
+        if (this._solCerrada && this._solCerrada === lista.map(s => s.email).sort().join(',')) return;
         const esc = t => String(t || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
         const caja = document.createElement('div');
         caja.id = 'solicitudesCaja';
         caja.className = 'sol-caja';
-        caja.innerHTML = `<div class="sol-tit">🆕 ${lista.length === 1 ? 'Una cuenta nueva' : lista.length + ' cuentas nuevas'} por aprobar</div>`
+        caja.innerHTML = `<button type="button" class="sol-cerrar" title="Cerrar sin contestar (queda en la campana)"
+                onclick="app._cerrarSolicitudes()">✕</button><div class="sol-tit">🆕 ${lista.length === 1 ? 'Una cuenta nueva' : lista.length + ' cuentas nuevas'} por aprobar</div>`
             + lista.map(s => `<div class="sol-fila">
                 <div class="sol-quien"><b>${esc(s.nombre) || esc(s.email)}</b><span>${esc(s.email)} · ${s.google ? 'Google' : 'correo'}${
                     s.desde ? ' · desde ' + (s.desde === 'gestion' ? 'Gestión' : 'Trabajadores') : ''}</span></div>
@@ -5033,10 +5062,22 @@ const app = {
         else if (tipo === 'acceso') { this._caTraer?.(); this.caCargarVisitantes?.(); }
         else if (tipo === 'plantilla' && !document.querySelector('.modal.show')) this._cargarConductores(true);
         else if (tipo === 'solicitud') this._cargarSolicitudes();
+        else if (tipo === 'ausencia') { this._cargarConductores(true).then(() => this._pintarCampana()); this._mostrarToast('📅 Un trabajador ha marcado días: míralo en la 🔔', 4500); }
         else if (tipo === 'registro') this._mostrarToast('✅ Se ha registrado una cuenta que ya estaba autorizada: le ha llegado el correo de confirmación', 5000);
     },
 
     _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
+
+    // Se ha entrado tocando el aviso de una cuenta nueva o de días marcados:
+    // se abre directamente en él. Los demás avisos (el chat) se quedan como
+    // estaban, sin leer, hasta que se toquen.
+    async _abrirAvisoNativo() {
+        const aviso = window.AndroidBridge?.getPref?.('abrirAviso');
+        if (!aviso || !this.usuarioActual) return;
+        window.AndroidBridge?.removePref?.('abrirAviso');
+        if (aviso === 'solicitud') { await this._cargarSolicitudes(); this._mostrarSolicitudes(true); }
+        else if (aviso === 'ausencia') { await this._cargarConductores(true); this._abrirAvisos(); }
+    },
 
     // Hasta dónde he leído, para que el aviso nativo no repita lo ya visto
     _ponerAlDiaElAviso() {
@@ -5276,13 +5317,89 @@ const app = {
     _pintarCampana() {
         const el = document.getElementById('campanaN');
         if (!el) return;
-        const n = this._totalSinLeer();
+        const n = this._totalSinLeer() + this._avisosSueltos().length;
         el.textContent = n > 99 ? '99+' : String(n);
         el.classList.toggle('hay', n > 0);
     },
 
     irANotas() {
+        // Con avisos que no son del chat (cuentas por aprobar, días que han
+        // marcado los trabajadores), la campana los enseña primero
+        if (this._avisosSueltos().length) { this._abrirAvisos(); return; }
         this.switchTab(2);
+    },
+
+    // ── Avisos de la campana que no son mensajes ─────────────────────────────
+    // Una cuenta nueva por aprobar (desarrollador) o días de baja, vacaciones,
+    // permiso o que no fue que ha marcado un trabajador. Se quedan aquí hasta
+    // que se resuelven o se confirman, aunque se cierre el cuadro.
+    _ausConfirmadas() {
+        try { return new Set(JSON.parse(localStorage.getItem('ausConfirmadas') || '[]')); } catch (_) { return new Set(); }
+    },
+
+    _ausenciasPorConfirmar() {
+        const conds = Object.values(this._conductores || {}).filter(u => u && !u.ficticio && !u.oculto);
+        if (!conds.length) return [];
+        const QUE = { b: 'BE', v: 'Vacaciones', p: 'PR', na: 'No vino' };
+        const todas = [];
+        conds.forEach(u => (u.jornadas || []).forEach(j => Object.keys(QUE).forEach(k => {
+            if (j?.[k]) todas.push({ email: u.email, nombre: u.nombre || u.email, f: String(j.f).slice(0, 8), que: QUE[k] });
+        })));
+        const clave = a => `${a.email}|${a.f}|${a.que}`;
+        // La primera vez, lo que ya había se da por visto: solo avisa lo nuevo
+        if (localStorage.getItem('ausConfirmadas') === null) {
+            try { localStorage.setItem('ausConfirmadas', JSON.stringify([...new Set(todas.map(clave))])); } catch (_) {}
+            return [];
+        }
+        const vistas = this._ausConfirmadas();
+        const unicas = new Map();
+        todas.filter(a => !vistas.has(clave(a))).forEach(a => unicas.set(clave(a), a));
+        return [...unicas.values()].sort((a, b) => a.f.localeCompare(b.f));
+    },
+
+    confirmarAusencias(claves) {
+        const vistas = this._ausConfirmadas();
+        claves.forEach(c => vistas.add(c));
+        try { localStorage.setItem('ausConfirmadas', JSON.stringify([...vistas].slice(-3000))); } catch (_) {}
+        this._pintarCampana();
+        if (document.getElementById('avisosCaja')) this._abrirAvisos();
+    },
+
+    _avisosSueltos() {
+        const out = [];
+        if (ES_APP_DEV) (this._solicitudes || []).forEach(s => out.push({ tipo: 'solicitud', s }));
+        this._ausenciasPorConfirmar().forEach(a => out.push({ tipo: 'ausencia', a }));
+        return out;
+    },
+
+    _cerrarAvisos() { document.getElementById('avisosCaja')?.remove(); },
+
+    _abrirAvisos() {
+        this._cerrarAvisos();
+        const esc = t => String(t || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+        const avisos = this._avisosSueltos();
+        const sinLeer = this._totalSinLeer();
+        const aus = avisos.filter(x => x.tipo === 'ausencia').map(x => x.a);
+        const clave = a => `${a.email}|${a.f}|${a.que}`;
+        const dia = f => `${f.slice(6, 8)}/${f.slice(4, 6)}`;
+        const caja = document.createElement('div');
+        caja.id = 'avisosCaja';
+        caja.className = 'sol-caja';
+        caja.innerHTML = `<button type="button" class="sol-cerrar" title="Cerrar" onclick="app._cerrarAvisos()">✕</button>
+            <div class="sol-tit">🔔 Avisos</div>`
+            + avisos.filter(x => x.tipo === 'solicitud').map(({ s }) => `<div class="sol-fila aviso-fila"
+                    onclick="app._cerrarAvisos();app._mostrarSolicitudes(true)">
+                <div class="sol-quien"><b>🆕 Cuenta nueva por aprobar</b><span>${esc(s.nombre || s.email)} · ${esc(s.email)}</span></div></div>`).join('')
+            + (aus.length ? `<div class="sol-fila"><div class="sol-quien"><b>📅 Días marcados por los trabajadores</b>
+                <span>Se han marcado solos en su ficha. Confírmalos para quitarlos de aquí.</span></div>`
+                + aus.slice(0, 30).map(a => `<div class="aus-fila"><span><b>${esc(a.nombre)}</b> · ${esc(a.que)} el ${dia(a.f)}</span>
+                    <button type="button" onclick="app.confirmarAusencias(['${esc(clave(a))}'])">✓</button></div>`).join('')
+                + (aus.length > 1 ? `<div class="sol-btns"><button type="button"
+                    onclick='app.confirmarAusencias(${esc(JSON.stringify(aus.map(clave)))})'>✓ Confirmar todos (${aus.length})</button></div>` : '')
+                + '</div>' : '')
+            + (sinLeer ? `<div class="sol-fila aviso-fila" onclick="app._cerrarAvisos();app.switchTab(2)">
+                <div class="sol-quien"><b>💬 ${sinLeer} conversación${sinLeer === 1 ? '' : 'es'} sin leer</b><span>Ir al chat</span></div></div>` : '');
+        document.body.appendChild(caja);
     },
 
     guardarSonidoChat(sonido) {
@@ -6369,8 +6486,11 @@ const app = {
             const fuera   = this._desviaciones(u, mes);
             const dias    = this._etiquetaDias(u);
             const completa = this._esCompleta(u);
-            const enBaja = this._enBaja(u, fecha) || (!this._bajasDe(u).length && !!u.baja);
-            const enVac  = this._enVacaciones(u, fecha);
+            // Lo que marca el propio trabajador (BE o vacaciones ese día)
+            // enciende el botón igual que lo que pone gestión
+            const suAusencia = this._ausencia(u, fecha);
+            const enBaja = this._enBaja(u, fecha) || (!this._bajasDe(u).length && !!u.baja) || suAusencia === 'BE';
+            const enVac  = this._enVacaciones(u, fecha) || suAusencia === 'Vacaciones';
             const grupo = completa
                 ? `<button class="ct-chip ${u.grupo ? 'grupo' : 'aviso'}"
                         onclick="app._editarGrupo('${q(u.email)}')">🔄 ${u.grupo ? 'Grupo ' + u.grupo : 'sin grupo'}</button>`
@@ -7107,6 +7227,7 @@ const app = {
                 } catch (_) {}
             }
             this._renderConductores();
+            this._pintarCampana();      // los días marcados cuentan en la campana
             // Las fotos van detrás y sin bloquear: la lista ya se ve, y cuando
             // llegan se repinta. Si no llegan, queda la inicial de siempre.
             this._cargarAvatares();
@@ -8579,6 +8700,9 @@ const app = {
                 }
             }
             if (j.x === 1) { extras += h; return; }
+            // Un día de BE que gestión ya tiene en sus bajas se descuenta del
+            // objetivo: contarlo además como horas sería contarlo dos veces
+            if (j.b && this._enBaja(u, j.f.slice(0, 8))) return;
             if (j.fe && h > 0) festTrabajados++;
             anual += this._horasEfectivas(j, jor, u);
         });
@@ -9052,8 +9176,8 @@ const app = {
 
     // Estado de un trabajador ese día, para el filtro de la lista
     _estadoTrabajador(u, fecha) {
-        if (this._enBaja(u, fecha) || (!this._bajasDe(u).length && u.baja)) return 'be';
         const { j } = this._jornadaVisible(u, fecha);
+        if (this._enBaja(u, fecha) || (!this._bajasDe(u).length && u.baja) || this._ausencia(u, fecha, j) === 'BE') return 'be';
         if (j?.v || this._enVacaciones(u, fecha)) return 'vacaciones';
         // Con permiso retribuido o sin ir, ese día no trabaja
         if (['PR', 'No vino'].includes(this._ausencia(u, fecha, j))) return 'libre';
@@ -9220,8 +9344,11 @@ const app = {
                 : `<div class="cond-avatar">${esc(ini)}</div>`;
             const ver = u.version ? this._textoVersion(u.version) : '—';
             const cerrada = this._estaPlegado('t:' + u.email, true);
-            const enBaja = this._enBaja(u, fecha) || (!this._bajasDe(u).length && !!u.baja);
-            const enVac  = this._enVacaciones(u, fecha);
+            // Lo que marca el propio trabajador (BE o vacaciones ese día)
+            // enciende el botón igual que lo que pone gestión
+            const suAusencia = this._ausencia(u, fecha);
+            const enBaja = this._enBaja(u, fecha) || (!this._bajasDe(u).length && !!u.baja) || suAusencia === 'BE';
+            const enVac  = this._enVacaciones(u, fecha) || suAusencia === 'Vacaciones';
             // Baja gris, vacaciones naranja, día libre rojo, y entre los que
             // trabajan: verde el que no tiene lugar y amarillo el que sí.
             const estado = this._estadoTrabajador(u, fecha);
