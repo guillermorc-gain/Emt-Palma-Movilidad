@@ -1,5 +1,6 @@
 import { exigirGestor, emailDelToken, tokenDe } from './_auth.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
+import { avisarCuadrante } from './_push.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -124,7 +125,11 @@ async function guardarGlobal(req, res, adminEmail) {
     }
     const status = await save(payload, sha,
       req.method === 'DELETE' ? 'Quitar el cuadrante' : 'Actualizar el cuadrante');
-    if (status >= 200 && status < 300) return res.status(200).json(global_(payload));
+    if (status >= 200 && status < 300) {
+      // Publicado: que le llegue a toda la plantilla al momento
+      if (req.method !== 'DELETE') await avisarCuadrante();
+      return res.status(200).json(global_(payload));
+    }
     if (status !== 409) break;
   }
   return res.status(500).json({ error: req.method === 'DELETE' ? 'No se pudo borrar' : 'No se pudo guardar' });

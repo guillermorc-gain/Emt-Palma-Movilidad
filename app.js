@@ -180,6 +180,22 @@ function reglasDeEstilo(nombre) {
     }
     return css;
 }
+// Las marcas que cierran las apps de fondo por su cuenta, y qué tocar en
+// cada una para que los avisos lleguen con la app cerrada.
+const MARCAS_BATERIA = [
+    { re: /xiaomi|redmi|poco/, nombre: 'Xiaomi',
+      pasos: 'Activa «Inicio automático» para esta aplicación. Después, en su ficha › Ahorro de batería, elige «Sin restricciones».' },
+    { re: /huawei|honor/, nombre: 'Huawei / Honor',
+      pasos: 'En «Inicio de aplicaciones», desactiva «Gestionar automáticamente» para esta aplicación y deja activadas las tres opciones.' },
+    { re: /oppo|realme|oneplus/, nombre: 'OPPO / realme / OnePlus',
+      pasos: 'Activa «Permitir inicio automático». Después, en su ficha › Batería, activa «Permitir actividad en segundo plano».' },
+    { re: /vivo|iqoo/, nombre: 'vivo',
+      pasos: 'Activa «Inicio automático». Después, en Batería, permite el consumo en segundo plano.' },
+    { re: /samsung/, nombre: 'Samsung',
+      pasos: 'En la ficha de la aplicación › Batería, elige «Sin restricciones», y comprueba que no esté en «Aplicaciones en suspensión profunda».' },
+    { re: /asus/, nombre: 'ASUS',
+      pasos: 'Activa el «Inicio automático» de esta aplicación en el gestor del móvil.' },
+];
 // ── Temas (Opciones → Apariencia → Tema) ─────────────────────────────────
 // Un tema cambia la app entera: colores, tipografía, formas y cabecera. Los
 // colores fijos de las hojas de estilo (el blanco de las tarjetas, el gris
@@ -5773,29 +5789,45 @@ const app = {
         catch (_) { return null; }
     },
 
-    // Los avisos con la app cerrada van con una alarma que el ahorro de batería
-    // se lleva por delante en bastantes móviles, y entonces no llega nada y no
-    // hay forma de saber por qué. Se pide una sola vez, recién instalada, que
-    // es cuando se entiende para qué es.
+    // Los mensajes llegan al momento por Firebase aunque el móvil ahorre
+    // batería. Pero hay marcas que además cierran del todo las apps que no
+    // están en su lista de inicio automático, y a esas no les llega nada
+    // hasta que se abren. Se pide una sola vez cada cosa: lo de Android,
+    // y lo de la marca si es una de esas.
+    _marcaBateria() {
+        let m = '';
+        try { m = window.AndroidBridge?.marcaMovil?.() || ''; } catch (_) {}
+        return MARCAS_BATERIA.find(x => x.re.test(m)) || null;
+    },
+
     _pedirBateriaSiHaceFalta() {
         if (!window.AndroidBridge?.pedirBateriaSinRestriccion) return;
-        if (localStorage.getItem('bateriaPedida')) return;
-        try {
-            if (window.AndroidBridge.bateriaSinRestriccion?.() !== false) {
-                localStorage.setItem('bateriaPedida', '1');
-                return;
-            }
-        } catch (_) { return; }
+        let libre = true;
+        try { libre = window.AndroidBridge.bateriaSinRestriccion?.() !== false; } catch (_) { return; }
+        const marca = this._marcaBateria();
+        const pideAndroid = !libre && !localStorage.getItem('bateriaPedida');
+        const pideMarca = !!marca && !!window.AndroidBridge.abrirAjusteMarca && !localStorage.getItem('marcaAvisada');
+        if (!pideAndroid && !pideMarca) return;
         // Con un respiro: recién abierta la app hay bastante en pantalla ya
         setTimeout(() => {
-            if (localStorage.getItem('bateriaPedida')) return;
-            localStorage.setItem('bateriaPedida', '1');
-            if (confirm('Para que te lleguen los avisos con la aplicación cerrada '
-                + '—los mensajes y los cambios de jornada— el móvil tiene que dejarla '
-                + 'funcionar en segundo plano. Por defecto no la deja.\n\n'
-                + '¿Lo permites ahora? Es un toque, y no gasta apenas: la aplicación '
-                + 'solo mira cada cinco minutos.')) {
-                try { window.AndroidBridge.pedirBateriaSinRestriccion(); } catch (_) {}
+            if (pideAndroid && !localStorage.getItem('bateriaPedida')) {
+                localStorage.setItem('bateriaPedida', '1');
+                if (confirm('Para que los avisos te lleguen siempre con la aplicación cerrada '
+                    + '—los mensajes, los cambios de jornada y el cuadrante— conviene que el '
+                    + 'móvil no la frene para ahorrar batería.\n\n¿Lo permites ahora? Es un toque, '
+                    + 'y no gasta: la aplicación no trabaja de fondo, solo se despierta cuando '
+                    + 'hay algo que avisar.')) {
+                    try { window.AndroidBridge.pedirBateriaSinRestriccion(); } catch (_) {}
+                    return;       // lo de la marca, la próxima vez que se abra
+                }
+            }
+            if (pideMarca && !localStorage.getItem('marcaAvisada')) {
+                localStorage.setItem('marcaAvisada', '1');
+                if (confirm(`Tu móvil es ${marca.nombre}. Estos móviles cierran las aplicaciones `
+                    + 'que no tienen permiso de inicio automático, y entonces los avisos no llegan '
+                    + `hasta que la abres.\n\n${marca.pasos}\n\n¿Abro ese ajuste ahora?`)) {
+                    try { window.AndroidBridge.abrirAjusteMarca(); } catch (_) {}
+                }
             }
         }, 3000);
     },
@@ -8872,6 +8904,15 @@ const app = {
             L.push(libre ? '✅ El ahorro de batería la deja en paz'
                          : '❌ El ahorro de batería la está frenando'
                          + '\n   → Ajustes › Aplicaciones › esta app › Batería › Sin restricciones');
+        }
+
+        if (nativo) {
+            const marca = this._marcaBateria();
+            if (marca) L.push(`📱 Móvil ${marca.nombre}: si con la app cerrada no llegan, ${marca.pasos}`);
+            let tokenPush = '';
+            try { tokenPush = window.AndroidBridge?.pushToken?.() || ''; } catch (_) {}
+            L.push(tokenPush ? '✅ Avisos al instante activados en este móvil'
+                             : '⚠️ Avisos al instante aún sin activar\n   → Actualiza la app y vuelve a abrirla');
         }
 
         // Lo que necesita la parte que mira con la app cerrada
