@@ -501,6 +501,7 @@ const app = {
         this._pintarIdentidadApp();
         this._instalarFirmaApi();
         this._vigilarEnvios();
+        this._vigilarPestanas();
         // The update check must run even if any earlier step throws, otherwise a
         // single bug anywhere above strands the user on an old build forever.
         setTimeout(() => { try { this._checkForUpdates(); } catch(_) {} }, 1500);
@@ -1957,6 +1958,21 @@ const app = {
         };
     },
 
+    // Con muchas pestañas visibles (el control de acceso suma tres), las
+    // etiquetas se hacen más pequeñas para que quepan todas
+    _vigilarPestanas() {
+        const bar = document.getElementById('tabBar');
+        if (!bar || this._pestanasVigiladas) return;
+        this._pestanasVigiladas = true;
+        const contar = () => {
+            const n = [...bar.querySelectorAll('.tab-btn')]
+                .filter(b => !b.hidden && getComputedStyle(b).display !== 'none').length;
+            bar.classList.toggle('muchas', n > 6);
+        };
+        new MutationObserver(contar).observe(bar, { subtree: true, attributes: true, attributeFilter: ['hidden', 'style'] });
+        contar();
+    },
+
     toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },
 
     // ── Personalizar ─────────────────────────────────────────────────────────
@@ -2255,8 +2271,12 @@ const app = {
     // de nadie más, así que para el resto de cuentas ni salen las secciones
     // ni existen los de prueba en ninguna lista. El servidor ya lo exigía;
     // esto es para que tampoco se vean.
+    // Lo de administrar la aplicación (versiones, usuarios de prueba, quién
+    // entra) es de la app de Desarrollador. En la de Gestión todos son
+    // gestores, también la cuenta del desarrollador: así se pueden tener las
+    // tres apps en el mismo móvil y cada una hace lo suyo.
     _soyElGestor() {
-        return (this.usuarioActual?.email || '').toLowerCase() === SUPER_USER_EMAIL.toLowerCase();
+        return ES_APP_DEV;
     },
 
     _aplicarPermisosGestor() {

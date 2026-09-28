@@ -463,6 +463,7 @@ const app = {
         this._preguntarConQueApp();
         this._instalarFirmaApi();
         this._vigilarEnvios();
+        this._vigilarPestanas();
         // The update check must run even if any earlier step throws, otherwise a
         // single bug anywhere above strands the user on an old build forever.
         setTimeout(() => { try { this._checkForUpdates(); } catch(_) {} }, 1500);
@@ -2202,6 +2203,21 @@ const app = {
                 }
             }
         };
+    },
+
+    // Con muchas pestañas visibles (el control de acceso suma tres), las
+    // etiquetas se hacen más pequeñas para que quepan todas
+    _vigilarPestanas() {
+        const bar = document.getElementById('tabBar');
+        if (!bar || this._pestanasVigiladas) return;
+        this._pestanasVigiladas = true;
+        const contar = () => {
+            const n = [...bar.querySelectorAll('.tab-btn')]
+                .filter(b => !b.hidden && getComputedStyle(b).display !== 'none').length;
+            bar.classList.toggle('muchas', n > 6);
+        };
+        new MutationObserver(contar).observe(bar, { subtree: true, attributes: true, attributeFilter: ['hidden', 'style'] });
+        contar();
     },
 
     toggleSection(btn) { btn.closest('.ops-section').classList.toggle('open'); },

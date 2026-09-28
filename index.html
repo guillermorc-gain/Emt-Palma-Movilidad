@@ -415,6 +415,11 @@
         .tab-btn:active{opacity:0.55;}
         .tab-ico{font-size:21px;line-height:1;filter:grayscale(1) opacity(0.5);transition:filter 0.15s,transform 0.15s;pointer-events:none;}
         .tab-lbl{font-size:10px;font-weight:600;color:#8e8e93;letter-spacing:0.1px;transition:color 0.15s;pointer-events:none;}
+        /* Muchas pestañas (con el control de acceso son ocho): se reparten el
+           ancho y la etiqueta se acorta, para que ninguna se quede fuera */
+        .tab-btn{min-width:0;flex:1 1 0;}
+        .tab-lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .tab-bar.muchas .tab-lbl{font-size:8.5px;letter-spacing:0;}
         .tab-btn.active .tab-ico{filter:none;transform:scale(1.08);}
         .tab-btn.active .tab-lbl{color:var(--g1);font-weight:700;}
         .tab-bar.dark .tab-lbl{color:#7d8590;}

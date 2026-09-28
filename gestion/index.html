@@ -149,6 +149,11 @@
         .tab-btn:active{opacity:0.55;}
         .tab-ico{font-size:21px;line-height:1;filter:grayscale(1) opacity(0.5);transition:filter 0.15s,transform 0.15s;pointer-events:none;}
         .tab-lbl{font-size:10px;font-weight:600;color:#8e8e93;letter-spacing:0.1px;transition:color 0.15s;pointer-events:none;}
+        /* Muchas pestañas (con el control de acceso son ocho): se reparten el
+           ancho y la etiqueta se acorta, para que ninguna se quede fuera */
+        .tab-btn{min-width:0;flex:1 1 0;}
+        .tab-lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .tab-bar.muchas .tab-lbl{font-size:8.5px;letter-spacing:0;}
         .tab-btn.active .tab-ico{filter:none;transform:scale(1.08);}
         .tab-btn.active .tab-lbl{color:var(--g1);font-weight:700;}
         .tab-bar.dark .tab-lbl{color:#7d8590;}
@@ -1800,10 +1805,6 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div class="ops-section">
                 <button class="ops-title" onclick="app.toggleSection(this)">🔔 Notificaciones <span class="ops-chevron">›</span></button>
                 <div class="ops-body">
-                    <div class="ops-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
-                        <span class="ops-row-label">Aviso al llegar al trabajo</span>
-                        <span class="ops-row-sub">Recibirás una notificación cuando el GPS detecte que estás cerca de una ubicación de trabajo guardada. En Android funciona en segundo plano.</span>
-                    </div>
                     <div class="ops-field" style="gap:8px;padding-top:2px;">
                         <span class="ops-field-label">🔊 Sonido de notificación</span>
                         <select id="notifSoundSelect" onchange="app.guardarSonidoNotif(this.value)" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;width:100%;">
