@@ -1999,7 +1999,7 @@ const app = {
         const g = document.getElementById('loginForm');
         if (f) f.hidden = !mostrar;
         if (g) g.hidden = mostrar;
-        if (mostrar) setTimeout(() => document.getElementById('cEmail')?.focus(), 50);
+        if (mostrar) setTimeout(() => document.getElementById('cNombre')?.focus(), 50);
     },
 
     _datosCorreo() {
