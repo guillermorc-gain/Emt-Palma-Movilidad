@@ -245,38 +245,6 @@
     "deConductor": "💻",
     "estado": "pendiente"
   },
-  "20260927170431175-1qgls-0": {
-    "id": "20260927170431175-1qgls-0",
-    "email": "g.rioscorrea@gmail.com",
-    "creado": "2026-09-27T17:04:31.175Z",
-    "nombre": "Desarrollador",
-    "conductor": "💻",
-    "mensajes": [
-      {
-        "de": "trabajador",
-        "autor": "Desarrollador",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T17:04:31.175Z"
-      },
-      {
-        "de": "gestor",
-        "autor": "Guillermo Rios",
-        "texto": "Hola",
-        "adjuntos": [],
-        "en": "2026-09-27T17:16:09.534Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-27T17:46:11.830Z"
-    }
-  },
   "20260928131413988-p12xl-0": {
     "id": "20260928131413988-p12xl-0",
     "email": "g.rioscorrea@gmail.com",
