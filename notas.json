@@ -54,5 +54,43 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T15:07:57.590Z"
     }
+  },
+  "20260928165318366-pxdow-g": {
+    "id": "20260928165318366-pxdow-g",
+    "tipo": "grupo",
+    "creado": "2026-09-28T16:53:18.366Z",
+    "creadoPor": "g.rioscorrea@gmail.com",
+    "email": "g.rioscorrea@gmail.com",
+    "participantes": [
+      {
+        "email": "g.rioscorrea@gmail.com",
+        "nombre": "Desarrollador",
+        "num": "💻"
+      },
+      {
+        "email": "guillermo.rc82@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1418-3"
+      },
+      {
+        "email": "guillermo.rcxx@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1234-5"
+      }
+    ],
+    "conGestion": true,
+    "titulo": "",
+    "mensajes": [
+      {
+        "de": "g.rioscorrea@gmail.com",
+        "autor": "Desarrollador",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-28T16:53:18.366Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "estado": "pendiente"
   }
 }
