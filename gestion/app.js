@@ -4680,6 +4680,14 @@ const app = {
 
     _iniciarSondeoChat() {
         this._pararSondeoChat();
+        // Al abrir o volver a la app, un rato en que lo que se cargue no suena
+        this._chatCalladoHasta = Date.now() + 10000;
+        if (!this._escuchaVuelta) {
+            this._escuchaVuelta = true;
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) this._chatCalladoHasta = Date.now() + 10000;
+            });
+        }
         this._registrarPush();
         window.AndroidBridge?.saveToPrefs?.('notifSoundChat', this.notifSoundChat || 'default');
         if (!this.usuarioActual?.email) return;
@@ -4980,10 +4988,13 @@ const app = {
             const m = this._ultimoMensaje(n);
             if (m && !this._esMiMensaje(m, n) && (m.en || '') > ultimo) ultimo = m.en || '';
         });
+        // Lo que llega con la app de fondo, o lo que se carga al volver a
+        // ella, ya sonó en la barra: se da por avisado sin sonar otra vez.
+        const callado = document.hidden || Date.now() < (this._chatCalladoHasta || 0);
         if (!this._chatSonadoHasta) this._chatSonadoHasta = new Date().toISOString();
         if (ultimo > this._chatSonadoHasta) {
             this._chatSonadoHasta = ultimo;
-            if (this.notifSoundChat !== 'ninguno' && !document.hidden) {
+            if (this.notifSoundChat !== 'ninguno' && !callado) {
                 try { this._previewNotifSound(this.notifSoundChat); } catch (_) {}
             }
         }
