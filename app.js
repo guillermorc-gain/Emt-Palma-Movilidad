@@ -463,6 +463,7 @@ const app = {
         this._alVolverAutorizado();
         this._preguntarConQueApp();
         this._instalarFirmaApi();
+        this._ponerBotonesEmoji();
         this._vigilarEnvios();
         this._vigilarPestanas();
         this._ponerComunicacion(this.comunicacion, false);
@@ -3568,6 +3569,8 @@ const app = {
         (this._notas || []).forEach(n => {
             const v = n?.vistoPor;
             if (!v || (v.email || '').toLowerCase() !== yo) return;
+            // El visto que dio gestión con esta misma cuenta no es mío
+            if (v.gestion) return;
             const cuando = v.en || '';
             if (cuando && cuando > (leidas[n.id] || '')) { leidas[n.id] = cuando; cambia = true; }
         });
@@ -4251,6 +4254,37 @@ const app = {
 
     _emojisRecientes() {
         try { return JSON.parse(localStorage.getItem('emojisRecientes') || '[]').slice(0, 24); } catch (_) { return []; }
+    },
+
+    // Un botón 😊 en cada cuadro de escribir mensajes: abre el mismo selector
+    // que los grupos y mete el emoji donde esté el cursor.
+    _ponerBotonesEmoji() {
+        ['hiloTexto', 'ntTexto'].forEach(id => {
+            const t = document.getElementById(id);
+            if (!t || t.parentElement?.classList.contains('emo-campo')) return;
+            const caja = document.createElement('div');
+            caja.className = 'emo-campo';
+            t.parentNode.insertBefore(caja, t);
+            caja.appendChild(t);
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'emo-meter';
+            b.title = 'Poner un emoji';
+            b.textContent = '😊';
+            b.addEventListener('mousedown', e => e.preventDefault());
+            b.addEventListener('click', async () => {
+                const ini = t.selectionStart ?? t.value.length, fin = t.selectionEnd ?? t.value.length;
+                const e = await this._elegirEmoji();
+                if (!e) return;
+                const nuevo = t.value.slice(0, ini) + e + t.value.slice(fin);
+                if (t.maxLength > 0 && nuevo.length > t.maxLength) return;
+                t.value = nuevo;
+                t.focus();
+                t.setSelectionRange(ini + e.length, ini + e.length);
+                t.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            caja.appendChild(b);
+        });
     },
 
     // Abre el selector y devuelve el emoji elegido (o null)
