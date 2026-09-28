@@ -7,5 +7,15 @@ Solo el juego latino, que es el que lleva el español.
   lora.woff2         Lora                        (Clásica)
   atkinson.woff2     Atkinson Hyperlegible Next  (Muy legible)
 
+Y las de los temas (Opciones → Apariencia → Tema):
+
+  sora.woff2          Sora                (Medianoche)
+  barlow-*.woff2      Barlow y Barlow Condensed (Grafito)
+  quicksand.woff2     Quicksand           (Pastel)
+  righteous.woff2     Righteous           (Retro 80)
+  rubik.woff2         Rubik               (Retro 80)
+  playfair.woff2      Playfair Display    (Mediterráneo)
+  sourcesans.woff2    Source Sans 3       (Bosque y Mediterráneo)
+
 Todas con licencia SIL Open Font License 1.1 (https://openfontlicense.org),
 sacadas de los paquetes de Fontsource.
