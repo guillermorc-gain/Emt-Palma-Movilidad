@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { exigirAdmin, GESTOR_PRINCIPAL, tokenDe, revisarFirebase } from './_auth.js';
+import { exigirAdmin, GESTOR_PRINCIPAL, tokenDe, revisarFirebase, revisarToken } from './_auth.js';
 import { cuentaDeServicio, avisarDesarrollador } from './_push.js';
 import { quitarDeApp } from './usuarios.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
@@ -115,9 +115,14 @@ async function cuentasDeCorreo(req, res) {
   const q = req.query || {};
   // Lo que pide el propio usuario, con su sesión aún sin confirmar
   if (q.solicitud !== undefined || q.reenviar !== undefined) {
-    const s = await revisarFirebase(tokenDe(req), true);
+    // Cuenta de correo (Firebase, aún sin confirmar) o cuenta de Google que
+    // ha entrado sin estar autorizada: las dos piden el alta igual
+    const token = tokenDe(req);
+    const esFirebase = /^eyJ/.test(token);
+    const s = esFirebase ? await revisarFirebase(token, true) : await revisarToken(token);
     if (!s.email) return res.status(401).json({ error: 'Sesión no válida' });
     const como = await yaAutorizado(s.email);
+    if (como && !esFirebase) return res.status(200).json({ aprobado: true });
     if (como) {
       // Ya tenía acceso: la confirmación va directa
       await mandarConfirmacion(s.uid);
@@ -132,10 +137,20 @@ async function cuentasDeCorreo(req, res) {
     }
     if (q.reenviar !== undefined) return res.status(403).json({ error: 'Tu cuenta aún no está aprobada por el Departamento.' });
     const nombre = String(req.body?.nombre || s.nombre || '').slice(0, 80);
-    await mutarSolicitudes(d => ({ ...d, [s.email]: { email: s.email, uid: s.uid, nombre, en: new Date().toISOString() } }),
-      `Solicitud de cuenta de ${s.email}`);
-    await avisarDesarrollador(GESTOR_PRINCIPAL, { tipo: 'solicitud',
-      titulo: '🆕 Cuenta nueva por aprobar', texto: `${nombre || s.email} (${s.email}): ¿gestión o trabajador?` });
+    // Desde qué app lo ha intentado, para que el desarrollador lo sepa
+    const desde = ['trabajador', 'gestion'].includes(req.body?.app) ? req.body.app : '';
+    let yaPedida = false;
+    await mutarSolicitudes(d => {
+      yaPedida = !!d[s.email];
+      return { ...d, [s.email]: { email: s.email, uid: s.uid || '', nombre: nombre || d[s.email]?.nombre || '',
+                                   google: !esFirebase, desde, en: d[s.email]?.en || new Date().toISOString() } };
+    }, `Solicitud de cuenta de ${s.email}`);
+    // Un solo aviso por persona, aunque vuelva a intentarlo
+    if (!yaPedida) {
+      await avisarDesarrollador(GESTOR_PRINCIPAL, { tipo: 'solicitud',
+        titulo: esFirebase ? '🆕 Cuenta nueva por aprobar' : '🆕 Alguien ha entrado con Google sin estar autorizado',
+        texto: `${nombre || s.email} (${s.email})${desde ? ' desde la app de ' + (desde === 'gestion' ? 'gestión' : 'trabajadores') : ''}: ¿gestión o trabajador?` });
+    }
     return res.status(200).json({ pendiente: true });
   }
   // Lo que hace el desarrollador
@@ -154,7 +169,8 @@ async function cuentasDeCorreo(req, res) {
   const { emails, sha } = await getFile(APPS[app].file);
   if (!emails.map(e => String(e).toLowerCase()).includes(email)) emails.push(email);
   if (!await setFile(APPS[app].file, emails, sha)) return res.status(500).json({ error: 'No se pudo apuntar en la lista' });
-  await mandarConfirmacion(sol.uid);
+  // Las de Google ya vienen verificadas: con apuntarlas basta
+  if (!sol.google && sol.uid) await mandarConfirmacion(sol.uid);
   await mutarSolicitudes(d => { delete d[email]; return d; }, `Solicitud de ${email} aprobada (${req.body.como})`);
   return res.status(200).json({ ok: true });
 }

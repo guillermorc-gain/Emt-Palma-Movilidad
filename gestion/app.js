@@ -809,8 +809,10 @@ const app = {
                 // En la de desarrollador se dice con cuál hay que entrar: el
                 // problema siempre es haber elegido otra cuenta sin querer,
                 // y "no tiene acceso" a secas no ayuda a caer en ello.
+                const pedida = !ES_APP_DEV && await this._pedirAccesoAlDepartamento('gestion');
                 this.mostrarMensaje(ES_APP_DEV
                     ? `❌ Has entrado con ${conQue}. Esta aplicación es solo para ${SUPER_USER_EMAIL}.`
+                    : pedida ? `La cuenta ${conQue} aún no tiene acceso. Hemos avisado al desarrollador: cuando te autorice, vuelve a entrar.`
                     : `❌ La cuenta ${conQue} no tiene acceso a esta aplicación.`, 'error');
                 // Y que la próxima vez vuelva a preguntar la cuenta: si se queda
                 // guardada la sesión, al abrir entra sola otra vez con la que no
@@ -4892,6 +4894,20 @@ const app = {
             .catch(() => {});
     },
 
+    // Quien entra sin estar autorizado pide el alta solo: al desarrollador le
+    // llega el aviso y lo apunta como gestión o trabajador con un toque.
+    async _pedirAccesoAlDepartamento(app) {
+        const token = this.accessToken;
+        if (!token) return false;
+        try {
+            const envio = this._fetchOriginal || window.fetch.bind(window);
+            const r = await envio(`${this.API_BASE}allowlist?solicitud=1`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ nombre: this.usuarioActual?.name || '', app }) });
+            return r.ok;
+        } catch (_) { return false; }
+    },
+
     // ── Cuentas nuevas por aprobar (solo Desarrollador) ──────────────────────
     // Quien crea una cuenta con un correo que no es de Google espera aquí: se
     // elige si es de gestión o trabajador, se le apunta en esa lista y el
@@ -4916,7 +4932,8 @@ const app = {
         caja.className = 'sol-caja';
         caja.innerHTML = `<div class="sol-tit">🆕 ${lista.length === 1 ? 'Una cuenta nueva' : lista.length + ' cuentas nuevas'} por aprobar</div>`
             + lista.map(s => `<div class="sol-fila">
-                <div class="sol-quien"><b>${esc(s.nombre) || esc(s.email)}</b><span>${esc(s.email)}</span></div>
+                <div class="sol-quien"><b>${esc(s.nombre) || esc(s.email)}</b><span>${esc(s.email)} · ${s.google ? 'Google' : 'correo'}${
+                    s.desde ? ' · desde ' + (s.desde === 'gestion' ? 'Gestión' : 'Trabajadores') : ''}</span></div>
                 <div class="sol-btns">
                     <button type="button" onclick="app.resolverSolicitud('${esc(s.email)}','trabajador')">Trabajador</button>
                     <button type="button" onclick="app.resolverSolicitud('${esc(s.email)}','gestion')">Gestión</button>
@@ -4932,9 +4949,11 @@ const app = {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, como }) });
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { this._mostrarToast('❌ ' + (d.error || r.status), 5000); return; }
+            const deGoogle = (this._solicitudes || []).find(s => s.email === email)?.google;
             this._solicitudes = (this._solicitudes || []).filter(s => s.email !== email);
             this._pintarSolicitudes();
-            this._mostrarToast(como ? `✅ Apuntado como ${como === 'gestion' ? 'gestión' : 'trabajador'}: le hemos mandado el correo de confirmación`
+            this._mostrarToast(como ? `✅ Apuntado como ${como === 'gestion' ? 'gestión' : 'trabajador'}: ${deGoogle
+                    ? 'ya puede entrar con Google' : 'le hemos mandado el correo de confirmación'}`
                                     : '🗑️ Solicitud rechazada', 4000);
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
