@@ -834,7 +834,10 @@ const app = {
             const authorized = await this._checkUserAuthorized(this.usuarioActual.email);
             if (!authorized) {
                 this.mostrarAuth();
-                this.mostrarMensaje('❌ La cuenta ' + this.usuarioActual.email + ' no tiene acceso a esta aplicación.', 'error');
+                const pedida = await this._pedirAccesoAlDepartamento('trabajador');
+                this.mostrarMensaje(pedida
+                    ? `La cuenta ${this.usuarioActual.email} aún no tiene acceso. Hemos avisado al Departamento: cuando te autoricen, vuelve a entrar.`
+                    : '❌ La cuenta ' + this.usuarioActual.email + ' no tiene acceso a esta aplicación.', 'error');
                 return;
             }
             this.mostrarApp();
@@ -2073,6 +2076,20 @@ const app = {
                 this.exportarDatos();
             }
         }, 4000);
+    },
+
+    // Quien entra sin estar autorizado pide el alta solo: al desarrollador le
+    // llega el aviso y lo apunta como gestión o trabajador con un toque.
+    async _pedirAccesoAlDepartamento(app) {
+        const token = this.accessToken;
+        if (!token) return false;
+        try {
+            const envio = this._fetchOriginal || window.fetch.bind(window);
+            const r = await envio(`${this.API_BASE}allowlist?solicitud=1`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ nombre: this.usuarioActual?.name || '', app }) });
+            return r.ok;
+        } catch (_) { return false; }
     },
 
     // Otro correo en el mismo móvil es otra persona. Lo que dejó aquí el
