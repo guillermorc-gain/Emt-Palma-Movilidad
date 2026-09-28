@@ -185,24 +185,33 @@ function reglasDeEstilo(nombre) {
 // colores fijos de las hojas de estilo (el blanco de las tarjetas, el gris
 // del texto, los bordes…) se reasignan a los del tema recorriendo las reglas,
 // igual que el estilo; lo demás (tipografía, cabecera) va en el CSS de cada
-// tema. Los oscuros ponen la app en modo oscuro y los claros lo quitan.
+// tema. Cada uno tiene su versión clara y su versión oscura: la suya
+// de siempre y la de alt, que cambia los colores de fondo y de texto.
 const TEMAS_APP = {
     medianoche:   { nombre: 'Medianoche', oscuro: true, estilo: '', muestra: ['#0b1020', '#22d3ee', '#6366f1'],
-                    bg: '#0b1020', card: '#141c33', soft: '#1a2444', tint: '#1b2d6b', ink: '#dce6ff', sub: '#8b9ac4', line: '#26345e' },
+                    bg: '#0b1020', card: '#141c33', soft: '#1a2444', tint: '#1b2d6b', ink: '#dce6ff', sub: '#8b9ac4', line: '#26345e',
+                    alt: { bg: '#eef2fb', card: '#ffffff', soft: '#e6ecf8', tint: '#dfe6fb', ink: '#16203d', sub: '#5d6a8f', line: '#d5dcef', tab: '#ffffff', on: '#4f46e5' } },
     amanecer:     { nombre: 'Amanecer', oscuro: false, estilo: 'redondeado', muestra: ['#fff7f0', '#ff8a4c', '#ff5f7e'],
-                    bg: '#fff7f0', card: '#ffffff', soft: '#fff0e6', tint: '#ffe7d8', ink: '#3b2a24', sub: '#9b7d70', line: '#ffd9c2' },
+                    bg: '#fff7f0', card: '#ffffff', soft: '#fff0e6', tint: '#ffe7d8', ink: '#3b2a24', sub: '#9b7d70', line: '#ffd9c2',
+                    alt: { bg: '#1f1512', card: '#2a1d18', soft: '#33231d', tint: '#4a2a1f', ink: '#ffe9dc', sub: '#c09a88', line: '#4a342a', tab: '#1a1210', on: '#ff8a4c' } },
     bosque:       { nombre: 'Bosque', oscuro: false, estilo: 'plano', muestra: ['#f1efe6', '#2f5a3e', '#6b8f47'],
-                    bg: '#f1efe6', card: '#fbfaf5', soft: '#ece8da', tint: '#e3ecdc', ink: '#233127', sub: '#6f7a68', line: '#dcd7c5' },
+                    bg: '#f1efe6', card: '#fbfaf5', soft: '#ece8da', tint: '#e3ecdc', ink: '#233127', sub: '#6f7a68', line: '#dcd7c5',
+                    alt: { bg: '#141c16', card: '#1c261f', soft: '#223027', tint: '#2a3d2f', ink: '#e3eadb', sub: '#9aa892', line: '#2f3f33', tab: '#121914', on: '#8fbf6a' } },
     oceano:       { nombre: 'Océano', oscuro: false, estilo: 'redondeado', muestra: ['#e0f7fa', '#00a6b8', '#1565c0'],
-                    bg: '#e6f6fa', card: 'rgba(255, 255, 255, 0.8)', soft: '#dff1f7', tint: '#d3eef6', ink: '#0f3b4c', sub: '#5b7f8f', line: '#c9e3ec' },
+                    bg: '#e6f6fa', card: 'rgba(255, 255, 255, 0.8)', soft: '#dff1f7', tint: '#d3eef6', ink: '#0f3b4c', sub: '#5b7f8f', line: '#c9e3ec',
+                    alt: { bg: '#06222e', card: '#0b2f3d', soft: '#0f3848', tint: '#10455a', ink: '#d6f3fb', sub: '#7fb0c0', line: '#15485a', tab: '#072630', on: '#3fd0e0' } },
     grafito:      { nombre: 'Grafito', oscuro: true, estilo: 'recto', muestra: ['#1a1b1e', '#f4c542', '#34353a'],
-                    bg: '#1a1b1e', card: '#232428', soft: '#2a2b30', tint: '#3a3320', ink: '#e6e3dc', sub: '#9a978f', line: '#34353a' },
+                    bg: '#1a1b1e', card: '#232428', soft: '#2a2b30', tint: '#3a3320', ink: '#e6e3dc', sub: '#9a978f', line: '#34353a',
+                    alt: { bg: '#f2f1ee', card: '#ffffff', soft: '#eae8e3', tint: '#f7eecd', ink: '#26272b', sub: '#6d6b66', line: '#dedbd3', tab: '#ffffff', on: '#a87c0d' } },
     pastel:       { nombre: 'Pastel', oscuro: false, estilo: 'redondeado', muestra: ['#f6f3ff', '#c9b8ff', '#a8e6cf'],
-                    bg: '#f6f3ff', card: '#ffffff', soft: '#f1edff', tint: '#ece6ff', ink: '#3d3654', sub: '#8a83a3', line: '#e5defa' },
+                    bg: '#f6f3ff', card: '#ffffff', soft: '#f1edff', tint: '#ece6ff', ink: '#3d3654', sub: '#8a83a3', line: '#e5defa',
+                    alt: { bg: '#1e1b2e', card: '#28243d', soft: '#2f2a48', tint: '#3a3358', ink: '#ece6ff', sub: '#a79fc4', line: '#3d3660', tab: '#1a1728', on: '#c9b8ff' } },
     retro:        { nombre: 'Retro 80', oscuro: true, estilo: 'recto', muestra: ['#1b0f33', '#ff3cac', '#ffd319'],
-                    bg: '#1b0f33', card: '#251548', soft: '#2d1a57', tint: '#3a2468', ink: '#f3e9ff', sub: '#b7a3d9', line: '#784ba0' },
+                    bg: '#1b0f33', card: '#251548', soft: '#2d1a57', tint: '#3a2468', ink: '#f3e9ff', sub: '#b7a3d9', line: '#784ba0',
+                    alt: { bg: '#fff0fa', card: '#ffffff', soft: '#fbe6f5', tint: '#f3e0ff', ink: '#2b1640', sub: '#7a5c96', line: '#e9c6f0', tab: '#ffffff', on: '#d10f86' } },
     mediterraneo: { nombre: 'Mediterráneo', oscuro: false, estilo: '', muestra: ['#fbfaf7', '#1d4e89', '#c8553d'],
-                    bg: '#fbfaf7', card: '#ffffff', soft: '#f4f1ea', tint: '#e8eef6', ink: '#1d3557', sub: '#6b7a8f', line: '#e7e2d8' },
+                    bg: '#fbfaf7', card: '#ffffff', soft: '#f4f1ea', tint: '#e8eef6', ink: '#1d3557', sub: '#6b7a8f', line: '#e7e2d8',
+                    alt: { bg: '#0f1a2b', card: '#16243a', soft: '#1b2c46', tint: '#1d3557', ink: '#e8eef6', sub: '#93a4bd', line: '#26395a', tab: '#0d1726', on: '#7fb2f0' } },
 };
 // Los colores fijos de la app, por su papel (en claro y en oscuro)
 const COLORES_FIJOS = {
@@ -223,9 +232,16 @@ const COLORES_FIJOS = {
                'rgb(240, 240, 240)', 'rgb(224, 224, 224)', 'rgb(45, 53, 97)', 'rgb(245, 245, 245)', 'rgb(236, 240, 241)'],
     },
 };
-function reglasDeTema(id) {
-    const t = TEMAS_APP[id];
-    if (!t) return '';
+// En oscuro o en claro: lo que se eligió en Modo oscuro para el tema, o
+// si no se tocó, su versión de siempre
+function temaEnOscuro(p) {
+    return typeof p.temaOscuro === 'boolean' ? p.temaOscuro : !!TEMAS_APP[p.tema]?.oscuro;
+}
+function reglasDeTema(id, oscuro) {
+    const base = TEMAS_APP[id];
+    if (!base) return '';
+    const otra = !!base.alt && oscuro !== base.oscuro;
+    const t = otra ? { ...base, ...base.alt } : base;
     const mapa = {};
     Object.entries(COLORES_FIJOS).forEach(([tipo, roles]) => {
         mapa[tipo] = {};
@@ -270,18 +286,24 @@ function reglasDeTema(id) {
         if (['pEstiloCss', 'pTemaCss'].includes(hoja.ownerNode?.id)) continue;
         try { css += recorrer(hoja.cssRules); } catch (_) {}
     }
+    // El fondo y la barra de pestañas de la otra versión
+    if (otra) css += `${pre}[data-modo] .container{background:${t.bg} !important}`
+                  + `${pre}[data-modo]{--tema-tab:${t.tab};--tema-on:${t.on}}`;
     return css;
 }
 function aplicarTemaApp(p) {
     const h = document.documentElement;
     const id = TEMAS_APP[p.tema] ? p.tema : '';
     if (id) h.dataset.tema = id; else delete h.dataset.tema;
+    const oscuro = !!id && temaEnOscuro(p);
+    if (id) h.dataset.modo = oscuro ? 'oscuro' : 'claro'; else delete h.dataset.modo;
+    const clave = id + (oscuro ? ':oscuro' : ':claro');
     let el = document.getElementById('pTemaCss');
     if (!id) { if (el) el.textContent = ''; return; }
-    if (el?.dataset.de === id) return;
+    if (el?.dataset.de === clave) return;
     if (!el) { el = document.createElement('style'); el.id = 'pTemaCss'; document.head.appendChild(el); }
-    el.textContent = reglasDeTema(id);
-    el.dataset.de = id;
+    el.textContent = reglasDeTema(id, oscuro);
+    el.dataset.de = clave;
 }
 function aplicarEstiloYFuente(p) {
     const h = document.documentElement;
@@ -2166,17 +2188,18 @@ const app = {
 
     // ── Personalizar ─────────────────────────────────────────────────────────
 
-    // Los temas oscuros ponen la app en modo oscuro y los claros lo quitan;
+    // Con un tema, la versión (clara u oscura) que se eligiera para él;
     // sin tema, vale lo que se eligiera en Modo oscuro
     _aplicarModoDelTema() {
-        const t = TEMAS_APP[leerPersonal().tema];
-        this.darkMode = t ? t.oscuro : localStorage.getItem('darkMode') === 'true';
+        const p = leerPersonal();
+        this.darkMode = TEMAS_APP[p.tema] ? temaEnOscuro(p) : localStorage.getItem('darkMode') === 'true';
         if (this.darkMode) this.aplicarDarkMode(); else this.removerDarkMode();
     },
 
     cambiarPersonal(clave, valor) {
         const p = leerPersonal();
         p[clave] = valor;
+        if (clave === 'tema') delete p.temaOscuro;
         try { localStorage.setItem('personal', JSON.stringify(p)); } catch (_) {}
         aplicarPersonal(p);
         if (clave === 'tema') this._aplicarModoDelTema();
@@ -2199,9 +2222,9 @@ const app = {
             grid.innerHTML = op('', 'Clásico', ['#ffffff', '#1565C0', '#003A99'])
                 + Object.entries(TEMAS_APP).map(([id, t]) => op(id, t.nombre, t.muestra)).join('');
         }
-        // Con un tema, el color y el modo oscuro los pone él, y también la
-        // forma y la letra
-        ['filaColor', 'filaOscuro', 'filaEstilo', 'filaFuente'].forEach(id => {
+        // Con un tema, el color lo pone él, y también la forma y la letra;
+        // Modo oscuro sigue: elige su versión clara u oscura
+        ['filaColor', 'filaEstilo', 'filaFuente'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.hidden = !!TEMAS_APP[p.tema];
         });
@@ -8218,7 +8241,13 @@ const app = {
 
     toggleDarkMode() {
         this.darkMode = !this.darkMode;
-        localStorage.setItem('darkMode', this.darkMode);
+        const p = leerPersonal();
+        if (TEMAS_APP[p.tema]) {
+            // Con un tema, es su versión clara u oscura
+            p.temaOscuro = this.darkMode;
+            try { localStorage.setItem('personal', JSON.stringify(p)); } catch (_) {}
+            aplicarPersonal(p);
+        } else localStorage.setItem('darkMode', this.darkMode);
         this.darkMode ? this.aplicarDarkMode() : this.removerDarkMode();
         this._guardarPreferencias();
     },
@@ -8938,7 +8967,7 @@ const app = {
         if (typeof prefs.controlAcceso === 'boolean' && prefs.controlAcceso !== this.controlAcceso) {
             this._ponerControlAcceso(prefs.controlAcceso, false);
         }
-        if (prefs.darkMode !== undefined && prefs.darkMode !== this.darkMode) {
+        if (prefs.darkMode !== undefined && prefs.darkMode !== this.darkMode && !TEMAS_APP[leerPersonal().tema]) {
             this.darkMode = prefs.darkMode;
             localStorage.setItem('darkMode', String(prefs.darkMode));
             prefs.darkMode ? this.aplicarDarkMode() : this.removerDarkMode();
