@@ -3295,7 +3295,10 @@ const app = {
         this._registrarPush();
         window.AndroidBridge?.saveToPrefs?.('notifSoundChat', this.notifSoundChat || 'default');
         if (!this.usuarioActual?.email) return;
+        let vuelta = 0;
         this._timerChat = setInterval(() => {
+            // Con los avisos al instante, esto es solo el respaldo: cada 3 min
+            if (this._conPush && (++vuelta % 3)) return;
             this._sondearChat();
             // Y si le han cambiado el sitio o la hora. Antes solo se miraba al
             // entrar y al volver a la app, así que con la app abierta un
@@ -3323,8 +3326,8 @@ const app = {
     _registrarPush(intento = 0) {
         if (!this._escuchaPush) {
             this._escuchaPush = true;
-            // Con la app delante el aviso llega aquí: se mira ya
-            window.addEventListener('avisoPush', () => { this._huellaChat = null; this._sondearChat(); });
+            // Con la app delante el aviso llega aquí, con lo que ha cambiado
+            window.addEventListener('avisoPush', e => this._alAvisoPush(e.detail || 'chat'));
         }
         const email = this.usuarioActual?.email;
         const token = window.AndroidBridge?.pushToken?.();
@@ -3333,14 +3336,27 @@ const app = {
             if (intento < 6) setTimeout(() => this._registrarPush(intento + 1), 5000);
             return;
         }
-        const clave = `${email}|${this._appPush()}|${token}`;
+        const control = !!this.controlAcceso;
+        const clave = `${email}|${this._appPush()}|${control ? 'c' : ''}|${token}`;
         let hecho = null;
         try { hecho = JSON.parse(localStorage.getItem('pushApuntado') || 'null'); } catch (_) {}
-        if (hecho?.clave === clave && Date.now() - (hecho.en || 0) < 7 * 24 * 3600 * 1000) return;
+        if (hecho?.clave === clave && Date.now() - (hecho.en || 0) < 7 * 24 * 3600 * 1000) { this._conPush = true; return; }
         fetch(this.NOTAS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ pushToken: token, app: this._appPush() }) })
-            .then(r => { if (r.ok) localStorage.setItem('pushApuntado', JSON.stringify({ clave, en: Date.now() })); })
+                                body: JSON.stringify({ pushToken: token, app: this._appPush(), control }) })
+            .then(r => {
+                if (!r.ok) return;
+                localStorage.setItem('pushApuntado', JSON.stringify({ clave, en: Date.now() }));
+                this._conPush = true;
+            })
             .catch(() => {});
+    },
+
+    // Lo que ha cambiado, según el aviso: se trae solo eso
+    _alAvisoPush(tipo) {
+        if (!this.usuarioActual) return;
+        if (tipo === 'chat') { this._huellaChat = null; this._sondearChat(); }
+        else if (tipo === 'acceso') { this._caTraer?.(); this.caCargarVisitantes?.(); }
+        else if (tipo === 'jornada') this._cargarAsignacion();
     },
 
     _appPush() { return 'trabajador'; },
@@ -6437,6 +6453,8 @@ const app = {
         if (activo) this._caArrancar();
         else if (this._activeTab === 4 || this._activeTab === 5) this.switchTab(0);
         if (guardar) this._guardarPreferencias();
+        // Que el móvil reciba (o deje de recibir) los avisos del puesto
+        this._registrarPush();
     },
 
     _caEsc(t) {
@@ -6962,7 +6980,10 @@ const app = {
             const desde = this._caDia && this._caDia < hoy ? this._caDia : hoy;
             this.caCargarRegistros(false, desde, this._caDia > hoy ? this._caDia : hoy);
         };
-        this._caRelojSync = setInterval(traer, 15000);
+        this._caTraer = traer;
+        // Con los avisos al instante basta un repaso por minuto, de respaldo
+        let vuelta = 0;
+        this._caRelojSync = setInterval(() => { if (this._conPush && (++vuelta % 4)) return; traer(); }, 15000);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible' || !this.controlAcceso || !this.usuarioActual) return;
             traer();

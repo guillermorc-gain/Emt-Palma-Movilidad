@@ -55,14 +55,15 @@ async function guardar(mutar, mensaje) {
 
 // Un móvil, un token: si cambia de cuenta o de app, se queda con lo último.
 // Solo se escribe si algo cambia, que las apps lo mandan cada vez que abren.
-export async function registrarPush({ email, token, app, bandeja }) {
+export async function registrarPush({ email, token, app, bandeja, control }) {
   token = String(token || '').trim();
   if (!/^[\w:.\-]{20,4096}$/.test(token)) return { error: 'Token no válido', status: 400 };
   const quien = { email: String(email || '').toLowerCase(), app: APPS.includes(app) ? app : 'trabajador',
-                  bandeja: !!bandeja };
+                  bandeja: !!bandeja, control: !!control };
   const ok = await guardar(data => {
     const antes = data.tokens[token];
-    if (antes && antes.email === quien.email && antes.app === quien.app && !!antes.bandeja === quien.bandeja) return null;
+    if (antes && antes.email === quien.email && antes.app === quien.app && !!antes.bandeja === quien.bandeja
+        && !!antes.control === quien.control) return null;
     return { ...data, tokens: { ...data.tokens, [token]: { ...quien, en: new Date().toISOString() } } };
   }, `Avisos: móvil de ${quien.email} (${quien.app})`);
   return ok ? { ok: true } : { error: 'No se pudo guardar', status: 500 };
@@ -163,6 +164,32 @@ export async function avisarCuadrante() {
     await Promise.race([avisarTodos(), new Promise(r => setTimeout(r, 8000))]);
   } catch (_) { /* los móviles lo verán en su próximo repaso */ }
 }
+
+// Un toque a un grupo de móviles, elegidos por lo que se apuntó de cada uno.
+// Sin la clave no hace nada; con ella, espera como mucho unos segundos para
+// no retrasar la respuesta de quien ha guardado.
+async function avisarFiltro(filtro, datos) {
+  const sa = cuentaDeServicio();
+  if (!sa) return;
+  const { data } = await leer();
+  const tokens = Object.entries(data.tokens || {}).filter(([, t]) => filtro(t)).map(([k]) => k);
+  await mandarA(sa, tokens, datos);
+}
+const conTope = async p => {
+  try { await Promise.race([p, new Promise(r => setTimeout(r, 6000))]); } catch (_) { /* ya mirará */ }
+};
+
+// A unas personas en su app de trabajador (un cambio de jornada, por ejemplo)
+export const avisarPersonas = (emails, datos) => {
+  const para = new Set((emails || []).map(e => String(e || '').toLowerCase()));
+  return conTope(avisarFiltro(t => !t.bandeja && para.has(t.email), datos));
+};
+// A las apps de gestión y desarrollador, menos a quien lo ha hecho
+export const avisarGestion = (datos, salvo = '') =>
+  conTope(avisarFiltro(t => (t.app === 'gestion' || t.app === 'desarrollador') && t.email !== salvo, datos));
+// A los móviles con el control de acceso puesto, menos a quien lo ha hecho
+export const avisarControl = (datos, salvo = '') =>
+  conTope(avisarFiltro(t => t.control && t.email !== salvo, datos));
 
 // Para comprobar que está bien puesto sin enseñar nada: si la clave se lee
 // y si Google la acepta, y cuántos móviles hay apuntados.

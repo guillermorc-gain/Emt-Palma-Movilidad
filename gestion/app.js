@@ -3519,7 +3519,10 @@ const app = {
             const desde = this._caDia && this._caDia < hoy ? this._caDia : hoy;
             this.caCargarRegistros(false, desde, this._caDia > hoy ? this._caDia : hoy);
         };
-        this._caRelojSync = setInterval(traer, 15000);
+        this._caTraer = traer;
+        // Con los avisos al instante basta un repaso por minuto, de respaldo
+        let vuelta = 0;
+        this._caRelojSync = setInterval(() => { if (this._conPush && (++vuelta % 4)) return; traer(); }, 15000);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible' || !this._caPermitido || !this.usuarioActual) return;
             traer();
@@ -3653,6 +3656,7 @@ const app = {
             } catch (_) { ok = localStorage.getItem('caPermitido') === '1'; }
         }
         this._caPermitido = ok;
+        this._registrarPush();
         ['tabBtnCaReg', 'tabBtnCaHist', 'tabBtnCaVis'].forEach(id => {
             const b = document.getElementById(id);
             if (b) b.hidden = !ok;
@@ -4707,7 +4711,9 @@ const app = {
         this._registrarPush();
         window.AndroidBridge?.saveToPrefs?.('notifSoundChat', this.notifSoundChat || 'default');
         if (!this.usuarioActual?.email) return;
-        this._timerChat = setInterval(() => this._sondearChat(), this.SONDEO_CHAT);
+        let vuelta = 0;
+        // Con los avisos al instante, esto es solo el respaldo: cada 3 min
+        this._timerChat = setInterval(() => { if (this._conPush && (++vuelta % 3)) return; this._sondearChat(); }, this.SONDEO_CHAT);
         // Y el aviso nativo, que es el que sigue mirando con la app de fondo:
         // el sondeo de aquí arriba solo vive mientras la pantalla esté viva.
         // Lo mismo para el aviso con la app cerrada: de gestor solo tiene la
@@ -4730,8 +4736,8 @@ const app = {
     _registrarPush(intento = 0) {
         if (!this._escuchaPush) {
             this._escuchaPush = true;
-            // Con la app delante el aviso llega aquí: se mira ya
-            window.addEventListener('avisoPush', () => { this._huellaChat = null; this._sondearChat(); });
+            // Con la app delante el aviso llega aquí, con lo que ha cambiado
+            window.addEventListener('avisoPush', e => this._alAvisoPush(e.detail || 'chat'));
         }
         const email = this.usuarioActual?.email;
         const token = window.AndroidBridge?.pushToken?.();
@@ -4740,14 +4746,27 @@ const app = {
             if (intento < 6) setTimeout(() => this._registrarPush(intento + 1), 5000);
             return;
         }
-        const clave = `${email}|${this._appPush()}|${token}`;
+        const control = ES_APP_DEV || !!this._caPermitido;
+        const clave = `${email}|${this._appPush()}|${control ? 'c' : ''}|${token}`;
         let hecho = null;
         try { hecho = JSON.parse(localStorage.getItem('pushApuntado') || 'null'); } catch (_) {}
-        if (hecho?.clave === clave && Date.now() - (hecho.en || 0) < 7 * 24 * 3600 * 1000) return;
+        if (hecho?.clave === clave && Date.now() - (hecho.en || 0) < 7 * 24 * 3600 * 1000) { this._conPush = true; return; }
         fetch(this.NOTAS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ pushToken: token, app: this._appPush() }) })
-            .then(r => { if (r.ok) localStorage.setItem('pushApuntado', JSON.stringify({ clave, en: Date.now() })); })
+                                body: JSON.stringify({ pushToken: token, app: this._appPush(), control }) })
+            .then(r => {
+                if (!r.ok) return;
+                localStorage.setItem('pushApuntado', JSON.stringify({ clave, en: Date.now() }));
+                this._conPush = true;
+            })
             .catch(() => {});
+    },
+
+    // Lo que ha cambiado, según el aviso: se trae solo eso
+    _alAvisoPush(tipo) {
+        if (!this.usuarioActual) return;
+        if (tipo === 'chat') { this._huellaChat = null; this._sondearChat(); }
+        else if (tipo === 'acceso') { this._caTraer?.(); this.caCargarVisitantes?.(); }
+        else if (tipo === 'plantilla' && !document.querySelector('.modal.show')) this._cargarConductores(true);
     },
 
     _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
@@ -6540,8 +6559,11 @@ const app = {
     // minuto sin venir a cuento.
     _iniciarSondeoTrabajadores() {
         if (this._sondeoTrab) return;
+        let vuelta = 0;
         this._sondeoTrab = setInterval(() => {
             if (!this.usuarioActual || document.hidden) return;
+            // Con los avisos al instante, cada 5 min de respaldo
+            if (this._conPush && (++vuelta % 5)) return;
             // Con un cuadro abierto se está editando algo: no se repinta debajo
             if (document.querySelector('.modal.show')) return;
             this._cargarConductores(true);
