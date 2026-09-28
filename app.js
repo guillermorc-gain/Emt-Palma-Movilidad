@@ -2195,7 +2195,7 @@ const app = {
             const url = typeof recurso === 'string' ? recurso : recurso?.url || '';
             const metodo = String(opciones?.method || (typeof recurso !== 'string' && recurso?.method) || 'GET').toUpperCase();
             const cuenta = !['GET', 'HEAD', 'OPTIONS'].includes(metodo)
-                && /emt-palma-movilidad\.vercel\.app\/api\/(?!auth\/)|googleapis\.com\/(upload\/)?drive/.test(url);
+                && /emt-palma-movilidad\.vercel\.app\/api\/(?!auth\/|usuarios\?ping)|googleapis\.com\/(upload\/)?drive/.test(url);
             if (cuenta) { if (!enCurso) desde = Date.now(); enCurso++; pintar(); }
             try { return await antes(recurso, opciones); }
             finally {
@@ -2538,8 +2538,13 @@ const app = {
 
     _prUsados(historial) {
         const año = new Date().getFullYear();
-        return Object.values(historial || this._historialFull || {})
-            .filter(r => r.pr && new Date(r.timestamp).getFullYear() === año).length;
+        // Los días que registra él y los que le marca gestión, sin contar dos
+        // veces el mismo día
+        const dias = new Set(Object.values(historial || this._historialFull || {})
+            .filter(r => r.pr && new Date(r.timestamp).getFullYear() === año)
+            .map(r => { const d = new Date(r.timestamp); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; }));
+        (this._prsGestion || []).filter(f => String(f).startsWith(String(año))).forEach(f => dias.add(String(f)));
+        return dias.size;
     },
 
     _prRestantes(historial) {
@@ -3524,8 +3529,17 @@ const app = {
     _timerChat: null,
     _huellaChat: null,
 
+    // Para que el desarrollador vea quién está conectado y cuándo lo estuvo
+    _senalConexion() {
+        if (!this.usuarioActual?.email || document.hidden) return;
+        fetch(this.USUARIOS_URL + '?ping=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .catch(() => {});
+    },
+
     _iniciarSondeoChat() {
         this._pararSondeoChat();
+        this._senalConexion();
+        this._timerPing = setInterval(() => this._senalConexion(), 5 * 60 * 1000);
         // Al abrir o volver a la app, un rato en que lo que se cargue no suena
         this._chatCalladoHasta = Date.now() + 10000;
         if (!this._escuchaVuelta) {
@@ -3613,6 +3627,7 @@ const app = {
     },
 
     _pararSondeoChat() {
+        clearInterval(this._timerPing);
         clearInterval(this._timerChat);
         this._timerChat = null;
     },
@@ -6373,6 +6388,10 @@ const app = {
             if (!r.ok) return;
             const a = await r.json();
             if (!a || !a.fecha) return;
+            // Los permisos retribuidos que le ha marcado gestión cuentan para
+            // sus dos del año
+            this._prsGestion = Array.isArray(a.prs) ? a.prs : [];
+            this._actualizarPrUI?.();
             const antes = this._asignacion;
             this._asignacion = a;
             localStorage.setItem('asignacionHoy', JSON.stringify(a));

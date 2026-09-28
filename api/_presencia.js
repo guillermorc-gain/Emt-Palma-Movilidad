@@ -1,0 +1,48 @@
+// Cuándo se ha conectado por última vez cada trabajador. La app de
+// trabajadores da una señal al abrirse y cada pocos minutos mientras está
+// delante; la de Desarrollador lo enseña en su lista ("en línea" o "hace 2 h").
+//
+// Va en su propio fichero y no en usuarios.json: son muchas escrituras
+// pequeñas y no deben chocar con los resúmenes ni con lo que toca gestión.
+// Además, si la última señal es reciente no se escribe nada.
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
+
+const FICHERO = 'presencia.json';
+const CADA = 4 * 60 * 1000;          // una escritura cada 4 min como mucho por persona
+
+const ghHeaders = () => ({
+  'User-Agent': 'horasemt-app',
+  Accept: 'application/vnd.github+json',
+  ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+});
+
+async function leer() {
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${FICHERO}?ref=${BRANCH}&t=${Date.now()}`,
+    { headers: { ...ghHeaders(), 'Cache-Control': 'no-cache' }, cache: 'no-store' });
+  if (r.status === 404) return { data: {}, sha: null };
+  if (!r.ok) throw new Error('GitHub ' + r.status + ' al leer ' + FICHERO);
+  const meta = await r.json();
+  const texto = meta.content ? Buffer.from(meta.content, 'base64').toString('utf8') : '';
+  return { data: texto.trim() ? JSON.parse(texto) : {}, sha: meta.sha };
+}
+
+export async function leerPresencia() {
+  return (await leer()).data;
+}
+
+export async function apuntarPresencia(email) {
+  email = String(email || '').toLowerCase();
+  if (!email.includes('@')) return;
+  for (let intento = 0; intento < 3; intento++) {
+    const { data, sha } = await leer();
+    const antes = Date.parse(data[email] || '') || 0;
+    if (Date.now() - antes < CADA) return;
+    const nuevo = { ...data, [email]: new Date().toISOString() };
+    const body = { message: `Conexión de ${email}`, branch: BRANCH,
+                   content: Buffer.from(JSON.stringify(nuevo, null, 1) + '\n').toString('base64') };
+    if (sha) body.sha = sha;
+    const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${FICHERO}`, {
+      method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.status !== 409) return;
+  }
+}

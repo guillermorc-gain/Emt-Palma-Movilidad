@@ -1,5 +1,6 @@
 import { emailDelToken, tokenDe, exigirGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { avisarPersonas, avisarGestion } from './_push.js';
+import { apuntarPresencia, leerPresencia } from './_presencia.js';
 import { hayBaseDeDatos, leerUsuarios, leerUsuario, leerAvatares, guardarUsuario, borrarUsuario } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
@@ -425,6 +426,15 @@ function quienHayEn(data, lugar, fecha) {
   return { lugar: String(lugar || ''), fecha: f, gente };
 }
 
+// Permiso retribuido: dos al año. Los días que ya lo son ese año, sumando
+// los que marca gestión y los que el trabajador registra como PR.
+const PR_ANUALES = 2;
+function prUsados(u, año) {
+  const dias = new Set((Array.isArray(u?.prs) ? u.prs : []).filter(f => String(f).startsWith(año)));
+  (u?.jornadas || []).forEach(j => { if (j?.p && String(j.f || '').startsWith(año)) dias.add(String(j.f).slice(0, 8)); });
+  return dias;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
@@ -435,6 +445,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
+    if (req.method === 'GET' && req.query?.conexiones !== undefined) {
+      res.setHeader('Cache-Control', 'no-store');
+      const pide = await emailDelToken(tokenDe(req)).catch(() => null);
+      if (pide !== GESTOR_PRINCIPAL) return res.status(403).json({ error: 'Solo para el desarrollador' });
+      return res.status(200).json(await leerPresencia());
+    }
+
     if (req.method === 'GET') {
       let data = await leerTodo();
       res.setHeader('Cache-Control', 'no-store');
@@ -474,7 +491,9 @@ export default async function handler(req, res) {
         // Con su número: así la app de Control de acceso lo recupera en un
         // móvil nuevo sin tener que volver a escribirlo.
         return res.status(200).json({ ...(loQueLeToca(u, f) || { fecha: f, lugar: '', horario: null }),
-                                      conductor: u?.conductor || '' });
+                                      conductor: u?.conductor || '',
+                                      // Los permisos retribuidos que le ha marcado gestión
+                                      prs: Array.isArray(u?.prs) ? u.prs : [] });
       }
       // Solo nombre y número, para que la app del trabajador pueda escribir a
       // un compañero sin bajarse las jornadas de toda la plantilla.
@@ -497,6 +516,12 @@ export default async function handler(req, res) {
       const quien = delToken || (req.headers['x-user-email'] || '').toLowerCase().trim();
       if (!quien || !quien.includes('@')) return res.status(400).json({ error: 'Falta el usuario' });
       const b = req.body || {};
+      // La señal de "estoy conectado": solo con la sesión, y va aparte
+      if (req.query?.ping !== undefined || b.ping) {
+        if (!delToken) return res.status(401).json({ error: 'Falta la sesión' });
+        await apuntarPresencia(delToken);
+        return res.status(200).json({ ok: true });
+      }
       if (typeof b.avatar === 'string' && b.avatar.length > MAX_AVATAR) b.avatar = null;
 
       // Quien entra por la app de Control de acceso también es de la
@@ -581,7 +606,7 @@ export default async function handler(req, res) {
       const quienGestiona = await exigirGestor(req, res);
       if (!quienGestiona) return;
       const { email, puesto, ficticio, baja, bajas, vacaciones, nota, fecha,
-              desde, hasta, dias, grupo, horario, mes, revisiones, oculto } = req.body || {};
+              desde, hasta, dias, grupo, horario, mes, revisiones, oculto, pr } = req.body || {};
       // Los usuarios de prueba son cosa de quien lleva la aplicación, no de
       // quien gestiona la plantilla: ni los ve ni los crea.
       if (ficticio && quienGestiona !== GESTOR_PRINCIPAL) {
@@ -601,8 +626,21 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Los usuarios de prueba usan @prueba.local' });
       }
 
+      let sinPR = false;
       const nuevo = await mutarUsuario(clave, data => {
         if (req.method === 'DELETE') delete data[clave];
+        // Permiso retribuido (PR): dos por año natural. Cuentan los que marca
+        // gestión y los que registra el trabajador en su app.
+        else if (data[clave] && pr !== undefined && /^\d{8}$/.test(String(fecha || ''))) {
+          const u = data[clave];
+          const prs = new Set(Array.isArray(u.prs) ? u.prs : []);
+          if (pr) {
+            const usados = prUsados(u, String(fecha).slice(0, 4));
+            if (!usados.has(fecha) && usados.size >= PR_ANUALES) { sinPR = true; return data; }
+            prs.add(String(fecha));
+          } else prs.delete(String(fecha));
+          u.prs = [...prs].sort().slice(-20);
+        }
         else if (ficticio) {
           data[clave] = {
             ...ficticio,
@@ -708,6 +746,7 @@ export default async function handler(req, res) {
          : ficticio ? `Usuario de prueba ${clave}`
          : baja !== undefined ? `${baja ? 'Baja' : 'Alta'} de ${clave}`
          : oculto !== undefined ? `${oculto ? 'Ocultar' : 'Mostrar'} a ${clave}`
+         : pr !== undefined ? `${pr ? 'PR' : 'Quitar PR'} de ${clave} el ${fecha}`
          : nota !== undefined ? `Descripción de ${clave}`
          : vacaciones !== undefined ? `Vacaciones de ${clave}`
          : bajas !== undefined ? `Bajas de ${clave}`
@@ -730,6 +769,7 @@ export default async function handler(req, res) {
           avisarGestion({ tipo: 'plantilla' }, quienGestiona),
         ]);
       }
+      if (sinPR) return res.status(409).json({ error: `Ya ha usado los ${PR_ANUALES} PR de este año` });
       if (!nuevo) return res.status(500).json({ error: 'No se pudo guardar' });
       // La lista que se devuelve, igual que en el GET: sin los que no mantienen
       // la comunicación, salvo para el gestor principal
