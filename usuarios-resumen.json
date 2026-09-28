@@ -2733,9 +2733,15 @@
     "horasMes": 0,
     "horasTotales": 0,
     "horasAnuales": 1500,
-    "jornadaHoras": 7.5,
-    "dias": null,
-    "diasAt": 0,
+    "jornadaHoras": 7,
+    "dias": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "diasAt": 1790581303846,
     "diasMes": 0,
     "turno": "",
     "horaInicio": "",
@@ -2755,6 +2761,6 @@
       "trabajador"
     ],
     "grupo": null,
-    "actualizado": "2026-09-28T07:40:36.460Z"
+    "actualizado": "2026-09-28T07:41:47.785Z"
   }
 }
