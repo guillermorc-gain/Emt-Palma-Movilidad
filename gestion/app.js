@@ -8634,19 +8634,46 @@ const app = {
             // Turnos del lugar que ese día no cubre nadie. El que viene de la
             // víspera cubre el turno de su hora de entrada, no el de ahora.
             const franjas = TURNOS_POR_PUESTO[this._clavePuesto(puesto)] || [];
-            // La hora que cuenta para el turno: la que fichó, y si aún no ha
-            // fichado, la que tiene asignada.
-            const horaTurno = x => (x.j && !x.j.v && !x.j.p) ? x.j.i : (x.plan?.i || '');
-            // Cuánta gente hay en cada turno: un turno de dos plazas con una
-            // sola persona sigue estando a medias, así que se cuenta en vez de
-            // dar por bueno que haya alguien.
-            const cuantosHay = {};
-            gente.forEach(x => {
-                const t = this._turnoDe(puesto, horaTurno(x));
-                if (t) cuantosHay[t] = (cuantosHay[t] || 0) + 1;
-            });
+            // Un turno está cubierto si entre todos los que trabajan ese día en
+            // el lugar se cubren al menos 5 h de su franja, aunque sea entre
+            // dos: el de 05:00 a 12:00 cubre 5 h del turno de 07:00 a 14:00.
+            // Si la franja dura menos de 5 h, basta con cubrirla entera; si
+            // tiene varias plazas, 5 h por plaza. Cuenta lo fichado y, si no
+            // ha fichado, lo que tiene asignado. El que viene de la víspera va
+            // con su hora de ayer, así que se corre un día hacia atrás.
+            const UMBRAL_TURNO = 5 * 60;
+            const intervalo = x => {
+                const fich = x.j && !x.j.v && !x.j.p;
+                const i = this._minutos(fich ? x.j.i : x.plan?.i);
+                if (i === null) return null;
+                let f = this._minutos(fich ? (x.j.o || x.plan?.f) : x.plan?.f);
+                if (f === null) f = i + 7 * 60;
+                if (f <= i) f += 1440;
+                return x.deAyer ? [i - 1440, f - 1440] : [i, f];
+            };
+            const cubierto = f => {
+                const d = this._minutos(f.desde);
+                let h = f.hasta === '24:00' ? 1440 : this._minutos(f.hasta);
+                if (d === null || h === null) return 0;
+                if (h <= d) h += 1440;
+                return gente.filter(trabajando).reduce((s, x) => {
+                    const iv = intervalo(x);
+                    return s + (iv ? Math.max(0, Math.min(iv[1], h) - Math.max(iv[0], d)) : 0);
+                }, 0);
+            };
+            const largo = f => {
+                const d = this._minutos(f.desde);
+                let h = f.hasta === '24:00' ? 1440 : this._minutos(f.hasta);
+                if (d === null || h === null) return UMBRAL_TURNO;
+                if (h <= d) h += 1440;
+                return h - d;
+            };
             const huecos = franjas
-                .map(f => ({ ...f, faltan: Math.max(0, (Number(f.n) || 1) - (cuantosHay[f.id] || 0)) }))
+                .map(f => {
+                    const umbral = Math.min(UMBRAL_TURNO, largo(f));
+                    const plazas = Math.floor(cubierto(f) / umbral);
+                    return { ...f, faltan: Math.max(0, (Number(f.n) || 1) - plazas) };
+                })
                 .filter(f => f.faltan > 0);
             // Las cuentas van aquí, antes de descartar nada por el filtro, para
             // que cada botón diga lo suyo y no solo el que esté puesto.
