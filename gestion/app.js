@@ -8972,6 +8972,27 @@ const app = {
         return !u?.ficticio && Array.isArray(u?.apps) && u.apps.length > 0 && !u.apps.includes('trabajador');
     },
 
+    // Gestión: cada nombre entero y en una sola línea. Si no cabe con la
+    // letra normal, se le va bajando la letra hasta que quepa.
+    _ajustarNombres() {
+        if (ES_APP_DEV) return;
+        if (!this._nombresAlGirar) {
+            this._nombresAlGirar = true;
+            let t = null;
+            window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => this._ajustarNombres(), 150); });
+        }
+        requestAnimationFrame(() => {
+            document.querySelectorAll('#condList .cond-nombre.una-linea .cond-nom-txt').forEach(el => {
+                el.style.fontSize = '';
+                let tam = parseFloat(getComputedStyle(el).fontSize) || 13.5;
+                while (el.scrollWidth > el.clientWidth + 0.5 && tam > 9) {
+                    tam -= 0.5;
+                    el.style.fontSize = tam + 'px';
+                }
+            });
+        });
+    },
+
     _renderConductores() {
         const cont = document.getElementById('condList');
         const fecha = this._fechaOffset(this._puestosOffset);
@@ -9043,7 +9064,7 @@ const app = {
                 <div class="cond-top" onclick="app._plegarTrabajador('${esc(u.email)}')">
                     ${av}
                     <div class="cond-id">
-                        <div class="cond-nombre${ES_APP_DEV ? ' compacta' : ''}"><span class="cond-nom-txt">${esc(u.nombre) || esc(u.email)}</span>
+                        <div class="cond-nombre compacta${ES_APP_DEV ? '' : ' una-linea'}"><span class="cond-nom-txt">${esc(u.nombre) || esc(u.email)}</span>
                             ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}
                             ${u.ficticio ? '<span class="pr-badge2">PRUEBA</span>' : ''}
                             ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${
@@ -9064,7 +9085,7 @@ const app = {
                                         onclick="event.stopPropagation();app.ponerJornada('${esc(u.email)}','${esc(fecha)}','${esc(lugarHoy)}')">sin horario ✎</span>`
                                 : ''}</div>
                     </div>
-                    <div class="cond-btns${ES_APP_DEV ? ' cuadro' : ''}">
+                    <div class="cond-btns cuadro">
                     <button class="be-btn vc-btn${enVac ? ' on' : ''}" title="Vacaciones"
                             onclick="event.stopPropagation();app.editarVacaciones('${esc(u.email)}')">VC</button>
                     <button class="be-btn${enBaja ? ' on' : ''}" title="Fechas de baja"
@@ -9094,6 +9115,7 @@ const app = {
                 </div>
             </div>`;
         }).join('');
+        this._ajustarNombres();
         document.getElementById('ordenNombre')?.classList.toggle('activo', orden === 'nombre');
         document.getElementById('ordenNumero')?.classList.toggle('activo', orden === 'numero');
         // La cuenta de la cabecera sale del mismo estado que los filtros de

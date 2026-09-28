@@ -1130,10 +1130,12 @@
         .globo-pr::after{content:"";position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:#1f2d45;}
         .globo-pr.fuera{opacity:0;transform:translateY(-4px);}
         .cond-con{font-size:10px;font-weight:600;color:#95a5a6;white-space:nowrap;flex-shrink:0;}
-        /* Desarrollador: el nombre entero (salta de línea si hace falta) y los
-           cuatro botones en un cuadro de 2×2 para dejarle sitio */
+        /* Trabajadores: el nombre entero (en Desarrollador salta de línea si hace
+           falta; en Gestión va en su propia línea y la letra se ajusta para que
+           quepa) y los cuatro botones en un cuadro de 2×2 para dejarle sitio */
         .cond-nombre.compacta{flex-wrap:wrap;min-width:0;row-gap:2px;}
         .cond-nombre.compacta .cond-nom-txt{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.25;}
+        .cond-nombre.una-linea .cond-nom-txt{flex:1 0 100%;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;}
         .cond-nombre.compacta .cond-turno,.cond-nombre.compacta .pr-badge2{flex-shrink:0;}
         .cond-btns{display:flex;align-items:center;gap:10px;flex-shrink:0;}
         .cond-btns.cuadro{display:grid;grid-template-columns:repeat(2,36px);grid-auto-rows:36px;gap:5px;}
