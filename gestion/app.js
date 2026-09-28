@@ -4640,8 +4640,10 @@ const app = {
     // Quien lleva la aplicación, con nombre propio y aparte de la plantilla:
     // fuera de la lista de trabajadores no le afecta "Todos", que si no una
     // nota a toda la plantilla se le colaría a él también.
+    // Sale en gestión siempre, entre también quien entre (aunque sea con la
+    // misma cuenta del desarrollador); solo no sale en su propia app.
     _filaDesarrollador() {
-        if ((this.usuarioActual?.email || '').toLowerCase() === this.DEV_EMAIL) return '';
+        if (ES_APP_DEV) return '';
         const q = (document.getElementById('destBuscar')?.value || '').toLowerCase().trim();
         if (q && !this.DEV_NOMBRE.toLowerCase().includes(q)) return '';
         const on = this._elegidos.includes(this.DEV_EMAIL);
@@ -4655,7 +4657,9 @@ const app = {
 
     _destinatariosVisibles() {
         const q = (document.getElementById('destBuscar')?.value || '').toLowerCase().trim();
+        // Los de prueba no existen de verdad: no se les puede escribir
         return this._conductoresVisibles()
+            .filter(u => !u.ficticio && !String(u.email || '').endsWith('@prueba.local'))
             .filter(u => !q || `${u.conductor || ''} ${u.nombre || ''} ${u.email}`.toLowerCase().includes(q))
             .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
     },
@@ -4741,7 +4745,7 @@ const app = {
 
     _escribirA(quienes) {
         const lista = (Array.isArray(quienes) ? quienes : [quienes])
-            .filter(e => this._fichaDe(e));
+            .filter(e => this._fichaDe(e) && !String(e).endsWith('@prueba.local'));
         if (!lista.length) return;
         document.getElementById('destModal').classList.remove('show');
         // Se reutiliza el cuadro de responder: es el mismo diálogo
