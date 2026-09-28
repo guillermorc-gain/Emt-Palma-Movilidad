@@ -1776,7 +1776,27 @@ const app = {
         this.driveFileId = null;
     },
 
+    // Al salir, este móvil deja de recibir avisos de esa cuenta: se da de baja
+    // en el servidor (con la sesión que aún se tiene) y se borra lo que usa el
+    // aviso nativo para mirar el chat por su cuenta.
+    async _darDeBajaAvisos() {
+        const token = window.AndroidBridge?.pushToken?.();
+        if (token && this.accessToken) {
+            try {
+                await Promise.race([
+                    fetch(this.NOTAS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ pushToken: token, baja: true }) }),
+                    new Promise(r => setTimeout(r, 4000)),
+                ]);
+            } catch (_) {}
+        }
+        ['chatEmail', 'chatUrl', 'chatVisto', 'chatEsGestor', 'chatSinCompaneros', 'jornadaVista']
+            .forEach(k => { try { window.AndroidBridge?.removePref?.(k); } catch (_) {} });
+        try { localStorage.removeItem('pushApuntado'); } catch (_) {}
+    },
+
     async cerrarSesion() {
+        await this._darDeBajaAvisos();
         if (this.accessToken) {
             fetch('https://oauth2.googleapis.com/revoke?token=' + this.accessToken, { method: 'POST' }).catch(() => {});
         }

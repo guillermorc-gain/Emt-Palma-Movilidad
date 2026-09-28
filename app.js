@@ -1971,7 +1971,7 @@ const app = {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
         } catch (_) { throw new Error('Sin conexión. Inténtalo otra vez.'); }
         const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(this._fbError(d?.error?.message));
+        if (!r.ok) { const e = new Error(this._fbError(d?.error?.message)); e.codigo = String(d?.error?.message || ''); throw e; }
         return d;
     },
 
@@ -2034,7 +2034,15 @@ const app = {
                             + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
                             () => this._retomarCuentaPendiente());
                         return;
-                    } catch (_) { /* aún sin autorizar: se dice abajo */ }
+                    } catch (e) {
+                        if (e.status !== 403) {
+                            this.mostrarMensaje('No se ha podido enviar el correo de confirmación: ' + e.message, 'error');
+                            return;
+                        }
+                        // Aún sin autorizar: la solicitud se vuelve a mandar (si ya la
+                        // tenía, el desarrollador no recibe otro aviso)
+                        await this._pedirAlta(d.idToken, 'solicitud', { nombre: u.displayName || '', app: 'trabajador' }).catch(() => {});
+                    }
                 } else {
                     this._mostrarEspera(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
                         + '(mira también en «Correo no deseado»). Si no llega, pulsa «Reenviar el correo».',
@@ -2068,7 +2076,12 @@ const app = {
                 : `⏳ Cuenta creada. Ahora tienes que esperar a que el Departamento la autorice. Cuando lo haga te llegará un correo a ${d0.email} `
                   + 'avisándote, con un enlace para seguir donde lo has dejado (mira también en «Correo no deseado»).',
                 () => this._retomarCuentaPendiente());
-        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+        } catch (e) {
+            // Ya estaba creada (por ejemplo, se creó antes y aún espera): en vez
+            // de quedarse ahí, se entra con esa contraseña y se sigue desde donde iba
+            if (String(e.codigo || '').startsWith('EMAIL_EXISTS')) { this.entrarConCorreo(); return; }
+            this.mostrarMensaje(e.message, 'error');
+        }
     },
 
     async reenviarVerificacion() {
@@ -2088,7 +2101,7 @@ const app = {
             method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
             body: JSON.stringify(cuerpo) });
         const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+        if (!r.ok) { const e = new Error(d.error || ('Error ' + r.status)); e.status = r.status; throw e; }
         return d;
     },
 
@@ -2140,7 +2153,11 @@ const app = {
                             + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
                             () => this._retomarCuentaPendiente());
                         return;
-                    } catch (_) { /* aún sin autorizar */ }
+                    } catch (e) {
+                        if (e.status === 403) {
+                            await this._pedirAlta(j.id_token, 'solicitud', { nombre: claims.name || '', app: 'trabajador' }).catch(() => {});
+                        }
+                    }
                 }
                 this._mostrarEspera(`⏳ La cuenta ${claims.email || ''} sigue pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
                     + 'cuando lo haga te llegará un correo con el enlace para seguir (mira también en «Correo no deseado»).',
@@ -2266,11 +2283,31 @@ const app = {
         this.driveFileId = null;
     },
 
+    // Al salir, este móvil deja de recibir avisos de esa cuenta: se da de baja
+    // en el servidor (con la sesión que aún se tiene) y se borra lo que usa el
+    // aviso nativo para mirar el chat por su cuenta.
+    async _darDeBajaAvisos() {
+        const token = window.AndroidBridge?.pushToken?.();
+        if (token && this.accessToken) {
+            try {
+                await Promise.race([
+                    fetch(this.NOTAS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ pushToken: token, baja: true }) }),
+                    new Promise(r => setTimeout(r, 4000)),
+                ]);
+            } catch (_) {}
+        }
+        ['chatEmail', 'chatUrl', 'chatVisto', 'chatEsGestor', 'chatSinCompaneros', 'jornadaVista']
+            .forEach(k => { try { window.AndroidBridge?.removePref?.(k); } catch (_) {} });
+        try { localStorage.removeItem('pushApuntado'); } catch (_) {}
+    },
+
     async cerrarSesion() {
         // Sin Google, lo suyo solo está en este móvil y salir lo borra
         if (this._esCuentaCorreo() && !confirm('Tu cuenta no es de Google: al cerrar sesión se borran de este móvil '
                 + 'tus jornadas y tu personalización.\n\nSi no tienes una copia, cancela y exporta antes una '
                 + '(Ajustes › Copia de seguridad › Exportar datos JSON).\n\n¿Cerrar sesión de todas formas?')) return;
+        await this._darDeBajaAvisos();
         if (this.accessToken && !this._esCuentaCorreo()) {
             fetch('https://oauth2.googleapis.com/revoke?token=' + this.accessToken, { method: 'POST' }).catch(() => {});
         }

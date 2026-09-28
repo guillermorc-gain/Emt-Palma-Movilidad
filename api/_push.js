@@ -69,6 +69,19 @@ export async function registrarPush({ email, token, app, bandeja, control }) {
   return ok ? { ok: true } : { error: 'No se pudo guardar', status: 500 };
 }
 
+// Al cerrar sesión: ese móvil deja de recibir avisos de esa cuenta
+export async function quitarPush(token) {
+  token = String(token || '').trim();
+  if (!token) return { ok: true };
+  const ok = await guardar(data => {
+    if (!data.tokens[token]) return null;
+    const tk = { ...data.tokens };
+    delete tk[token];
+    return { ...data, tokens: tk };
+  }, 'Avisos: móvil que ha cerrado sesión');
+  return ok ? { ok: true } : { error: 'No se pudo guardar', status: 500 };
+}
+
 // La cuenta de servicio. Si al pegarla en Vercel los saltos de línea de la
 // clave quedaron de verdad (y no como \n), el JSON ya no se lee: entonces se
 // sacan los tres datos que hacen falta a mano.
