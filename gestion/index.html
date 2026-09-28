@@ -857,6 +857,61 @@
         html.p-solo-iconos .tab-ico{font-size:25px;}
         html.p-solo-iconos .tab-btn{padding-top:11px;padding-bottom:11px;}
         html.p-sin-anim *,html.p-sin-anim *::before,html.p-sin-anim *::after{animation:none !important;transition:none !important;}
+        /* ── Control de acceso (tres pestañas, con autorización) ── */
+        .tab-btn[hidden]{display:none;}
+        .tab-lbl{white-space:nowrap;}
+        .ca-card{background:#fff;border-radius:12px;padding:13px;box-shadow:0 1px 3px rgba(0,0,0,0.08);flex-shrink:0;color:#2c3e50;}
+        .app-content.dark .ca-card{background:#1e2a3a;color:#e0e0e0;}
+        .ca-h{font-size:14px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+        .ca-fila{display:flex;gap:9px;}
+        .ca-fila>*{flex:1;min-width:0;}
+        .ca-fila>.ca-no-crece,.ca-h>.ca-no-crece{flex:0 0 auto;width:auto;}
+        .ca-lbl{display:block;font-size:10px;font-weight:800;color:#7f8c8d;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;}
+        .app-content.dark .ca-lbl{color:#a0a0a0;}
+        .ca-in{width:100%;padding:10px 11px;border:1.5px solid #e8eaf0;border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:#2c3e50;}
+        .ca-in:focus{outline:none;border-color:var(--g1);}
+        .app-content.dark .ca-in{background:#111827;color:#e0e0e0;border-color:#2d3561;}
+        .ca-sub{font-size:11.5px;color:#7f8c8d;font-weight:600;}
+        .app-content.dark .ca-sub,.modal-card.dark .ca-sub{color:#a0a0a0;}
+        .ca-btn{width:100%;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff;}
+        .ca-btn:disabled{opacity:0.6;}
+        .ca-pista{font-size:12px;font-weight:700;color:var(--g1);margin:-4px 0 10px;}
+        .ca-aviso{flex-shrink:0;background:#fdecea;color:#a93226;border-radius:12px;padding:12px 13px;font-size:12.5px;font-weight:600;line-height:1.5;}
+        .app-content.dark .ca-aviso{background:#3a1414;color:#f5b7b1;}
+        .ca-vacio{text-align:center;color:#95a5a6;font-size:13px;padding:24px 12px;line-height:1.6;}
+        .ca-dia{font-size:12px;font-weight:800;color:#7f8c8d;text-transform:uppercase;letter-spacing:0.4px;margin:12px 2px 6px;}
+        .app-content.dark .ca-dia{color:#a0a0a0;}
+        .ca-reg{background:#fff;border:1.5px solid #e8eaf0;border-left:4px solid #95a5a6;border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;color:#2c3e50;flex-shrink:0;}
+        .app-content.dark .ca-reg{background:#1e2a3a;border-color:#2d3561;border-left-color:#5d6d7e;color:#e0e0e0;}
+        .ca-reg.dentro{border-left-color:#27ae60;}
+        .app-content.dark .ca-reg.dentro{border-left-color:#27ae60;}
+        .ca-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+        .ca-horas{font-size:13.5px;font-weight:800;}
+        .ca-mat{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:800;background:#eaf2fd;color:var(--g1);border-radius:6px;padding:2px 8px;}
+        .app-content.dark .ca-mat{background:#14283f;color:#8fb8f5;}
+        .ca-quien{font-size:13px;font-weight:700;margin-top:4px;}
+        .ca-que{font-size:12px;color:#7f8c8d;margin-top:2px;}
+        .app-content.dark .ca-que{color:#a0a0a0;}
+        .ca-btns{display:flex;gap:8px;margin-top:8px;}
+        .ca-btns button{flex:1;padding:9px;font-size:13px;}
+        .ca-btns .ca-btn{padding:9px;font-size:13px;}
+        /* Sugerencias al escribir: una lista propia debajo del campo */
+        .ca-sug-wrap{position:relative;}
+        .ca-sug-wrap>input{width:100%;}
+        .modal-card.dark .btn-secondary{background:#2d3561;color:#e0e0e0;}
+        .ca-sug{position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1.5px solid var(--g1);border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 16px rgba(0,0,0,0.18);max-height:240px;overflow-y:auto;color:#2c3e50;}
+        .app-content.dark .ca-sug,.modal-card.dark .ca-sug{background:#1e2a3a;color:#e0e0e0;}
+        .ca-sug-op{padding:9px 11px;border-top:1px solid #eef0f3;cursor:pointer;}
+        .app-content.dark .ca-sug-op,.modal-card.dark .ca-sug-op{border-color:#2d3561;}
+        .ca-sug-op:first-child{border-top:none;}
+        .ca-sug-op:active,.ca-sug-op:hover{background:rgba(21,101,192,0.08);}
+        .ca-sug-op b{font-size:14px;}
+        .ca-sug-op span{display:block;font-size:11.5px;color:#7f8c8d;}
+
+        .ca-por{font-size:11.5px;font-weight:700;color:var(--g1);margin-top:4px;}
+        .app-content.dark .ca-por{color:#8fb8f5;}
+        .ca-exp-op{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;border:none;border-bottom:1px solid #f0f0f0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:#2c3e50;cursor:pointer;text-align:left;}
+        .modal-card.dark .ca-exp-op{color:#e0e0e0;border-color:#2d3561;}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}
@@ -1368,6 +1423,93 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div id="ntLista" class="nt-lista"></div>
         </div>
 
+        <!-- ── TAB: Control de acceso · registro (con autorización) ── -->
+        <div class="tab-panel" id="tabPanel5">
+            <div class="ca-aviso" id="caAviso" hidden></div>
+            <div class="ca-card">
+                <div class="ca-h">📅 <span id="caDiaLargo">Hoy</span></div>
+                <div class="ca-fila">
+                    <input type="date" class="ca-in" id="caFecha" onchange="app.caCambiarDia()">
+                    <button class="btn-secondary ca-no-crece" id="caHoyBtn" hidden onclick="app.caIrAHoy()">Hoy</button>
+                </div>
+            </div>
+
+            <div class="ca-card">
+                <div class="ca-h">➕ Registrar entrada</div>
+                <div class="ca-fila" style="margin-bottom:10px;">
+                    <div style="max-width:130px;">
+                        <label class="ca-lbl" for="caEntrada">Hora</label>
+                        <input type="time" class="ca-in" id="caEntrada">
+                    </div>
+                    <div>
+                        <label class="ca-lbl" for="caMatricula">Matrícula</label>
+                        <input type="text" class="ca-in" id="caMatricula" autocomplete="off" autocapitalize="characters"
+                               maxlength="20" placeholder="1234-ABC" oninput="app.caBuscarMatricula()" onchange="app.caBuscarMatricula()" onblur="this.value = formatoMatricula(this.value)">
+                    </div>
+                </div>
+                <div class="ca-pista" id="caPista" hidden></div>
+                <label class="ca-lbl" for="caNombre">Nombre</label>
+                <select class="ca-in" id="caNombreSel" hidden style="margin-bottom:8px;" onchange="app._caElegirPersona(this.value)"></select>
+                <input type="text" class="ca-in" id="caNombre" maxlength="80" placeholder="Nombre y apellidos" autocomplete="off" style="margin-bottom:10px;">
+                <label class="ca-lbl" for="caEmpresa">Empresa</label>
+                <input type="text" class="ca-in" id="caEmpresa" maxlength="80" autocomplete="off" style="margin-bottom:10px;">
+                <label class="ca-lbl" for="caVehiculo">Vehículo</label>
+                <input type="text" class="ca-in" id="caVehiculo" maxlength="80" placeholder="Marca, modelo, color… o «A pie»" autocomplete="off" style="margin-bottom:10px;">
+                <label class="ca-lbl" for="caDepartamento">Departamento</label>
+                <input type="text" class="ca-in" id="caDepartamento" maxlength="60" placeholder="Taller, Obra…" autocomplete="off" style="margin-bottom:12px;">
+                <button class="ca-btn" id="caBtn" onclick="app.caRegistrarEntrada()">✅ Registrar entrada</button>
+            </div>
+
+            <div class="ca-card">
+                <div class="ca-h">🚗 Este día <span class="ca-sub" id="caCuantos"></span>
+                    <button class="btn-secondary ca-no-crece" id="caRecargar" style="margin-left:auto;padding:6px 11px;font-size:12.5px;" onclick="app.caRecargar()">🔄 Recargar</button></div>
+                <div id="caLista"></div>
+            </div>
+        </div>
+
+        <!-- ── TAB: Historial del control de acceso ── -->
+        <div class="tab-panel" id="tabPanel6">
+            <div class="ca-aviso" id="caHistAviso" hidden></div>
+            <div class="ca-card">
+                <div class="ca-h">🔎 Buscar</div>
+                <div class="ca-fila">
+                    <div>
+                        <label class="ca-lbl" for="caDesde">Desde</label>
+                        <input type="date" class="ca-in" id="caDesde" onchange="app.caCargarRegistros(true)">
+                    </div>
+                    <div>
+                        <label class="ca-lbl" for="caHasta">Hasta</label>
+                        <input type="date" class="ca-in" id="caHasta" onchange="app.caCargarRegistros(true)">
+                    </div>
+                </div>
+                <input type="text" class="ca-in" id="caBuscar" placeholder="Matrícula, nombre, empresa…" style="margin-top:10px;" oninput="app._caRenderHistorial()">
+                <div class="ca-fila" style="margin-top:11px;">
+                    <button class="btn-secondary" onclick="app.caLimpiarFiltros()">Últimos 30 días</button>
+                    <button class="btn-secondary" onclick="app.caExportar()">⬇️ Exportar</button>
+                </div>
+            </div>
+            <div id="caHistLista"></div>
+        </div>
+
+        <!-- ── TAB: Control de acceso · visitantes ── -->
+        <div class="tab-panel" id="tabPanel7">
+            <div class="ca-card">
+                <div class="ca-h">👥 Visitantes <span class="ca-sub" id="caViCuantos"></span></div>
+                <input type="text" class="ca-in" id="caViBuscar" placeholder="Buscar matrícula, nombre, empresa…" oninput="app.caRenderVisitantes()" style="margin-bottom:10px;">
+                <div class="ca-fila">
+                    <select class="ca-in" id="caViOrden" onchange="app.caRenderVisitantes()">
+                        <option value="nombre">Ordenar por nombre</option>
+                        <option value="matricula">Ordenar por matrícula</option>
+                        <option value="empresa">Ordenar por empresa</option>
+                        <option value="departamento">Ordenar por departamento</option>
+                        <option value="visto">Última visita primero</option>
+                    </select>
+                    <button class="ca-btn ca-no-crece" style="padding:10px 14px;" onclick="app.caAbrirVisitante()">＋ Nuevo</button>
+                </div>
+            </div>
+            <div id="caViLista"></div>
+        </div>
+
         </div><!-- end appContent -->
 
         <!-- ── BOTTOM TAB BAR ── -->
@@ -1407,6 +1549,29 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                     ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
                     ondrop="app._tabDrop(event)">
                 <span class="tab-ico">🛡️</span><span class="tab-lbl">Control</span>
+            </button>
+            <!-- Control de acceso: solo con autorización (Usuarios con acceso →
+                 Control (Gestión)); las enciende _caComprobarAcceso -->
+            <button class="tab-btn" data-tab="5" id="tabBtnCaReg" hidden draggable="true"
+                    onclick="app.switchTab(5)"
+                    ondragstart="app._tabDragStart(event)" ondragend="app._tabDragEnd(event)"
+                    ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
+                    ondrop="app._tabDrop(event)">
+                <span class="tab-ico">🛡️</span><span class="tab-lbl">Acceso</span>
+            </button>
+            <button class="tab-btn" data-tab="6" id="tabBtnCaHist" hidden draggable="true"
+                    onclick="app.switchTab(6)"
+                    ondragstart="app._tabDragStart(event)" ondragend="app._tabDragEnd(event)"
+                    ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
+                    ondrop="app._tabDrop(event)">
+                <span class="tab-ico">🗂️</span><span class="tab-lbl">Hist. acceso</span>
+            </button>
+            <button class="tab-btn" data-tab="7" id="tabBtnCaVis" hidden draggable="true"
+                    onclick="app.switchTab(7)"
+                    ondragstart="app._tabDragStart(event)" ondragend="app._tabDragEnd(event)"
+                    ondragover="app._tabDragOver(event)" ondragleave="app._tabDragLeave(event)"
+                    ondrop="app._tabDrop(event)">
+                <span class="tab-ico">🚗</span><span class="tab-lbl">Visitantes</span>
             </button>
         </div>
     </div>
@@ -1754,6 +1919,93 @@ document.getElementById('splashScreen').addEventListener('click', function () {
         </div>
         <div class="modal-body" style="padding:0;">
             <ul id="historialModalList" style="list-style:none;"></ul>
+        </div>
+    </div>
+</div>
+
+<!-- Control de acceso: poner a mano la hora de salida -->
+<div class="modal" id="caSalidaModal">
+    <div class="modal-card" id="caSalidaModalContent" style="max-width:360px;">
+        <div class="modal-header">
+            <h3>🕒 Hora de salida</h3>
+            <button class="modal-close" onclick="app.caCerrarHoraSalida()">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="ca-sub" id="caHsTitulo" style="margin-bottom:10px;"></p>
+            <div class="edit-field"><input type="time" id="caHsHora"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="app.caCerrarHoraSalida()">Cancelar</button>
+            <button class="modal-btn modal-btn-confirm" onclick="app.caGuardarHoraSalida()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Control de acceso: corregir un registro -->
+<div class="modal" id="caRegModal">
+    <div class="modal-card" id="caRegModalContent">
+        <div class="modal-header">
+            <h3>✏️ Registro</h3>
+            <button class="modal-close" onclick="app.caCerrarRegistro()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="edit-field"><label for="caeFecha">Día</label><input type="date" id="caeFecha"></div>
+            <div class="edit-row">
+                <div class="edit-field"><label for="caeEntrada">Entrada</label><input type="time" id="caeEntrada"></div>
+                <div class="edit-field"><label for="caeSalida">Salida</label>
+                    <div style="display:flex;gap:6px;"><input type="time" id="caeSalida" style="flex:1;">
+                    <button class="btn-secondary" style="flex:none;" onclick="app.caSalidaAhoraEnCuadro()">Ahora</button></div></div>
+            </div>
+            <div class="edit-field"><label for="caeMatricula">Matrícula</label><input type="text" id="caeMatricula" maxlength="20" autocapitalize="characters" autocomplete="off" onblur="this.value = formatoMatricula(this.value)"></div>
+            <div class="edit-field"><label for="caeNombre">Nombre</label><input type="text" id="caeNombre" maxlength="80" autocomplete="off"></div>
+            <div class="edit-field"><label for="caeEmpresa">Empresa</label><input type="text" id="caeEmpresa" maxlength="80" autocomplete="off"></div>
+            <div class="edit-field"><label for="caeVehiculo">Vehículo</label><input type="text" id="caeVehiculo" maxlength="80" autocomplete="off"></div>
+            <div class="edit-field"><label for="caeDepartamento">Departamento</label><input type="text" id="caeDepartamento" maxlength="60" autocomplete="off"></div>
+            <p class="ca-sub" id="caeFirma" style="margin-top:6px;"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-danger" id="caeBorrar" style="flex:0 0 auto;padding:11px 14px;" onclick="app.caBorrarRegistro()">🗑️</button>
+            <button class="modal-btn modal-btn-cancel" onclick="app.caCerrarRegistro()">Cancelar</button>
+            <button class="modal-btn modal-btn-confirm" onclick="app.caGuardarRegistro()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Control de acceso: una persona del directorio de visitantes -->
+<div class="modal" id="caVisModal">
+    <div class="modal-card" id="caVisModalContent">
+        <div class="modal-header">
+            <h3 id="caVisTitulo">➕ Nuevo visitante</h3>
+            <button class="modal-close" onclick="app.caCerrarVisitante()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="edit-field"><label for="caVMatricula">Matrícula</label><input type="text" id="caVMatricula" maxlength="20" autocapitalize="characters" placeholder="1234-ABC" autocomplete="off" onblur="this.value = formatoMatricula(this.value)"></div>
+            <div class="edit-field"><label for="caVNombre">Nombre</label><input type="text" id="caVNombre" maxlength="80" autocomplete="off"></div>
+            <div class="edit-field"><label for="caVEmpresa">Empresa</label><input type="text" id="caVEmpresa" maxlength="80" autocomplete="off"></div>
+            <div class="edit-field"><label for="caVVehiculo">Vehículo</label><input type="text" id="caVVehiculo" maxlength="80" autocomplete="off"></div>
+            <div class="edit-field"><label for="caVDepartamento">Departamento</label><input type="text" id="caVDepartamento" maxlength="60" autocomplete="off"></div>
+            <p class="ca-sub" id="caVFirma" style="margin-top:6px;"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-danger" id="caVBorrar" style="flex:0 0 auto;padding:11px 14px;" onclick="app.caBorrarVisitante()">🗑️</button>
+            <button class="modal-btn modal-btn-cancel" onclick="app.caCerrarVisitante()">Cancelar</button>
+            <button class="modal-btn modal-btn-confirm" onclick="app.caGuardarVisitante()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Control de acceso: exportar lo que se ve en el historial -->
+<div class="modal" id="caExpModal">
+    <div class="modal-card" id="caExpModalContent" style="max-width:380px;">
+        <div class="modal-header">
+            <h3>⬇️ Exportar registros</h3>
+            <button class="modal-close" onclick="app.caCerrarExport()">×</button>
+        </div>
+        <div class="modal-body" style="padding:0;">
+            <p class="ca-sub" id="caExpResumen" style="padding:12px 16px 6px;"></p>
+            <button class="ca-exp-op" onclick="app.caExportarSheets()">📄 Google Sheets</button>
+            <button class="ca-exp-op" onclick="app.caExportarXLS()">📗 Excel (.xlsx)</button>
+            <button class="ca-exp-op" onclick="app.caExportarCSV()" style="border-bottom:none;">📊 CSV</button>
         </div>
     </div>
 </div>

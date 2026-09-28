@@ -377,12 +377,8 @@ const app = {
     // salía la pantalla de error y se quedaba sin poder entrar por ningún
     // lado. Quien la tenga instalada la abre desde su icono, que para eso está.
     elegirRol(rol) {
-        // Gestión son dos, y antes de entrar se pregunta cuál
-        if (rol === 'gestion') {
-            try { history.pushState({ pantalla: 'gestion' }, '', '/'); } catch (_) {}
-            this._pintarBienvenida();
-            return;
-        }
+        // Gestión es una sola: la de Control de acceso está ahora dentro
+        if (rol === 'gestion') { window.location.href = '/gestion/'; return; }
         if (rol === 'volver') {
             if (history.state?.pantalla === 'gestion') { history.back(); return; }
             try { history.replaceState(null, '', '/'); } catch (_) {}
@@ -391,7 +387,6 @@ const app = {
         }
         const webs = {
             'gestion-emt':     '/gestion/',
-            'gestion-control': '/control/?app=gestion-control',
         };
         if (webs[rol]) { window.location.href = webs[rol]; return; }
         try { history.pushState({ pantalla: 'trabajador' }, '', '/?app=trabajador'); } catch (_) {}
