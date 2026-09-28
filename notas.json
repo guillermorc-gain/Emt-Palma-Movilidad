@@ -143,6 +143,10 @@
       "guillermo.rc82@gmail.com": {
         "nombre": "Guillermo Ríos Correa",
         "en": "2026-09-28T19:09:20.273Z"
+      },
+      "g.rioscorrea@gmail.com": {
+        "nombre": "Guillermo Ríos Correa",
+        "en": "2026-09-28T19:09:49.071Z"
       }
     },
     "mensajes": [
@@ -156,6 +160,11 @@
     ],
     "archivada": false,
     "de": "trabajador",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "g.rioscorrea@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-28T19:09:49.071Z"
+    }
   }
 }
