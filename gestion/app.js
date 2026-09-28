@@ -121,7 +121,7 @@ const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 // Se guarda junto y se aplica como clases en <html>, antes de pintar nada.
 const PERSONAL_DEF = { texto: 'normal', cabecera: 'degradado', pestanas: 'todo',
                        animaciones: true, inicio: 'normal', pestanaInicio: '0',
-                       estilo: 'clasico', fuente: 'sistema' };
+                       estilo: 'clasico', fuente: 'sistema', tema: '' };
 const ZOOM_TEXTO = { pequeno: 0.9, normal: 1, grande: 1.12, muygrande: 1.25 };
 function leerPersonal() {
     try { return { ...PERSONAL_DEF, ...JSON.parse(localStorage.getItem('personal') || '{}') }; }
@@ -209,11 +209,118 @@ function reglasDeEstilo(nombre) {
     }
     return css;
 }
+// ── Temas (Opciones → Apariencia → Tema) ─────────────────────────────────
+// Un tema cambia la app entera: colores, tipografía, formas y cabecera. Los
+// colores fijos de las hojas de estilo (el blanco de las tarjetas, el gris
+// del texto, los bordes…) se reasignan a los del tema recorriendo las reglas,
+// igual que el estilo; lo demás (tipografía, cabecera) va en el CSS de cada
+// tema. Los oscuros ponen la app en modo oscuro y los claros lo quitan.
+const TEMAS_APP = {
+    medianoche:   { nombre: 'Medianoche', oscuro: true, estilo: '', muestra: ['#0b1020', '#22d3ee', '#6366f1'],
+                    bg: '#0b1020', card: '#141c33', soft: '#1a2444', tint: '#1b2d6b', ink: '#dce6ff', sub: '#8b9ac4', line: '#26345e' },
+    amanecer:     { nombre: 'Amanecer', oscuro: false, estilo: 'redondeado', muestra: ['#fff7f0', '#ff8a4c', '#ff5f7e'],
+                    bg: '#fff7f0', card: '#ffffff', soft: '#fff0e6', tint: '#ffe7d8', ink: '#3b2a24', sub: '#9b7d70', line: '#ffd9c2' },
+    bosque:       { nombre: 'Bosque', oscuro: false, estilo: 'plano', muestra: ['#f1efe6', '#2f5a3e', '#6b8f47'],
+                    bg: '#f1efe6', card: '#fbfaf5', soft: '#ece8da', tint: '#e3ecdc', ink: '#233127', sub: '#6f7a68', line: '#dcd7c5' },
+    oceano:       { nombre: 'Océano', oscuro: false, estilo: 'redondeado', muestra: ['#e0f7fa', '#00a6b8', '#1565c0'],
+                    bg: '#e6f6fa', card: 'rgba(255, 255, 255, 0.8)', soft: '#dff1f7', tint: '#d3eef6', ink: '#0f3b4c', sub: '#5b7f8f', line: '#c9e3ec' },
+    grafito:      { nombre: 'Grafito', oscuro: true, estilo: 'recto', muestra: ['#1a1b1e', '#f4c542', '#34353a'],
+                    bg: '#1a1b1e', card: '#232428', soft: '#2a2b30', tint: '#3a3320', ink: '#e6e3dc', sub: '#9a978f', line: '#34353a' },
+    pastel:       { nombre: 'Pastel', oscuro: false, estilo: 'redondeado', muestra: ['#f6f3ff', '#c9b8ff', '#a8e6cf'],
+                    bg: '#f6f3ff', card: '#ffffff', soft: '#f1edff', tint: '#ece6ff', ink: '#3d3654', sub: '#8a83a3', line: '#e5defa' },
+    retro:        { nombre: 'Retro 80', oscuro: true, estilo: 'recto', muestra: ['#1b0f33', '#ff3cac', '#ffd319'],
+                    bg: '#1b0f33', card: '#251548', soft: '#2d1a57', tint: '#3a2468', ink: '#f3e9ff', sub: '#b7a3d9', line: '#784ba0' },
+    mediterraneo: { nombre: 'Mediterráneo', oscuro: false, estilo: '', muestra: ['#fbfaf7', '#1d4e89', '#c8553d'],
+                    bg: '#fbfaf7', card: '#ffffff', soft: '#f4f1ea', tint: '#e8eef6', ink: '#1d3557', sub: '#6b7a8f', line: '#e7e2d8' },
+};
+// Los colores fijos de la app, por su papel (en claro y en oscuro)
+const COLORES_FIJOS = {
+    fondo: {
+        card: ['white', 'rgb(255, 255, 255)', 'rgb(30, 42, 58)'],
+        soft: ['rgb(238, 241, 246)', 'rgb(244, 246, 249)', 'rgb(238, 242, 247)', 'rgb(232, 234, 240)', 'rgb(245, 247, 250)',
+               'rgb(22, 32, 46)', 'rgb(35, 43, 69)', 'rgb(22, 31, 46)', 'rgb(29, 39, 56)', 'rgb(45, 53, 97)'],
+        bg:   ['rgb(17, 24, 39)'],
+        tint: ['rgb(234, 242, 253)', 'rgb(20, 40, 63)'],
+    },
+    texto: {
+        ink: ['rgb(44, 62, 80)', 'rgb(51, 51, 51)', 'rgb(85, 85, 85)', 'rgb(224, 224, 224)', 'rgb(230, 237, 243)'],
+        sub: ['rgb(127, 140, 141)', 'rgb(149, 165, 166)', 'rgb(90, 107, 125)', 'rgb(93, 109, 126)', 'rgb(160, 160, 160)',
+              'rgb(200, 207, 224)', 'rgb(147, 161, 179)', 'rgb(125, 133, 144)'],
+    },
+    borde: {
+        line: ['rgb(223, 228, 234)', 'rgb(232, 234, 240)', 'rgb(207, 216, 227)', 'rgb(242, 242, 242)', 'rgb(239, 239, 239)',
+               'rgb(240, 240, 240)', 'rgb(224, 224, 224)', 'rgb(45, 53, 97)', 'rgb(245, 245, 245)', 'rgb(236, 240, 241)'],
+    },
+};
+function reglasDeTema(id) {
+    const t = TEMAS_APP[id];
+    if (!t) return '';
+    const mapa = {};
+    Object.entries(COLORES_FIJOS).forEach(([tipo, roles]) => {
+        mapa[tipo] = {};
+        Object.entries(roles).forEach(([rol, lista]) => lista.forEach(c => { mapa[tipo][c] = t[rol]; }));
+    });
+    const pre = `html[data-tema="${id}"]`;
+    const conPrefijo = sel => sel.split(/,(?![^(]*\))/).map(x => {
+        x = x.trim();
+        if (/^html\b/.test(x)) return x.replace(/^html/, pre);
+        if (/^:root\b/.test(x)) return x.replace(/^:root/, pre);
+        return pre + ' ' + x;
+    }).join(', ');
+    const props = [['color', 'texto'], ['background-color', 'fondo'],
+                   ['border-top-color', 'borde'], ['border-right-color', 'borde'],
+                   ['border-bottom-color', 'borde'], ['border-left-color', 'borde']];
+    const recorrer = reglas => {
+        let out = '';
+        for (const r of reglas) {
+            if (r.type === 4 && r.cssRules) {
+                const dentro = recorrer(r.cssRules);
+                if (dentro) out += `@media ${r.conditionText || r.media.mediaText}{${dentro}}`;
+                continue;
+            }
+            if (r.type !== 1 || !r.selectorText || /#splashScreen|rol-|modo/.test(r.selectorText)) continue;
+            const decl = [];
+            props.forEach(([p, tipo]) => {
+                const v = r.style.getPropertyValue(p);
+                const nuevo = v && mapa[tipo][v];
+                if (nuevo) decl.push(`${p}:${nuevo}${r.style.getPropertyPriority(p) ? ' !important' : ''}`);
+            });
+            // El fondo dado con la abreviatura y un color solo
+            const bg = r.style.getPropertyValue('background');
+            if (bg && !r.style.getPropertyValue('background-color') && mapa.fondo[bg.trim()]) {
+                decl.push(`background:${mapa.fondo[bg.trim()]}`);
+            }
+            if (decl.length) out += `${conPrefijo(r.selectorText)}{${decl.join(';')}}`;
+        }
+        return out;
+    };
+    let css = '';
+    for (const hoja of document.styleSheets) {
+        if (['pEstiloCss', 'pTemaCss'].includes(hoja.ownerNode?.id)) continue;
+        try { css += recorrer(hoja.cssRules); } catch (_) {}
+    }
+    return css;
+}
+function aplicarTemaApp(p) {
+    const h = document.documentElement;
+    const id = TEMAS_APP[p.tema] ? p.tema : '';
+    if (id) h.dataset.tema = id; else delete h.dataset.tema;
+    let el = document.getElementById('pTemaCss');
+    if (!id) { if (el) el.textContent = ''; return; }
+    if (el?.dataset.de === id) return;
+    if (!el) { el = document.createElement('style'); el.id = 'pTemaCss'; document.head.appendChild(el); }
+    el.textContent = reglasDeTema(id);
+    el.dataset.de = id;
+}
 function aplicarEstiloYFuente(p) {
     const h = document.documentElement;
-    const estilo = ESTILOS_FORMA[p.estilo] ? p.estilo : '';
+    const tema = TEMAS_APP[p.tema];
+    aplicarTemaApp(p);
+    // Con un tema puesto, la forma y la letra son las suyas
+    const deseado = tema ? tema.estilo : p.estilo;
+    const estilo = ESTILOS_FORMA[deseado] ? deseado : '';
     if (estilo) h.dataset.estilo = estilo; else delete h.dataset.estilo;
-    if (p.fuente && p.fuente !== 'sistema') h.dataset.fuente = p.fuente; else delete h.dataset.fuente;
+    if (!tema && p.fuente && p.fuente !== 'sistema') h.dataset.fuente = p.fuente; else delete h.dataset.fuente;
     let el = document.getElementById('pEstiloCss');
     if (!estilo) { if (el) el.textContent = ''; return; }
     if (el?.dataset.de === estilo) return;
@@ -357,6 +464,7 @@ const app = {
         this._migrarUbicacionAntigua();
         this.setupUI();
         if (this.darkMode) this.aplicarDarkMode();
+        this._aplicarModoDelTema();
         this._restaurarTabs();
         this._initSwipeTabs();
         this._restaurarMensual();
@@ -1783,11 +1891,20 @@ const app = {
 
     // ── Personalizar ─────────────────────────────────────────────────────────
 
+    // Los temas oscuros ponen la app en modo oscuro y los claros lo quitan;
+    // sin tema, vale lo que se eligiera en Modo oscuro
+    _aplicarModoDelTema() {
+        const t = TEMAS_APP[leerPersonal().tema];
+        this.darkMode = t ? t.oscuro : localStorage.getItem('darkMode') === 'true';
+        if (this.darkMode) this.aplicarDarkMode(); else this.removerDarkMode();
+    },
+
     cambiarPersonal(clave, valor) {
         const p = leerPersonal();
         p[clave] = valor;
         try { localStorage.setItem('personal', JSON.stringify(p)); } catch (_) {}
         aplicarPersonal(p);
+        if (clave === 'tema') this._aplicarModoDelTema();
         this._pintarPersonal();
         
     },
@@ -1798,6 +1915,21 @@ const app = {
         v('pTexto', p.texto); v('pCabecera', p.cabecera); v('pPestanas', p.pestanas);
         v('pInicio', p.inicio); v('pPestanaInicio', p.pestanaInicio);
         v('pEstilo', p.estilo); v('pFuente', p.fuente);
+        const grid = document.getElementById('pTemas');
+        if (grid) {
+            const esc2 = t => String(t).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+            const op = (id, nombre, cols) => `<button type="button" class="tema-op${(p.tema || '') === id ? ' on' : ''}"
+                onclick="app.cambiarPersonal('tema', '${id}')"><span class="tema-mini">${
+                cols.map(c => `<span style="background:${esc2(c)}"></span>`).join('')}</span>${esc2(nombre)}</button>`;
+            grid.innerHTML = op('', 'Clásico', ['#ffffff', '#1565C0', '#003A99'])
+                + Object.entries(TEMAS_APP).map(([id, t]) => op(id, t.nombre, t.muestra)).join('');
+        }
+        // Con un tema, el color y el modo oscuro los pone él, y también la
+        // forma y la letra
+        ['filaColor', 'filaOscuro', 'filaEstilo', 'filaFuente'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.hidden = !!TEMAS_APP[p.tema];
+        });
         const a = document.getElementById('pAnim');
         if (a) a.checked = p.animaciones !== false;
     },
@@ -9575,7 +9707,7 @@ const app = {
 
     _getPreferencias() {
         return {
-            darkMode: this.darkMode,
+            darkMode: localStorage.getItem('darkMode') === 'true',
             tema: this.tema,
             avatarEmoji: localStorage.getItem('avatarEmoji') || null,
             avatarBg: localStorage.getItem('avatarBg') || null,

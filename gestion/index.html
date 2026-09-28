@@ -846,6 +846,97 @@
         html[data-fuente="legible"] body,html[data-fuente="legible"] body *{font-family:'EMT Atkinson',sans-serif !important;}
         html[data-fuente="estrecha"] body,html[data-fuente="estrecha"] body *{font-family:'Roboto Condensed','sans-serif-condensed','Arial Narrow',sans-serif !important;}
         html[data-fuente="maquina"] body,html[data-fuente="maquina"] body *{font-family:ui-monospace,'Roboto Mono','Droid Sans Mono',Menlo,monospace !important;}
+        /* ── Temas (Opciones → Apariencia → Tema). Los colores fijos los
+           reasigna aplicarTemaApp; aquí va lo propio de cada uno. ── */
+        @font-face{font-family:'EMT Sora';src:url(fonts/sora.woff2) format('woff2');font-weight:100 800;font-display:swap;}
+        @font-face{font-family:'EMT Barlow Condensed';src:url(fonts/barlow-cond-600.woff2) format('woff2');font-weight:500 600;font-display:swap;}
+        @font-face{font-family:'EMT Barlow Condensed';src:url(fonts/barlow-cond-700.woff2) format('woff2');font-weight:700 900;font-display:swap;}
+        @font-face{font-family:'EMT Barlow';src:url(fonts/barlow-400.woff2) format('woff2');font-weight:400 500;font-display:swap;}
+        @font-face{font-family:'EMT Barlow';src:url(fonts/barlow-600.woff2) format('woff2');font-weight:600 900;font-display:swap;}
+        @font-face{font-family:'EMT Quicksand';src:url(fonts/quicksand.woff2) format('woff2');font-weight:300 700;font-display:swap;}
+        @font-face{font-family:'EMT Righteous';src:url(fonts/righteous.woff2) format('woff2');font-weight:400 900;font-display:swap;}
+        @font-face{font-family:'EMT Rubik';src:url(fonts/rubik.woff2) format('woff2');font-weight:300 900;font-display:swap;}
+        @font-face{font-family:'EMT Playfair';src:url(fonts/playfair.woff2) format('woff2');font-weight:400 900;font-display:swap;}
+        @font-face{font-family:'EMT Source Sans';src:url(fonts/sourcesans.woff2) format('woff2');font-weight:200 900;font-display:swap;}
+        /* Colores de la app */
+        html[data-tema="medianoche"] body{--g1:#1fb6d6;--g2:#6366f1;--gdark1:#101a3a;--gdark2:#0b1020;}
+        html[data-tema="amanecer"] body{--g1:#ff8a4c;--g2:#ff5f7e;--gdark1:#ff8a4c;--gdark2:#ff5f7e;}
+        html[data-tema="bosque"] body{--g1:#2f5a3e;--g2:#1f3d2b;--gdark1:#1f3d2b;--gdark2:#1f3d2b;}
+        html[data-tema="oceano"] body{--g1:#00a6b8;--g2:#1565c0;--gdark1:#00a6b8;--gdark2:#1565c0;}
+        html[data-tema="grafito"] body{--g1:#d4a017;--g2:#a87c0d;--gdark1:#26272b;--gdark2:#26272b;}
+        html[data-tema="pastel"] body{--g1:#9d86f5;--g2:#7fcfb0;--gdark1:#c9b8ff;--gdark2:#a8e6cf;}
+        html[data-tema="retro"] body{--g1:#ff3cac;--g2:#784ba0;--gdark1:#ff3cac;--gdark2:#2b86c5;}
+        html[data-tema="mediterraneo"] body{--g1:#1d4e89;--g2:#173f6f;--gdark1:#1d4e89;--gdark2:#173f6f;}
+        /* El fondo de la pantalla y la barra de pestañas */
+        html[data-tema="medianoche"] .container{background:#0b1020 !important;}
+        html[data-tema="amanecer"] .container{background:#fff7f0 !important;}
+        html[data-tema="bosque"] .container{background:#f1efe6 !important;}
+        html[data-tema="oceano"] .container{background:linear-gradient(180deg,#e0f7fa,#e8f1ff) !important;}
+        html[data-tema="grafito"] .container{background:#1a1b1e !important;}
+        html[data-tema="pastel"] .container{background:#f6f3ff !important;}
+        html[data-tema="retro"] .container{background:#1b0f33 !important;}
+        html[data-tema="mediterraneo"] .container{background:#fbfaf7 !important;}
+        html[data-tema] .tab-bar{background:var(--tema-tab,rgba(255,255,255,.92)) !important;}
+        html[data-tema="medianoche"]{--tema-tab:#0e1428;--tema-on:#22d3ee;}
+        html[data-tema="amanecer"]{--tema-tab:#ffffff;--tema-on:#ff5f7e;}
+        html[data-tema="bosque"]{--tema-tab:#fbfaf5;--tema-on:#2f5a3e;}
+        html[data-tema="oceano"]{--tema-tab:rgba(255,255,255,.85);--tema-on:#0a7fa8;}
+        html[data-tema="grafito"]{--tema-tab:#212226;--tema-on:#f4c542;}
+        html[data-tema="pastel"]{--tema-tab:#ffffff;--tema-on:#8a6cff;}
+        html[data-tema="retro"]{--tema-tab:#140a28;--tema-on:#ffd319;}
+        html[data-tema="mediterraneo"]{--tema-tab:#fbfaf7;--tema-on:#1d4e89;}
+        html[data-tema] .tab-btn.active .tab-lbl{color:var(--tema-on) !important;}
+        /* Tipografías: una para el texto y otra para títulos y números */
+        html[data-tema="medianoche"] body,html[data-tema="medianoche"] body *{font-family:'EMT Sora',sans-serif !important;}
+        html[data-tema="amanecer"] body,html[data-tema="amanecer"] body *{font-family:'EMT Nunito',sans-serif !important;}
+        html[data-tema="bosque"] body,html[data-tema="bosque"] body *{font-family:'EMT Source Sans',sans-serif !important;}
+        html[data-tema="oceano"] body,html[data-tema="oceano"] body *{font-family:'EMT Poppins',sans-serif !important;}
+        html[data-tema="grafito"] body,html[data-tema="grafito"] body *{font-family:'EMT Barlow',sans-serif !important;}
+        html[data-tema="pastel"] body,html[data-tema="pastel"] body *{font-family:'EMT Quicksand',sans-serif !important;}
+        html[data-tema="retro"] body,html[data-tema="retro"] body *{font-family:'EMT Rubik',sans-serif !important;}
+        html[data-tema="mediterraneo"] body,html[data-tema="mediterraneo"] body *{font-family:'EMT Source Sans',sans-serif !important;}
+        html[data-tema] :is(.app-header-title,.stat-value,.ops-title,.modal-header h3,.cond-title,.cuad-title,.pa-title,.ca-h,.splash-title){font-family:var(--tema-disp) !important;}
+        html[data-tema="medianoche"]{--tema-disp:'EMT Sora',sans-serif;}
+        html[data-tema="amanecer"]{--tema-disp:'EMT Nunito',sans-serif;}
+        html[data-tema="bosque"]{--tema-disp:'EMT Lora',Georgia,serif;}
+        html[data-tema="oceano"]{--tema-disp:'EMT Poppins',sans-serif;}
+        html[data-tema="grafito"]{--tema-disp:'EMT Barlow Condensed',sans-serif;}
+        html[data-tema="pastel"]{--tema-disp:'EMT Quicksand',sans-serif;}
+        html[data-tema="retro"]{--tema-disp:'EMT Righteous',sans-serif;}
+        html[data-tema="mediterraneo"]{--tema-disp:'EMT Playfair',Georgia,serif;}
+        /* La cabecera de cada uno */
+        html[data-tema="medianoche"] .app-header{overflow:hidden;}
+        html[data-tema="medianoche"] .app-header::after{content:'';position:absolute;right:-40px;top:-50px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.35),transparent 70%);pointer-events:none;}
+        html[data-tema="amanecer"] .app-header{border-radius:0 0 24px 24px;}
+        html[data-tema="oceano"] .app-header{padding-bottom:18px;}
+        html[data-tema="oceano"] .app-header::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:10px;background:radial-gradient(circle at 10px -4px,transparent 11px,#e0f7fa 12px) repeat-x;background-size:20px 10px;pointer-events:none;}
+        html[data-tema="grafito"] .app-header{border-bottom:3px solid #f4c542;}
+        html[data-tema="grafito"] .app-header-title{color:#f4c542 !important;text-transform:uppercase;letter-spacing:1px;}
+        html[data-tema="grafito"] .stat-value{color:#f4c542;}
+        html[data-tema="pastel"] .app-header,html[data-tema="pastel"] .app-header *{color:#3d3654 !important;}
+        html[data-tema="retro"] .app-header{background:linear-gradient(180deg,#ff3cac 0%,#784ba0 55%,#2b86c5 100%) !important;}
+        html[data-tema="retro"] .app-header::after{content:'';position:absolute;inset:auto 0 0 0;height:18px;pointer-events:none;background:repeating-linear-gradient(90deg,rgba(255,255,255,.25) 0 1px,transparent 1px 22px),repeating-linear-gradient(0deg,rgba(255,255,255,.25) 0 1px,transparent 1px 7px);}
+        html[data-tema="retro"] :is(.stat-card,.ops-section,.cv-card,.ca-card,.modal-card){border:2px solid #ff3cac !important;box-shadow:4px 4px 0 #2b86c5 !important;}
+        html[data-tema="retro"] .stat-value{color:#ffd319;}
+        html[data-tema="retro"] .stat-card.accent .stat-value{color:#fff;}
+        html[data-tema="mediterraneo"] .app-header{background:#fbfaf7 !important;border-bottom:4px solid transparent;border-image:repeating-linear-gradient(90deg,#1d4e89 0 14px,#fbfaf7 14px 20px,#c8553d 20px 34px,#fbfaf7 34px 40px) 4;}
+        html[data-tema="mediterraneo"] .app-header,html[data-tema="mediterraneo"] .app-header *{color:#1d3557 !important;}
+        html[data-tema="mediterraneo"] .stat-card.accent{background:#1d4e89 !important;}
+        /* La pantalla de inicio, con los colores del tema */
+        html[data-tema="medianoche"] #splashScreen{background:linear-gradient(160deg,#101a3a,#0b1020) !important;}
+        html[data-tema="amanecer"] #splashScreen{background:linear-gradient(135deg,#ff8a4c,#ff5f7e) !important;}
+        html[data-tema="bosque"] #splashScreen{background:#1f3d2b !important;}
+        html[data-tema="oceano"] #splashScreen{background:linear-gradient(135deg,#00a6b8,#1565c0) !important;}
+        html[data-tema="grafito"] #splashScreen{background:#1a1b1e !important;}
+        html[data-tema="pastel"] #splashScreen{background:linear-gradient(135deg,#9d86f5,#7fcfb0) !important;}
+        html[data-tema="retro"] #splashScreen{background:linear-gradient(180deg,#ff3cac,#784ba0 55%,#2b86c5) !important;}
+        html[data-tema="mediterraneo"] #splashScreen{background:#1d4e89 !important;}
+        /* El selector de temas */
+        .tema-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;}
+        .tema-op{border:2px solid transparent;border-radius:12px;padding:6px;background:rgba(0,0,0,.03);cursor:pointer;text-align:center;font-size:11px;font-weight:700;display:flex;flex-direction:column;gap:5px;align-items:center;color:inherit;font-family:inherit;}
+        .tema-op.on{border-color:var(--g1);}
+        .tema-mini{width:100%;height:34px;border-radius:8px;display:flex;overflow:hidden;border:1px solid rgba(0,0,0,.08);}
+        .tema-mini span{flex:1;}
         /* ── Personalizar (Opciones → Apariencia) ── */
         /* Con el texto más grande todo va con zoom, y el zoom agranda también
            las medidas de pantalla (vh): se divide para que los cuadros quepan */
@@ -1075,6 +1166,7 @@
     <script defer src="vendor/leaflet.js"></script>
 </head>
 <body>
+<script>/* En la web gestión guarda sus cosas con el prefijo gestion: (ver aislarAlmacenamiento) */try { var pp = JSON.parse(localStorage.getItem('gestion:personal') || localStorage.getItem('personal') || '{}'); if (pp.tema) document.documentElement.dataset.tema = pp.tema; } catch (e) {}</script>
 
 <!-- Splash Screen -->
 <div id="splashScreen">
@@ -1613,11 +1705,16 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <div class="ops-section">
                 <button class="ops-title" onclick="app.toggleSection(this)">🎨 Apariencia <span class="ops-chevron">›</span></button>
                 <div class="ops-body">
-                    <div class="ops-row">
+                    <div class="ops-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+                        <span class="ops-row-label">🎭 Tema</span>
+                        <span class="ops-row-sub" style="margin-top:-6px;">Cambia toda la app: colores, letra, formas y cabecera</span>
+                        <div class="tema-grid" id="pTemas"></div>
+                    </div>
+                    <div class="ops-row" id="filaOscuro">
                         <span class="ops-row-label">🌙 Modo Oscuro</span>
                         <input type="checkbox" id="darkModeToggle" onchange="app.toggleDarkMode()">
                     </div>
-                    <div class="ops-row" style="gap:12px;flex-direction:column;align-items:flex-start;">
+                    <div class="ops-row" id="filaColor" style="gap:12px;flex-direction:column;align-items:flex-start;">
                         <span class="ops-row-label">🎨 Color de la app</span>
                         <div style="display:flex;gap:12px;align-items:center;">
                             <div class="tema-dot" id="dot-azul"  style="background:linear-gradient(135deg,#1565C0,#003A99);" onclick="app.seleccionarTema('azul')"  title="Azul"></div>
@@ -1627,11 +1724,11 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                             <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
                         </div>
                     </div>
-                    <div class="ops-field" style="gap:6px;">
+                    <div class="ops-field" id="filaEstilo" style="gap:6px;">
                         <span class="ops-field-label">🧩 Estilo</span>
                         <select id="pEstilo" class="ops-input" onchange="app.cambiarPersonal('estilo', this.value)"><option value="clasico">Clásico</option><option value="redondeado">Redondeado</option><option value="recto">Recto</option><option value="plano">Plano, sin sombras</option></select>
                     </div>
-                    <div class="ops-field" style="gap:6px;">
+                    <div class="ops-field" id="filaFuente" style="gap:6px;">
                         <span class="ops-field-label">🔤 Tipografía</span>
                         <select id="pFuente" class="ops-input" onchange="app.cambiarPersonal('fuente', this.value)"><option value="sistema">La del móvil</option><option value="redonda">Redondeada (Nunito)</option><option value="moderna">Moderna (Poppins)</option><option value="clasica">Clásica (Lora)</option><option value="legible">Muy legible (Atkinson)</option><option value="estrecha">Estrecha</option><option value="maquina">Máquina de escribir</option></select>
                     </div>
