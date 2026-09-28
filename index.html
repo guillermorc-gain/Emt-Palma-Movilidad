@@ -1397,7 +1397,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                     <div>
                         <label class="ca-lbl" for="caMatricula">Matrícula</label>
                         <input type="text" class="ca-in" id="caMatricula" autocomplete="off" autocapitalize="characters"
-                               maxlength="20" placeholder="1234-ABC" oninput="app.caBuscarMatricula()" onchange="app.caBuscarMatricula()">
+                               maxlength="20" placeholder="1234-ABC" oninput="app.caBuscarMatricula()" onchange="app.caBuscarMatricula()" onblur="this.value = formatoMatricula(this.value)">
                     </div>
                 </div>
                 <div class="ca-pista" id="caPista" hidden></div>
@@ -1973,7 +1973,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                     <div style="display:flex;gap:6px;"><input type="time" id="caeSalida" style="flex:1;">
                     <button class="btn-secondary" style="flex:none;" onclick="app.caSalidaAhoraEnCuadro()">Ahora</button></div></div>
             </div>
-            <div class="edit-field"><label for="caeMatricula">Matrícula</label><input type="text" id="caeMatricula" maxlength="20" autocapitalize="characters" autocomplete="off"></div>
+            <div class="edit-field"><label for="caeMatricula">Matrícula</label><input type="text" id="caeMatricula" maxlength="20" autocapitalize="characters" autocomplete="off" onblur="this.value = formatoMatricula(this.value)"></div>
             <div class="edit-field"><label for="caeNombre">Nombre</label><input type="text" id="caeNombre" maxlength="80" autocomplete="off"></div>
             <div class="edit-field"><label for="caeEmpresa">Empresa</label><input type="text" id="caeEmpresa" maxlength="80" autocomplete="off"></div>
             <div class="edit-field"><label for="caeVehiculo">Vehículo</label><input type="text" id="caeVehiculo" maxlength="80" autocomplete="off"></div>

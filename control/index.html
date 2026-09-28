@@ -410,7 +410,7 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
                         <div>
                             <label class="lbl" for="rMatricula">Matrícula</label>
                             <input type="text" id="rMatricula" autocomplete="off" autocapitalize="characters"
-                                   maxlength="20" placeholder="1234-ABC" oninput="app.buscarMatricula()" onchange="app.buscarMatricula()">
+                                   maxlength="20" placeholder="1234-ABC" oninput="app.buscarMatricula()" onchange="app.buscarMatricula()" onblur="this.value = formatoMatricula(this.value)">
                         </div>
                     </div>
                     <div class="r-pista" id="rPista" hidden></div>
@@ -743,7 +743,7 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
             <button class="modal-x" onclick="app.cerrarVisitante()">×</button></div>
         <div class="modal-body">
             <label class="lbl" for="vMatricula">Matrícula</label>
-            <input type="text" id="vMatricula" maxlength="20" autocapitalize="characters" placeholder="1234-ABC" style="margin-bottom:10px;">
+            <input type="text" id="vMatricula" maxlength="20" autocapitalize="characters" placeholder="1234-ABC" onblur="this.value = formatoMatricula(this.value)" style="margin-bottom:10px;">
             <label class="lbl" for="vNombre">Nombre</label>
             <input type="text" id="vNombre" maxlength="80" style="margin-bottom:10px;">
             <label class="lbl" for="vEmpresa">Empresa</label>
@@ -794,7 +794,7 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
                     <button class="btn sec chico" style="width:auto;padding:8px 10px;flex:none;" onclick="app.salidaAhoraEnCuadro()">Ahora</button></div></div>
             </div>
             <label class="lbl" for="eMatricula">Matrícula</label>
-            <input type="text" id="eMatricula" maxlength="20" autocapitalize="characters" style="margin-bottom:10px;">
+            <input type="text" id="eMatricula" maxlength="20" autocapitalize="characters" onblur="this.value = formatoMatricula(this.value)" style="margin-bottom:10px;">
             <label class="lbl" for="eNombre">Nombre</label>
             <input type="text" id="eNombre" maxlength="80" style="margin-bottom:10px;">
             <label class="lbl" for="eEmpresa">Empresa</label>

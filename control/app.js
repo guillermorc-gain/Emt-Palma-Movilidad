@@ -85,6 +85,20 @@ const FICHERO_COPIA = (ES_GC ? 'Gestión control de acceso' : 'Control de acceso
 
 const esc = t => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 
+// La matrícula con sus guiones aunque se escriban sin ellos: las de ahora,
+// 1234ABC → 1234-ABC, y las de provincia de antes, PM1234AB → PM-1234-AB.
+// Lo que no tenga una de esas formas (extranjeras, remolques…) se deja
+// como se escribió, solo en mayúsculas.
+function formatoMatricula(m) {
+    const t = String(m || '').trim().toUpperCase();
+    const k = t.replace(/[^A-Z0-9]/g, '');
+    let x = /^(\d{4})([A-Z]{3})$/.exec(k);
+    if (x) return `${x[1]}-${x[2]}`;
+    x = /^([A-Z]{1,2})(\d{4})([A-Z]{1,2})$/.exec(k);
+    if (x) return `${x[1]}-${x[2]}-${x[3]}`;
+    return t;
+}
+
 // Los sonidos para elegir. Cada uno son tramos seguidos: [Hz, segundos,
 // forma, Hz final]; con Hz 0 es un silencio. El montaje del APK hace los
 // ficheros con los mismos tramos, así que la prueba suena igual que el aviso.
@@ -1613,7 +1627,7 @@ const app = {
 
     async guardarVisitante() {
         const g = id => (document.getElementById(id)?.value || '').trim();
-        const ficha = { matricula: g('vMatricula').toUpperCase(), nombre: g('vNombre'), empresa: g('vEmpresa'),
+        const ficha = { matricula: formatoMatricula(g('vMatricula')), nombre: g('vNombre'), empresa: g('vEmpresa'),
                         vehiculo: g('vVehiculo'), departamento: g('vDepartamento') };
         if (!this._claveMatricula(ficha.matricula)) { this._mostrarToast('❌ Falta la matrícula', 3000); return; }
         try {
@@ -1751,7 +1765,7 @@ const app = {
                 delete this._autorrellenado[id];
             }
         });
-        if (v) el.value = v.matricula || el.value;
+        if (v) el.value = formatoMatricula(v.matricula || el.value);
         const clave = this._claveMatricula(el.value);
         // "Nueva" solo si no hay ninguna que la contenga: a medio escribir aún
         // puede ser una conocida, y para eso están las sugerencias
@@ -1829,7 +1843,7 @@ const app = {
         return {
             fecha: this._dia,
             entrada: g('rEntrada'),
-            matricula: g('rMatricula').toUpperCase(),
+            matricula: formatoMatricula(g('rMatricula')),
             nombre: g('rNombre'),
             empresa: g('rEmpresa'),
             vehiculo: g('rVehiculo'),
@@ -2092,7 +2106,7 @@ const app = {
         const g = k => (document.getElementById(k)?.value || '').trim();
         const cuerpo = {
             id, fecha: this._aClave(g('eFecha')), entrada: g('eEntrada'), salida: g('eSalida'),
-            matricula: g('eMatricula').toUpperCase(), nombre: g('eNombre'), empresa: g('eEmpresa'),
+            matricula: formatoMatricula(g('eMatricula')), nombre: g('eNombre'), empresa: g('eEmpresa'),
             vehiculo: g('eVehiculo'), departamento: g('eDepartamento'),
         };
         if (cuerpo.fecha.length !== 8 || !/^\d{2}:\d{2}$/.test(cuerpo.entrada)) {
