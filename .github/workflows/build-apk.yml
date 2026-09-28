@@ -14,6 +14,7 @@ on:
       - 'service-worker.js'
       - 'manifest.json'
       - 'icons/**'
+      - 'fonts/**'
       - 'scripts/build-www.js'
       - 'capacitor.config.json'
       - '.github/workflows/build-apk.yml'
@@ -344,6 +345,8 @@ jobs:
                           nm.cancel(1001);
                           // Y el de "registra tu jornada", que ya está registrada
                           nm.cancel(1003);
+                          // y el turno de la barra, si la de hoy ya está
+                          arrancarVigilante(ctx);
                       }
 
                       @JavascriptInterface
@@ -1029,6 +1032,15 @@ jobs:
                       new Thread(() -> {
                           while (vivo) {
                               try { ChatReceiver.repasar(getApplicationContext()); } catch (Exception ignored) {}
+                              if (registradoHoy(getSharedPreferences(PREFS, Context.MODE_PRIVATE))) {
+                                  vivo = false;
+                                  try {
+                                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(android.app.Service.STOP_FOREGROUND_REMOVE);
+                                      else stopForeground(true);
+                                  } catch (Exception ignored) {}
+                                  stopSelf();
+                                  return;
+                              }
                               // Y de paso se repinta el aviso fijo: la cuenta
                               // atrás tiene que ir bajando sola.
                               try {
@@ -1121,6 +1133,11 @@ jobs:
               // Arrancarlo es cosa de dos sitios: al abrir la app y al encender el
               // móvil. Desde el fondo Android puede no dejar, y entonces no pasa
               // nada: quedan la alarma y el trabajo periódico.
+              static boolean registradoHoy(SharedPreferences prefs) {
+                  String hoy = new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(new java.util.Date());
+                  return prefs.getString("lastRegisteredDate", "").startsWith(hoy);
+              }
+
               public static void arrancarVigilante(Context ctx) {
                   SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                   if (prefs.getString("chatEmail", "").isEmpty()) return;
@@ -1128,7 +1145,10 @@ jobs:
                   // tenerlo sin su aviso fijo. Los mensajes y el recordatorio
                   // siguen llegando por la alarma y el trabajo periódico, con
                   // algo más de retraso.
-                  if ("0".equals(prefs.getString("avisoTurno", "1"))) {
+                  // Y con la jornada de hoy ya registrada tampoco: no queda nada
+                  // que contar. Vuelve al día siguiente, en cuanto la alarma o
+                  // la app lo vuelvan a mirar.
+                  if ("0".equals(prefs.getString("avisoTurno", "1")) || registradoHoy(prefs)) {
                       try { ctx.stopService(new Intent(ctx, AvisoService.class)); } catch (Exception ignored) {}
                       return;
                   }
@@ -1202,6 +1222,7 @@ jobs:
                       final Context app = ctx.getApplicationContext();
                       new Thread(() -> {
                           try { repasar(app); } catch (Exception ignored) {}
+                          try { arrancarVigilante(app); } catch (Exception ignored) {}
                           programarAvisoChat(app);     // se vuelve a poner siempre
                       }).start();
                   }
@@ -1750,6 +1771,15 @@ jobs:
                   @Override
                   public void onReceive(Context ctx, Intent intent) {
                       final PendingResult pr = goAsync();
+                      // El aviso se quita en cuanto se pulsa: antes solo se
+                      // quitaba si todo iba bien, y con cualquier tropiezo se
+                      // quedaba en la barra aunque la jornada ya estuviera. Lo
+                      // que pase lo dice el mensaje de abajo.
+                      try {
+                          NotificationManager nm0 = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                          nm0.cancel(1001);
+                          nm0.cancel(1003);
+                      } catch (Exception ignored) {}
                       SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                       final String fileId = prefs.getString("driveFileId", null);
                       final String inicio = prefs.getString("lastHoraInicio", null);
@@ -1839,9 +1869,11 @@ jobs:
                               ((NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1001);
                               if (code == 200 || code == 201) {
                                   app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                                      .putString("lastRegisteredDate", regId)
+                                      .putString("lastRegisteredDate", regId.length() > 8 ? regId.substring(0, 8) : regId)
                                       .putString("pendingRefresh", "1")
                                       .apply();
+                                  // Con la jornada registrada, fuera también el turno de la barra
+                                  arrancarVigilante(app);
                               }
                               new Handler(Looper.getMainLooper()).post(() ->
                                   Toast.makeText(app,

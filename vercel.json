@@ -188,7 +188,7 @@
       "destination": "/control/index.html"
     },
     {
-      "source": "/((?!api/|gestion/|control/|icons/|screenshots/|manifest\\.json|service-worker\\.js|app\\.js).*)",
+      "source": "/((?!api/|gestion/|control/|icons/|fonts/|screenshots/|manifest\\.json|service-worker\\.js|app\\.js).*)",
       "destination": "/index.html"
     }
   ],

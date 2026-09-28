@@ -20,4 +20,8 @@ if (fs.existsSync(iconsDir)) fs.cpSync(iconsDir, path.join(www, 'icons'), { recu
 const vendorDir = path.join(src, 'vendor');
 if (fs.existsSync(vendorDir)) fs.cpSync(vendorDir, path.join(www, 'vendor'), { recursive: true });
 
+// Las tipografías de Opciones → Apariencia, para que funcionen sin conexión
+const fontsDir = path.join(src, 'fonts');
+if (fs.existsSync(fontsDir)) fs.cpSync(fontsDir, path.join(www, 'fonts'), { recursive: true });
+
 console.log('✅ www-gestion/ built');

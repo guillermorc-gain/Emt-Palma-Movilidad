@@ -1,0 +1,11 @@
+Tipografías para Opciones → Apariencia → Tipografía. Van dentro de cada app
+(también en gestion/fonts y control/fonts) para que funcionen sin conexión.
+Solo el juego latino, que es el que lleva el español.
+
+  nunito.woff2       Nunito                      (Redondeada)
+  poppins-*.woff2    Poppins                     (Moderna)
+  lora.woff2         Lora                        (Clásica)
+  atkinson.woff2     Atkinson Hyperlegible Next  (Muy legible)
+
+Todas con licencia SIL Open Font License 1.1 (https://openfontlicense.org),
+sacadas de los paquetes de Fontsource.

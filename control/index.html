@@ -259,6 +259,19 @@
         .avatar-option{width:100%;aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;font-size:22px;
                        display:flex;align-items:center;justify-content:center;}
 
+        /* ── Tipografía (Opciones → Apariencia). Van dentro de la app, para
+           que funcionen sin conexión; ver fonts/LEEME.txt ── */
+        @font-face{font-family:'EMT Nunito';src:url(fonts/nunito.woff2) format('woff2');font-weight:200 1000;font-display:swap;}
+        @font-face{font-family:'EMT Lora';src:url(fonts/lora.woff2) format('woff2');font-weight:400 700;font-display:swap;}
+        @font-face{font-family:'EMT Atkinson';src:url(fonts/atkinson.woff2) format('woff2');font-weight:200 800;font-display:swap;}
+        @font-face{font-family:'EMT Poppins';src:url(fonts/poppins-400.woff2) format('woff2');font-weight:400;font-display:swap;}
+        @font-face{font-family:'EMT Poppins';src:url(fonts/poppins-700.woff2) format('woff2');font-weight:600 900;font-display:swap;}
+        html[data-fuente="redonda"] body,html[data-fuente="redonda"] body *{font-family:'EMT Nunito',sans-serif !important;}
+        html[data-fuente="moderna"] body,html[data-fuente="moderna"] body *{font-family:'EMT Poppins',sans-serif !important;}
+        html[data-fuente="clasica"] body,html[data-fuente="clasica"] body *{font-family:'EMT Lora',Georgia,serif !important;}
+        html[data-fuente="legible"] body,html[data-fuente="legible"] body *{font-family:'EMT Atkinson',sans-serif !important;}
+        html[data-fuente="estrecha"] body,html[data-fuente="estrecha"] body *{font-family:'Roboto Condensed','sans-serif-condensed','Arial Narrow',sans-serif !important;}
+        html[data-fuente="maquina"] body,html[data-fuente="maquina"] body *{font-family:ui-monospace,'Roboto Mono','Droid Sans Mono',Menlo,monospace !important;}
         /* ── Personalizar (Opciones → Apariencia) ── */
         /* Con el texto más grande todo va con zoom, y el zoom agranda también
            las medidas de pantalla (vh): se divide para que los cuadros quepan */
@@ -522,6 +535,14 @@ if (location.hostname !== 'localhost' && !window.AndroidBridge) document.getElem
                         <div class="tema-dot" id="dot-acero" style="background:linear-gradient(135deg,#546E7A,#263238);" onclick="app.seleccionarTema('acero')" title="Acero"></div>
                         <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
                     </div>
+                </div>
+                <div class="ops-field">
+                    <b>🧩 Estilo</b>
+                    <select id="pEstilo" onchange="app.cambiarPersonal('estilo', this.value)"><option value="clasico">Clásico</option><option value="redondeado">Redondeado</option><option value="recto">Recto</option><option value="plano">Plano, sin sombras</option></select>
+                </div>
+                <div class="ops-field">
+                    <b>🔤 Tipografía</b>
+                    <select id="pFuente" onchange="app.cambiarPersonal('fuente', this.value)"><option value="sistema">La del móvil</option><option value="redonda">Redondeada (Nunito)</option><option value="moderna">Moderna (Poppins)</option><option value="clasica">Clásica (Lora)</option><option value="legible">Muy legible (Atkinson)</option><option value="estrecha">Estrecha</option><option value="maquina">Máquina de escribir</option></select>
                 </div>
                 <div class="ops-field">
                     <b>🔠 Tamaño del texto</b>
