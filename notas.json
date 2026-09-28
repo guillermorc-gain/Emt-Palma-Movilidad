@@ -80,6 +80,10 @@
       "g.rioscorrea@gmail.com": {
         "nombre": "Desarrollador",
         "en": "2026-09-28T18:56:44.504Z"
+      },
+      "guillermo.rc82@gmail.com": {
+        "nombre": "Guillermo Ríos Correa",
+        "en": "2026-09-28T18:57:33.985Z"
       }
     },
     "mensajes": [
@@ -89,6 +93,13 @@
         "texto": "Jj",
         "adjuntos": [],
         "en": "2026-09-28T18:56:44.504Z"
+      },
+      {
+        "de": "guillermo.rc82@gmail.com",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Jeje",
+        "adjuntos": [],
+        "en": "2026-09-28T18:57:33.985Z"
       }
     ],
     "archivada": false,
