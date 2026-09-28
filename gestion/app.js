@@ -2435,12 +2435,10 @@ const app = {
         return `<span class="cond-visto" title="${t}${hora ? ' · ' + hora : ''}">✓✓ visto${hora ? ' ' + hora : ''}</span>`;
     },
 
-    // Los conductores que se ven: nunca los ocultos, y los de prueba solo
-    // para el gestor.
+    // Los conductores que se ven: nunca los ocultos. Los de prueba los decide
+    // el desarrollador: los que él deja a la vista salen también en gestión.
     _conductoresVisibles() {
-        const soy = this._soyElGestor();
-        return Object.values(this._conductores || {})
-            .filter(u => !u.oculto && (soy || !u.ficticio));
+        return Object.values(this._conductores || {}).filter(u => !u.oculto);
     },
 
     // Record ids are YYYYMMDD for the first entry of a day, then YYYYMMDD-2, -3…
@@ -8999,10 +8997,10 @@ const app = {
         const esHoy = this._puestosOffset === 0;
         const orden = localStorage.getItem('ordenTrabajadores') || 'nombre';
         // Aquí sí entran los ocultos —el filtro "Ocultos" es el único sitio
-        // desde donde se pueden volver a mostrar—, pero los de prueba solo
-        // para el gestor.
+        // desde donde se pueden volver a mostrar—. Los de prueba, en gestión
+        // solo si el desarrollador los ha dejado a la vista; ocultos, solo él.
         const soyGestor = this._soyElGestor();
-        const todos = Object.values(this._conductores || {}).filter(u => soyGestor || !u.ficticio);
+        const todos = Object.values(this._conductores || {}).filter(u => soyGestor || !u.ficticio || !u.oculto);
         const filtro = localStorage.getItem('filtroTrabajadores') || 'todos';
         this._renderFiltrosCond(todos, fecha);
         const lista = todos
@@ -9092,8 +9090,8 @@ const app = {
                             onclick="event.stopPropagation();app.editarBajas('${esc(u.email)}')">BE</button>
                     <button class="be-btn pr-btn${this._prsDe(u, fecha.slice(0, 4)).has(fecha) ? ' on' : ''}" title="Permiso retribuido (2 al año)"
                             onclick="event.stopPropagation();app.marcarPR('${esc(u.email)}','${esc(fecha)}',this)">PR</button>
-                    <button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
-                            onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>
+                    ${u.ficticio && !soyGestor ? '' : `<button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
+                            onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>`}
                     </div>
                     <span class="cond-chev">▾</span>
                 </div>
