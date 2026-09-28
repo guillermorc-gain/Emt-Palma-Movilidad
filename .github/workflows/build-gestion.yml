@@ -1198,13 +1198,21 @@ jobs:
               public static class PushService extends com.google.firebase.messaging.FirebaseMessagingService {
                   @Override
                   public void onMessageReceived(com.google.firebase.messaging.RemoteMessage msg) {
+                      final Context ctx = getApplicationContext();
+                      String t0 = msg.getData().get("tipo");
+                      final String tipo = t0 == null ? "chat" : t0;
+                      // Con la app delante, que mire ella ya lo que toque
                       final MainActivity act = delante;
                       if (act != null && act.getBridge() != null && act.getBridge().getWebView() != null) {
                           act.getBridge().getWebView().post(() -> act.getBridge().getWebView()
-                              .evaluateJavascript("window.dispatchEvent(new Event('avisoPush'))", null));
+                              .evaluateJavascript("window.dispatchEvent(new CustomEvent('avisoPush',{detail:'"
+                                  + tipo.replaceAll("[^a-z]", "") + "'}))", null));
                           return;
                       }
-                      try { ChatReceiver.mirarChat(getApplicationContext()); } catch (Exception ignored) {}
+                      // Con la app cerrada solo el chat monta su aviso; lo demás (la
+                      // lista de trabajadores, el control de acceso) es para la app
+                      // delante y no hace nada.
+                      try { if ("chat".equals(tipo)) ChatReceiver.mirarChat(ctx); } catch (Exception ignored) {}
                   }
 
                   @Override

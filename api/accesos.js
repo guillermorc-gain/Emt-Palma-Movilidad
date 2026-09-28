@@ -20,6 +20,7 @@
 import { emailDelToken, tokenDe, esGestorControl, esDelPuesto, GESTOR_PRINCIPAL } from './_auth.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 import { cifrar, descifrar } from './_cifrado.js';
+import { avisarControl } from './_push.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -341,6 +342,7 @@ export default async function handler(req, res) {
       }, `Borrar el registro ${id}`);
       if (prohibido) return res.status(403).json({ error: 'Solo gestión puede borrar este registro' });
       if (!nuevo) return res.status(404).json({ error: 'Ese registro ya no está' });
+      await avisarControl({ tipo: 'acceso' }, quien);
       return res.status(200).json({ ok: true });
     }
 
@@ -402,6 +404,8 @@ export default async function handler(req, res) {
         }, 'Directorio de visitantes');
       } catch (_) { /* se aprenderá la próxima vez */ }
     }
+    // Que la otra garita lo vea al momento
+    if (guardados.length) await avisarControl({ tipo: 'acceso' }, quien);
     return res.status(200).json(varios ? { ok: true, guardados: guardados.length } : (guardados[0] || {}));
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message });

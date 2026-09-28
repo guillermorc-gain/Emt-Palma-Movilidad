@@ -396,7 +396,7 @@ export default async function handler(req, res) {
       if (b.pushToken !== undefined) {
         if (!delToken) return res.status(401).json({ error: 'Falta la sesión' });
         const r = await registrarPush({ email: delToken, token: b.pushToken, app: b.app,
-                                        bandeja: b.app === 'gestion' && deGestion });
+                                        bandeja: b.app === 'gestion' && deGestion, control: !!b.control });
         return r.error ? res.status(r.status).json({ error: r.error }) : res.status(200).json(r);
       }
       const cuerpo = texto(b.texto);
@@ -572,6 +572,7 @@ export default async function handler(req, res) {
           const r = borrarMensaje(n, iBorrar, enMensaje, quienBorra);
           if (r.error) return res.status(r.status).json({ error: r.error });
           await guardarNota(paraGuardar(r.nota));
+          await avisarDe(r.nota, quien, false);
           return res.status(200).json(normalizar(r.nota));
         }
         let fallo = null, hecha = null;
@@ -584,6 +585,7 @@ export default async function handler(req, res) {
           return { ...data, [id]: paraGuardar(r.nota) };
         }, `Mensaje borrado en ${id}`);
         if (fallo) return res.status(fallo.status).json({ error: fallo.error });
+        if (hecha) await avisarDe(hecha, quien, false);
         return hecha ? res.status(200).json(normalizar(hecha)) : res.status(500).json({ error: 'No se pudo guardar' });
       }
 
@@ -598,6 +600,7 @@ export default async function handler(req, res) {
         }
         const tocada = tocarNota(n, quita);
         await guardarNota(paraGuardar(tocada));
+        if (visto !== undefined) await avisarDe(tocada, quien, false);
         return res.status(200).json(tocada);
       }
       let prohibido = false;
@@ -608,6 +611,7 @@ export default async function handler(req, res) {
         if (metodo === 'DELETE') { const out = { ...data }; delete out[id]; return out; }
         return acotarAdjuntos({ ...data, [id]: paraGuardar(tocarNota(data[id], quita)) });
       }, metodo === 'DELETE' ? `Quitar conversación ${id}` : `Cambio en ${id}`);
+      if (nuevo && nuevo[id] && visto !== undefined) await avisarDe(nuevo[id], quien, false);
       if (!nuevo) {
         return res.status(prohibido ? 403 : 404)
           .json({ error: prohibido ? 'Esa conversación no es tuya' : 'No se pudo actualizar' });

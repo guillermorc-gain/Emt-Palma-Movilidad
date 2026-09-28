@@ -1,4 +1,5 @@
 import { emailDelToken, tokenDe, exigirGestor, GESTOR_PRINCIPAL } from './_auth.js';
+import { avisarPersonas, avisarGestion } from './_push.js';
 import { hayBaseDeDatos, leerUsuarios, leerUsuario, leerAvatares, guardarUsuario, borrarUsuario } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
@@ -435,8 +436,18 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const data = await leerTodo();
+      let data = await leerTodo();
       res.setHeader('Cache-Control', 'no-store');
+      // Quien quitó la comunicación con el Departamento no sale para gestión:
+      // ni sus jornadas, ni en los lugares, ni para escribirle. Solo lo sigue
+      // viendo todo el gestor principal (que es también el desarrollador).
+      // Su propia consulta (?mio=) no cambia.
+      if (req.query?.mio === undefined && Object.values(data).some(u => u?.comunicacion === false)) {
+        const pide = await emailDelToken(tokenDe(req)).catch(() => null);
+        if (pide !== GESTOR_PRINCIPAL) {
+          data = Object.fromEntries(Object.entries(data).filter(([k, u]) => u?.comunicacion !== false || k === pide));
+        }
+      }
       // Con ?lugar= se devuelve solo quién trabaja ahí ese día. Lo usa la app
       // del trabajador para enseñarle con quién va, sin bajarse todo.
       const { lugar, fecha, directorio, avatares, mio } = req.query || {};
@@ -552,11 +563,15 @@ export default async function handler(req, res) {
           // Entra por la de conductores, y puede que también por la de control
           apps:         [...new Set([...(previo.email ? appsDe(previo) : []), 'trabajador'])],
           grupo:        previo.grupo ?? null,
+          // Si mantiene la comunicación con el Departamento (lo elige él)
+          comunicacion: typeof b.comunicacion === 'boolean' ? b.comunicacion : (previo.comunicacion ?? true),
           actualizado:  new Date().toISOString(),
         };
         return data;
       }, `Resumen de ${quien}`);
 
+      // Gestión ve el cambio en su lista al momento
+      if (nuevo) await avisarGestion({ tipo: 'plantilla' }, quien);
       return nuevo ? res.status(200).json(nuevo[quien]) : res.status(500).json({ error: 'No se pudo guardar' });
     }
 
@@ -574,6 +589,12 @@ export default async function handler(req, res) {
       }
       const clave = (email || '').toLowerCase().trim();
       if (!clave) return res.status(400).json({ error: 'Falta el email' });
+      if (quienGestiona !== GESTOR_PRINCIPAL && req.method === 'PATCH') {
+        const actual = (await leerTodo())[clave];
+        if (actual?.comunicacion === false) {
+          return res.status(403).json({ error: 'Este trabajador no mantiene la comunicación con el Departamento' });
+        }
+      }
       // Los usuarios de prueba solo pueden vivir bajo este dominio, para que no
       // se pueda sobrescribir a un trabajador real con datos inventados.
       if (ficticio && !clave.endsWith('@prueba.local')) {
@@ -698,7 +719,22 @@ export default async function handler(req, res) {
          : desde && hasta ? `Lugar de ${clave} del ${desde} al ${hasta}`
          : `Lugar de ${clave}`, true);
 
-      return nuevo ? res.status(200).json(nuevo) : res.status(500).json({ error: 'No se pudo guardar' });
+      if (nuevo && req.method === 'PATCH') {
+        // Si le cambia la jornada o el lugar de hoy (o el habitual), que le
+        // llegue el aviso al momento; y los demás gestores, que lo vean.
+        const hoy = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }).replace(/-/g, '');
+        const tocaHoy = (desde && hasta) ? (desde <= hoy && hoy <= hasta)
+                      : (puesto !== undefined || (horario !== undefined && !mes));
+        await Promise.all([
+          tocaHoy && (horario !== undefined || puesto !== undefined) ? avisarPersonas([clave], { tipo: 'jornada' }) : null,
+          avisarGestion({ tipo: 'plantilla' }, quienGestiona),
+        ]);
+      }
+      if (!nuevo) return res.status(500).json({ error: 'No se pudo guardar' });
+      // La lista que se devuelve, igual que en el GET: sin los que no mantienen
+      // la comunicación, salvo para el gestor principal
+      return res.status(200).json(quienGestiona === GESTOR_PRINCIPAL ? nuevo
+        : Object.fromEntries(Object.entries(nuevo).filter(([, u]) => u?.comunicacion !== false)));
     }
 
     return res.status(405).end();
