@@ -1,6 +1,7 @@
 import { emailDelToken, tokenDe, esGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { hayBaseDeDatos, leerNotas, leerNota, guardarNota, borrarNota } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
+import { registrarPush, avisarChat } from './_push.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -264,6 +265,14 @@ function borrarMensaje(nota, i, en, { quien, nombre, deGestion }) {
   return { nota: { ...n, mensajes } };
 }
 
+// Avisar al instante a los que están en la conversación (ver _push.js).
+// Gestión cuenta si está dentro y no es ella la que escribe.
+const avisarDe = (nota, quien, comoGestion) => {
+  const ps = participantesDe(nota);
+  return avisarChat({ id: nota.id, quien, emails: ps.filter(p => p.email).map(p => p.email),
+                      aGestion: !comoGestion && ps.some(p => p.gestion) });
+};
+
 // El visto vale para lo que hay dicho hasta ese momento: en cuanto alguien
 // escribe otra vez, la conversación vuelve a estar sin ver.
 function añadirMensaje(nota, { de, autor, cuerpo, adjuntos }) {
@@ -380,6 +389,14 @@ export default async function handler(req, res) {
       // sale del token: con la cabecera sola cualquiera se haría pasar.
       const deGestion = !!delToken && await esGestor(delToken);
       const b = req.body || {};
+      // El móvil apunta su token para los avisos al instante. Solo con la
+      // sesión: el correo sale de ella, no de lo que diga el móvil.
+      if (b.pushToken !== undefined) {
+        if (!delToken) return res.status(401).json({ error: 'Falta la sesión' });
+        const r = await registrarPush({ email: delToken, token: b.pushToken, app: b.app,
+                                        bandeja: b.app === 'gestion' && deGestion });
+        return r.error ? res.status(r.status).json({ error: r.error }) : res.status(200).json(r);
+      }
       const cuerpo = texto(b.texto);
       const adjuntos = [];
       if (!cuerpo) return res.status(400).json({ error: 'La nota está vacía' });
@@ -402,10 +419,12 @@ export default async function handler(req, res) {
         });
         if (hayBaseDeDatos()) {
           await guardarNota(paraGuardar(conMensaje));
+          await avisarDe(conMensaje, quien, soyGestor);
           return res.status(200).json(normalizar(conMensaje));
         }
         const guardado = await guardarConReintento(
           data => acotarAdjuntos({ ...data, [hilo]: paraGuardar(conMensaje) }), `Mensaje en ${hilo}`);
+        if (guardado) await avisarDe(conMensaje, quien, soyGestor);
         return guardado ? res.status(200).json(normalizar(conMensaje))
                         : res.status(500).json({ error: 'No se pudo guardar' });
       }
@@ -441,10 +460,12 @@ export default async function handler(req, res) {
         };
         if (hayBaseDeDatos()) {
           await guardarNota(grupo);
+          await avisarDe(grupo, quien, comoGestion);
           return res.status(200).json(normalizar(grupo));
         }
         const nuevo = await guardarConReintento(data => acotarAdjuntos(recortar({ ...data, [grupo.id]: grupo })),
           `Grupo de ${quien} con ${grupo.participantes.length} personas`);
+        if (nuevo) await avisarDe(grupo, quien, comoGestion);
         return nuevo ? res.status(200).json(normalizar(grupo)) : res.status(500).json({ error: 'No se pudo guardar' });
       }
 
@@ -506,9 +527,14 @@ export default async function handler(req, res) {
       // Con un solo destinatario se devuelve la nota suelta, como siempre;
       // con varios, la lista. Las apps viejas solo mandan uno.
       const respuesta = Array.isArray(b.para) ? nuevas : nuevas[0];
+      // A la plantilla entera son muchas conversaciones: un solo aviso con
+      // todos, que la bandeja de gestión no tiene que sonar una vez por cada.
+      const avisarNuevas = () => avisarChat({ id: nuevas[0]?.id, quien, aGestion: !delGestor && !entreCompaneros,
+        emails: nuevas.flatMap(n => participantesDe(n).filter(p => p.email).map(p => p.email)) });
       if (hayBaseDeDatos()) {
         // Una fila por nota: no hay que recortar nada para que quepa
         for (const n of nuevas) await guardarNota(n);
+        await avisarNuevas();
         return res.status(200).json(respuesta);
       }
       const porId = Object.fromEntries(nuevas.map(n => [n.id, n]));
@@ -516,6 +542,7 @@ export default async function handler(req, res) {
         entreCompaneros ? `Mensaje de ${quien} para ${para}`
         : delGestor ? `Nota del gestor para ${nuevas.length} trabajador${nuevas.length === 1 ? '' : 'es'}`
         : `Nota de ${quien}`);
+      if (nuevo) await avisarNuevas();
       return nuevo ? res.status(200).json(respuesta) : res.status(500).json({ error: 'No se pudo guardar' });
     }
 

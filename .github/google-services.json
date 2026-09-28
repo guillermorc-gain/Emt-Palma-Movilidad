@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "879258222022",
+    "project_id": "emt---palma---movilidad",
+    "storage_bucket": "emt---palma---movilidad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879258222022:android:5ef2d234c1f301c9b086c7",
+        "android_client_info": {
+          "package_name": "com.guillermorc.devemt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879258222022:android:9bc000f1f7abb321b086c7",
+        "android_client_info": {
+          "package_name": "com.guillermorc.gestionemt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879258222022:android:5da6784fa1ed13d7b086c7",
+        "android_client_info": {
+          "package_name": "com.guillermorc.horasemt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
