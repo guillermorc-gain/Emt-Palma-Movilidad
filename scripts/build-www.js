@@ -15,4 +15,8 @@ fs.mkdirSync(www, { recursive: true });
 const iconsDir = path.join(root, 'icons');
 if (fs.existsSync(iconsDir)) fs.cpSync(iconsDir, path.join(www, 'icons'), { recursive: true });
 
+// Las tipografías de Opciones → Apariencia, para que funcionen sin conexión
+const fontsDir = path.join(root, 'fonts');
+if (fs.existsSync(fontsDir)) fs.cpSync(fontsDir, path.join(www, 'fonts'), { recursive: true });
+
 console.log('✅ www/ built');

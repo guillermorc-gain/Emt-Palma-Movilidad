@@ -833,6 +833,19 @@
         .cuad-visor-ayuda{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:rgba(255,255,255,.65);font-size:11.5px;pointer-events:none;}
         .cuad-visor-x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;border:none;font-size:22px;cursor:pointer;}
 
+        /* ── Tipografía (Opciones → Apariencia). Van dentro de la app, para
+           que funcionen sin conexión; ver fonts/LEEME.txt ── */
+        @font-face{font-family:'EMT Nunito';src:url(fonts/nunito.woff2) format('woff2');font-weight:200 1000;font-display:swap;}
+        @font-face{font-family:'EMT Lora';src:url(fonts/lora.woff2) format('woff2');font-weight:400 700;font-display:swap;}
+        @font-face{font-family:'EMT Atkinson';src:url(fonts/atkinson.woff2) format('woff2');font-weight:200 800;font-display:swap;}
+        @font-face{font-family:'EMT Poppins';src:url(fonts/poppins-400.woff2) format('woff2');font-weight:400;font-display:swap;}
+        @font-face{font-family:'EMT Poppins';src:url(fonts/poppins-700.woff2) format('woff2');font-weight:600 900;font-display:swap;}
+        html[data-fuente="redonda"] body,html[data-fuente="redonda"] body *{font-family:'EMT Nunito',sans-serif !important;}
+        html[data-fuente="moderna"] body,html[data-fuente="moderna"] body *{font-family:'EMT Poppins',sans-serif !important;}
+        html[data-fuente="clasica"] body,html[data-fuente="clasica"] body *{font-family:'EMT Lora',Georgia,serif !important;}
+        html[data-fuente="legible"] body,html[data-fuente="legible"] body *{font-family:'EMT Atkinson',sans-serif !important;}
+        html[data-fuente="estrecha"] body,html[data-fuente="estrecha"] body *{font-family:'Roboto Condensed','sans-serif-condensed','Arial Narrow',sans-serif !important;}
+        html[data-fuente="maquina"] body,html[data-fuente="maquina"] body *{font-family:ui-monospace,'Roboto Mono','Droid Sans Mono',Menlo,monospace !important;}
         /* ── Personalizar (Opciones → Apariencia) ── */
         /* Con el texto más grande todo va con zoom, y el zoom agranda también
            las medidas de pantalla (vh): se divide para que los cuadros quepan */
@@ -1442,6 +1455,14 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                             <div class="tema-dot" id="dot-acero" style="background:linear-gradient(135deg,#546E7A,#263238);" onclick="app.seleccionarTema('acero')" title="Acero"></div>
                             <div class="tema-dot" id="dot-rojo"  style="background:linear-gradient(135deg,#E53935,#B71C1C);" onclick="app.seleccionarTema('rojo')"  title="Rojo"></div>
                         </div>
+                    </div>
+                    <div class="ops-field" style="gap:6px;">
+                        <span class="ops-field-label">🧩 Estilo</span>
+                        <select id="pEstilo" class="ops-input" onchange="app.cambiarPersonal('estilo', this.value)"><option value="clasico">Clásico</option><option value="redondeado">Redondeado</option><option value="recto">Recto</option><option value="plano">Plano, sin sombras</option></select>
+                    </div>
+                    <div class="ops-field" style="gap:6px;">
+                        <span class="ops-field-label">🔤 Tipografía</span>
+                        <select id="pFuente" class="ops-input" onchange="app.cambiarPersonal('fuente', this.value)"><option value="sistema">La del móvil</option><option value="redonda">Redondeada (Nunito)</option><option value="moderna">Moderna (Poppins)</option><option value="clasica">Clásica (Lora)</option><option value="legible">Muy legible (Atkinson)</option><option value="estrecha">Estrecha</option><option value="maquina">Máquina de escribir</option></select>
                     </div>
                     <div class="ops-field" style="gap:6px;">
                         <span class="ops-field-label">🔠 Tamaño del texto</span>

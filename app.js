@@ -91,7 +91,8 @@ const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 // texto, la cabecera, las pestañas, las animaciones y la pantalla de inicio.
 // Se guarda junto y se aplica como clases en <html>, antes de pintar nada.
 const PERSONAL_DEF = { texto: 'normal', cabecera: 'degradado', pestanas: 'todo',
-                       animaciones: true, inicio: 'normal', pestanaInicio: '0' };
+                       animaciones: true, inicio: 'normal', pestanaInicio: '0',
+                       estilo: 'clasico', fuente: 'sistema' };
 const ZOOM_TEXTO = { pequeno: 0.9, normal: 1, grande: 1.12, muygrande: 1.25 };
 function leerPersonal() {
     try { return { ...PERSONAL_DEF, ...JSON.parse(localStorage.getItem('personal') || '{}') }; }
@@ -108,6 +109,88 @@ function aplicarPersonal(p) {
     h.classList.toggle('p-solo-iconos', p.pestanas === 'iconos');
     h.classList.toggle('p-sin-anim', p.animaciones === false);
     h.classList.toggle('p-inicio-rapido', p.inicio === 'rapido');
+    aplicarEstiloYFuente(p);
+}
+
+// ── Estilo y tipografía (Opciones → Apariencia) ──────────────────────────
+// El estilo cambia la forma de todo sin tocar cada regla a mano: se recorren
+// las hojas de estilo y, para las que llevan esquinas, sombras o degradados,
+// se añade una copia retocada que solo vale con ese estilo puesto. Lo redondo
+// de verdad (50 %) y las píldoras se dejan como están.
+const ESTILOS_FORMA = {
+    redondeado: { radio: r => Math.min(Math.round(r * 1.7), 26) },
+    recto:      { radio: r => Math.min(r, 3) },
+    plano:      { radio: r => Math.round(r * 0.6), plano: true },
+};
+function reglasDeEstilo(nombre) {
+    const e = ESTILOS_FORMA[nombre];
+    if (!e) return '';
+    const pre = `html[data-estilo="${nombre}"]`;
+    const conPrefijo = sel => sel.split(/,(?![^(]*\))/).map(s => {
+        s = s.trim();
+        if (/^html\b/.test(s)) return s.replace(/^html/, pre);
+        if (/^:root\b/.test(s)) return s.replace(/^:root/, pre);
+        return pre + ' ' + s;
+    }).join(', ');
+    const radio = v => {
+        if (!v || /%|var\(|calc\(/.test(v)) return null;
+        const nums = v.match(/[\d.]+px/g);
+        if (!nums || nums.some(n => parseFloat(n) >= 50)) return null;
+        const nuevo = v.replace(/([\d.]+)px/g, (_, n) => e.radio(parseFloat(n)) + 'px');
+        return nuevo === v ? null : nuevo;
+    };
+    const primerColor = g => {
+        const m = /(?:^|\s)linear-gradient\((.*)\)/.exec(g || '');
+        if (!m) return null;
+        const partes = m[1].split(/,(?![^(]*\))/).map(x => x.trim());
+        const stop = /deg$|^to\s/.test(partes[0]) ? partes[1] : partes[0];
+        return stop ? stop.replace(/\s+-?[\d.]+(%|px)?$/, '') : null;
+    };
+    const recorrer = reglas => {
+        let out = '';
+        for (const r of reglas) {
+            if (r.type === 4 && r.cssRules) {          // @media
+                const dentro = recorrer(r.cssRules);
+                if (dentro) out += `@media ${r.conditionText || r.media.mediaText}{${dentro}}`;
+                continue;
+            }
+            if (r.type !== 1 || !r.selectorText) continue;
+            const decl = [];
+            const imp = p => r.style.getPropertyPriority(p) ? ' !important' : '';
+            const br = radio(r.style.borderRadius);
+            if (br) decl.push(`border-radius:${br}${imp('border-radius')}`);
+            if (e.plano) {
+                if (r.style.boxShadow && r.style.boxShadow !== 'none') decl.push('box-shadow:none !important');
+                // Con variables de color el navegador no separa el fondo en
+                // partes y solo lo da entero
+                const bg = r.style.backgroundImage || r.style.background || '';
+                if (/linear-gradient/.test(bg) && !/repeating/.test(bg)) {
+                    const c = primerColor(bg);
+                    if (c) decl.push(`background:${c}${imp('background-image')}`);
+                }
+            }
+            if (decl.length) out += `${conPrefijo(r.selectorText)}{${decl.join(';')}}`;
+        }
+        return out;
+    };
+    let css = '';
+    for (const hoja of document.styleSheets) {
+        if (hoja.ownerNode?.id === 'pEstiloCss') continue;
+        try { css += recorrer(hoja.cssRules); } catch (_) { /* hoja de otro sitio */ }
+    }
+    return css;
+}
+function aplicarEstiloYFuente(p) {
+    const h = document.documentElement;
+    const estilo = ESTILOS_FORMA[p.estilo] ? p.estilo : '';
+    if (estilo) h.dataset.estilo = estilo; else delete h.dataset.estilo;
+    if (p.fuente && p.fuente !== 'sistema') h.dataset.fuente = p.fuente; else delete h.dataset.fuente;
+    let el = document.getElementById('pEstiloCss');
+    if (!estilo) { if (el) el.textContent = ''; return; }
+    if (el?.dataset.de === estilo) return;
+    if (!el) { el = document.createElement('style'); el.id = 'pEstiloCss'; document.head.appendChild(el); }
+    el.textContent = reglasDeEstilo(estilo);
+    el.dataset.de = estilo;
 }
 try { aplicarPersonal(leerPersonal()); } catch (_) {}
 
@@ -1953,6 +2036,7 @@ const app = {
         const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
         v('pTexto', p.texto); v('pCabecera', p.cabecera); v('pPestanas', p.pestanas);
         v('pInicio', p.inicio); v('pPestanaInicio', p.pestanaInicio);
+        v('pEstilo', p.estilo); v('pFuente', p.fuente);
         const a = document.getElementById('pAnim');
         if (a) a.checked = p.animaciones !== false;
     },
@@ -7107,6 +7191,12 @@ const app = {
             document.getElementById('workBanner')?.classList.remove('show');
             localStorage.setItem('lastRegisteredDate', _todayId);
             window.AndroidBridge?.saveToPrefs?.('lastRegisteredDate', _todayId);
+            // Registrada la de hoy (aquí, desde la barra o en otro móvil),
+            // fuera los avisos de registrarla y el turno de la barra
+            if (this._avisosQuitados !== _todayId) {
+                this._avisosQuitados = _todayId;
+                this._cancelarNotificacionTrabajo();
+            }
         }
         document.getElementById('horasTrabajadas').textContent = horas.toFixed(1);
         document.getElementById('horasRestantes').textContent  = restantes.toFixed(1);
