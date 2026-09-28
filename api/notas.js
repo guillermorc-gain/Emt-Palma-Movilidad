@@ -279,7 +279,8 @@ function borrarMensaje(nota, i, en, { quien, nombre, deGestion, bandeja }) {
 // Gestión cuenta si está dentro y no es ella la que escribe.
 const avisarDe = (nota, quien, comoGestion) => {
   const ps = participantesDe(nota);
-  return avisarChat({ id: nota.id, quien, emails: ps.filter(p => p.email).map(p => p.email),
+  return avisarChat({ id: nota.id, quien, comoGestion: !!comoGestion,
+                      emails: ps.filter(p => p.email).map(p => p.email),
                       aGestion: !comoGestion && ps.some(p => p.gestion) });
 };
 
@@ -563,7 +564,7 @@ export default async function handler(req, res) {
       const respuesta = Array.isArray(b.para) ? nuevas : nuevas[0];
       // A la plantilla entera son muchas conversaciones: un solo aviso con
       // todos, que la bandeja de gestión no tiene que sonar una vez por cada.
-      const avisarNuevas = () => avisarChat({ id: nuevas[0]?.id, quien, aGestion: !delGestor && !entreCompaneros,
+      const avisarNuevas = () => avisarChat({ id: nuevas[0]?.id, quien, comoGestion: delGestor, aGestion: !delGestor && !entreCompaneros,
         emails: nuevas.flatMap(n => participantesDe(n).filter(p => p.email).map(p => p.email)) });
       if (hayBaseDeDatos()) {
         // Una fila por nota: no hay que recortar nada para que quepa
@@ -605,7 +606,7 @@ export default async function handler(req, res) {
           const r = borrarMensaje(n, iBorrar, enMensaje, quienBorra);
           if (r.error) return res.status(r.status).json({ error: r.error });
           await guardarNota(paraGuardar(r.nota));
-          await avisarDe(r.nota, quien, false);
+          await avisarDe(r.nota, quien, escribeComoGestion(normalizar(r.nota), quien, deGestion, bandeja));
           return res.status(200).json(normalizar(r.nota));
         }
         let fallo = null, hecha = null;
@@ -618,7 +619,7 @@ export default async function handler(req, res) {
           return { ...data, [id]: paraGuardar(r.nota) };
         }, `Mensaje borrado en ${id}`);
         if (fallo) return res.status(fallo.status).json({ error: fallo.error });
-        if (hecha) await avisarDe(hecha, quien, false);
+        if (hecha) await avisarDe(hecha, quien, escribeComoGestion(normalizar(hecha), quien, deGestion, bandeja));
         return hecha ? res.status(200).json(normalizar(hecha)) : res.status(500).json({ error: 'No se pudo guardar' });
       }
 
@@ -633,7 +634,7 @@ export default async function handler(req, res) {
         }
         const tocada = tocarNota(n, quita);
         await guardarNota(paraGuardar(tocada));
-        if (visto !== undefined || titulo !== undefined || emoji !== undefined) await avisarDe(tocada, quien, false);
+        if (visto !== undefined || titulo !== undefined || emoji !== undefined) await avisarDe(tocada, quien, escribeComoGestion(normalizar(tocada), quien, deGestion, bandeja));
         return res.status(200).json(tocada);
       }
       let prohibido = false;
@@ -644,7 +645,7 @@ export default async function handler(req, res) {
         if (metodo === 'DELETE') { const out = { ...data }; delete out[id]; return out; }
         return acotarAdjuntos({ ...data, [id]: paraGuardar(tocarNota(data[id], quita)) });
       }, metodo === 'DELETE' ? `Quitar conversación ${id}` : `Cambio en ${id}`);
-      if (nuevo && nuevo[id] && (visto !== undefined || titulo !== undefined || emoji !== undefined)) await avisarDe(nuevo[id], quien, false);
+      if (nuevo && nuevo[id] && (visto !== undefined || titulo !== undefined || emoji !== undefined)) await avisarDe(nuevo[id], quien, escribeComoGestion(normalizar(nuevo[id]), quien, deGestion, bandeja));
       if (!nuevo) {
         return res.status(prohibido ? 403 : 404)
           .json({ error: prohibido ? 'Esa conversación no es tuya' : 'No se pudo actualizar' });

@@ -4588,12 +4588,13 @@ const app = {
             : id === 'visto' ? this._estaVista(n)
             : id === 'mias'  ? n.de === 'gestor' && !this._estaVista(n)
             : !this._estaVista(n) && n.de !== 'gestor';
-        const sel = localStorage.getItem('filtroNotas') || 'pendiente';
+        // Enviadas y Vistas ya no están: quien las tuviera elegidas pasa a Todas
+        const guardado = localStorage.getItem('filtroNotas');
+        const sel = ['todas', 'pendiente', 'archivadas'].includes(guardado) ? guardado : 'todas';
         const todas = this._notas || [];
         const fil = document.getElementById('ntFiltros');
         if (fil) {
-            fil.innerHTML = [['pendiente', 'Sin ver'], ['mias', 'Enviadas'], ['visto', 'Vistas'],
-                             ['archivadas', 'Archivadas'], ['todas', 'Todas']]
+            fil.innerHTML = [['todas', 'Todas'], ['pendiente', 'Sin ver'], ['archivadas', 'Archivadas']]
                 .map(([id, txt]) => {
                     const n = todas.filter(x => pasa(x, id)).length;
                     return `<button class="${sel === id ? 'activo' : ''}"
@@ -4617,6 +4618,7 @@ const app = {
             const nueva = this._sinLeer(n);
             return `<div class="cv-card ${e === 'mias' ? 'gestor' : e === 'pendiente' ? '' : e}${
                     n.archivada ? ' archivada' : ''}${nueva ? ' nueva' : ''}" onclick="app.abrirHilo('${q}')">
+                <span class="cv-cara">${this._caraHilo(n)}</span>
                 <div class="cv-top">
                     ${nueva ? '<span class="cv-punto"></span>' : ''}
                     <span class="cv-quien">${esc(this._tituloHilo(n))}</span>
@@ -5515,12 +5517,36 @@ const app = {
         if (nuevo) this._pintarTituloHilo(nuevo);
     },
 
+    // La cara de alguien en el chat y en las listas: su foto; si no tiene, el
+    // emoji que eligió con su color; y si tampoco, la inicial de su nombre.
+    _caraDe(email, nombre, clase = 'cara') {
+        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        const e = String(email || '').toLowerCase();
+        if (e === this.DEV_EMAIL) return `<span class="${clase} cara-ico">💻</span>`;
+        if (e === this.A_GESTION) return `<span class="${clase} cara-ico">🛠️</span>`;
+        const u = (this._conductores || {})[e] || {};
+        const foto = u.avatar || (this._avatares || {})[e];
+        if (foto) return `<img class="${clase}" src="${esc(foto)}" alt="">`;
+        if (u.avatarEmoji) return `<span class="${clase}" style="background:${esc(u.avatarBg || '#667eea')}">${esc(u.avatarEmoji)}</span>`;
+        const ini = (String(nombre || u.nombre || e || '?').trim()[0] || '?').toUpperCase();
+        return `<span class="${clase}">${esc(ini)}</span>`;
+    },
+
+    // La cara de una conversación: la del otro, o el emoji del grupo
+    _caraHilo(n, clase = 'cara') {
+        if (n?.tipo === 'grupo') return `<span class="${clase} cara-ico">${String(n.emoji || '👥').replace(/[<>&"]/g, '')}</span>`;
+        const otro = (this._otrosEnHilo(n) || [])[0];
+        if (!otro) return '';
+        if (otro.gestion) return this._caraDe(this.A_GESTION, '', clase);
+        return this._caraDe(otro.email, otro.nombre, clase);
+    },
+
     // El título del hilo, con el lápiz para cambiar nombre y emoji si es un grupo
     _pintarTituloHilo(n) {
         const el = document.getElementById('hiloQuien');
         if (!el) return;
         const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
-        el.innerHTML = esc(this._tituloHilo(n))
+        el.innerHTML = this._caraHilo(n, 'cara-chica') + esc(this._tituloHilo(n))
             + (n?.tipo === 'grupo' ? ' <button type="button" class="hilo-ed" title="Cambiar nombre y emoji" onclick="app._editarGrupo()">✏️</button>' : '');
     },
 
@@ -8330,7 +8356,8 @@ const app = {
         const nombre = document.getElementById('fNombre').value.trim();
         const puesto = document.getElementById('fPuesto').value;
         if (!nombre) { this._mostrarToast('❌ Pon un nombre', 3000); return; }
-        if (num && num.length !== 5) { this._mostrarToast('❌ El nº son 5 dígitos', 3000); return; }
+        // El número va con 4 o 5 cifras (987-9 o 1418-3): la última es la de control
+        if (num && (num.length < 4 || num.length > 5)) { this._mostrarToast('❌ El nº son 4 o 5 dígitos', 3000); return; }
         const jornadas = (this._fictJornadas || []).filter(j => j.f);
         const ahora = new Date();
         const delMes = jornadas.filter(j =>
@@ -8339,7 +8366,7 @@ const app = {
         const ultima = jornadas.slice().sort((a, b) => b.f.localeCompare(a.f))[0];
         const hoyId = `${ahora.getFullYear()}${String(ahora.getMonth()+1).padStart(2,'0')}${String(ahora.getDate()).padStart(2,'0')}`;
         const ficticio = {
-            nombre, conductor: num ? num.slice(0,4) + '-' + num.slice(4) : '', puesto,
+            nombre, conductor: num ? num.slice(0, -1) + '-' + num.slice(-1) : '', puesto,
             avatar: null, version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
             horasMes: suma(delMes), horasTotales: suma(jornadas), diasMes: delMes.length,
             horaInicio: ultima?.i || '', horaFin: ultima?.o || '',
@@ -9123,6 +9150,8 @@ const app = {
             const foto = u.avatar || this._avatares[u.email];
             const av = foto
                 ? `<img class="cond-avatar" src="${esc(foto)}">`
+                // Sin foto, el emoji que eligió en su app, con su color
+                : u.avatarEmoji ? `<div class="cond-avatar emo" style="background:${esc(u.avatarBg || '#667eea')}">${esc(u.avatarEmoji)}</div>`
                 : `<div class="cond-avatar">${esc(ini)}</div>`;
             const ver = u.version ? this._buildNumToVersion(parseInt(String(u.version).replace('build-',''),10) || 0) : '—';
             const cerrada = this._estaPlegado('t:' + u.email, true);
@@ -9141,7 +9170,7 @@ const app = {
                     <div class="cond-id">
                         <div class="cond-nombre compacta${ES_APP_DEV ? '' : ' una-linea'}"><span class="cond-nom-txt">${esc(u.nombre) || esc(u.email)}</span>
                             ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}
-                            ${u.ficticio ? '<span class="pr-badge2">PRUEBA</span>' : ''}
+                            ${u.ficticio ? '<span class="pr-badge2">VIRTUAL</span>' : ''}
                             ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${
                             ES_APP_DEV ? this._chipConexion(u.email) : ''}</div>
                         <div class="cond-num">${esc(u.conductor) || 'sin nº'}${

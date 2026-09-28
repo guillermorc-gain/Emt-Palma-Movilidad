@@ -139,13 +139,18 @@ async function mandarA(sa, tokens, datos) {
 // A quién: los que están en la conversación menos quien escribe, en sus
 // apps; y si la conversación es con gestión y no escribe gestión, además
 // los móviles con la bandeja de gestión.
-async function avisar({ id, emails, aGestion, quien }) {
+// Quien escribe no se avisa a sí mismo, pero con su papel: el desarrollador
+// y gestión pueden ser la misma cuenta, y lo que escribe uno le tiene que
+// sonar al otro. Si escribe como gestión, sus apps de persona sí se avisan;
+// si escribe como persona, la bandeja de gestión también.
+async function avisar({ id, emails, aGestion, quien, comoGestion }) {
   const sa = cuentaDeServicio();
   if (!sa) return;
-  const para = new Set((emails || []).map(e => String(e || '').toLowerCase()).filter(e => e && e !== quien));
+  const para = new Set((emails || []).map(e => String(e || '').toLowerCase())
+    .filter(e => e && (comoGestion || e !== quien)));
   const { data } = await leer();
   const tokens = Object.entries(data.tokens || {}).filter(([, t]) =>
-    t.bandeja ? (aGestion && t.email !== quien) : para.has(t.email)).map(([k]) => k);
+    t.bandeja ? aGestion : para.has(t.email)).map(([k]) => k);
   await mandarA(sa, tokens, { tipo: 'chat', id: String(id || '') });
 }
 
