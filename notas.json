@@ -38,17 +38,18 @@
         "texto": "⚠️ He registrado la jornada de hoy de 09:00 a 12:00, y tocaba de 09:00 a 12:30. Confírmalo si está bien.",
         "adjuntos": [],
         "en": "2026-09-28T21:04:55.217Z"
+      },
+      {
+        "de": "gestor",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "👍",
+        "adjuntos": [],
+        "en": "2026-09-28T21:05:59.328Z"
       }
     ],
     "archivada": false,
     "de": "trabajador",
     "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T21:05:05.724Z",
-      "gestion": true
-    }
+    "estado": "pendiente"
   }
 }
