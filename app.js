@@ -6502,10 +6502,13 @@ const app = {
         this.bajaActiva = !this.bajaActiva;
         document.getElementById('beCompact').classList.toggle('active', this.bajaActiva);
         document.getElementById('beToggle').checked = this.bajaActiva;
+        // Un día de baja cuenta como jornada hecha: salen sus horas (3,5 la
+        // media jornada, las suyas la completa) en vez de 0; al quitarla,
+        // vuelven las del horario
         if (this.bajaActiva) {
-            document.getElementById('horasInput').value = '0';
+            document.getElementById('horasInput').value = String(this._horasBaja());
             this._mostrarToast(`🩺 Día de baja: cuentan ${String(this._horasBaja()).replace('.', ',')}h`, 3000);
-        }
+        } else this.calcularHorasPorTiempo();
     },
 
     clickVacaciones(auto = false) {
@@ -8419,7 +8422,7 @@ const app = {
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                         <span style="color:#7f8c8d;font-weight:700;font-size:12px;">${reg.fecha}</span>
                         ${horario}
-                        <span style="background:linear-gradient(135deg,var(--g1),var(--g2));color:white;padding:3px 9px;border-radius:20px;font-weight:700;font-size:10px;">${reg.horas}h</span>
+                        <span style="background:linear-gradient(135deg,var(--g1),var(--g2));color:white;padding:3px 9px;border-radius:20px;font-weight:700;font-size:10px;">${reg.be && !parseFloat(reg.horas) ? this._horasBaja() : reg.horas}h</span>
                         ${lugarStr}
                         ${prBadge}${festivoBadge}${extraBadge}${vacBadge}${beBadge}
                     </div>
@@ -8487,6 +8490,11 @@ const app = {
         const noFue = document.getElementById('editModalSinAsistencia')?.checked;
         if (noFue && nombre !== 'SinAsistencia') return;
         el.checked = !el.checked;
+        // En el cuadro de editar, igual: la baja pone las horas de su jornada
+        if (nombre === 'Be') {
+            const h = document.getElementById('editModalHoras');
+            if (h && el.checked) h.value = String(this._horasBaja());
+        }
         if (nombre === 'SinAsistencia' && el.checked) {
             ['PR', 'Extra', 'Vacaciones', 'Be'].forEach(n => {
                 const otro = document.getElementById('editModal' + n);
