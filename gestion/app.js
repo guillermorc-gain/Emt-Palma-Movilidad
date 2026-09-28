@@ -1945,7 +1945,7 @@ const app = {
             const url = typeof recurso === 'string' ? recurso : recurso?.url || '';
             const metodo = String(opciones?.method || (typeof recurso !== 'string' && recurso?.method) || 'GET').toUpperCase();
             const cuenta = !['GET', 'HEAD', 'OPTIONS'].includes(metodo)
-                && /emt-palma-movilidad\.vercel\.app\/api\/(?!auth\/)|googleapis\.com\/(upload\/)?drive/.test(url);
+                && /emt-palma-movilidad\.vercel\.app\/api\/(?!auth\/|usuarios\?ping)|googleapis\.com\/(upload\/)?drive/.test(url);
             if (cuenta) { if (!enCurso) desde = Date.now(); enCurso++; pintar(); }
             try { return await antes(recurso, opciones); }
             finally {
@@ -6853,6 +6853,13 @@ const app = {
             if (!resp.ok) throw new Error(resp.status);
             const data = await resp.json();
             this._conductores = data || {};
+            // En la de Desarrollador, cuándo se conectó cada uno por última vez
+            if (ES_APP_DEV) {
+                try {
+                    const rc = await fetch(this.USUARIOS_URL + '?conexiones=1', { cache: 'no-store' });
+                    if (rc.ok) this._conexiones = await rc.json();
+                } catch (_) {}
+            }
             this._renderConductores();
             // Las fotos van detrás y sin bloquear: la lista ya se ve, y cuando
             // llegan se repinta. Si no llegan, queda la inicial de siempre.
@@ -7836,6 +7843,84 @@ const app = {
             this._conductores = data;
             this._renderConductores(); this._renderPrueba();
         } catch (e) { this._mostrarToast('❌ Error: ' + e.message, 4000); }
+    },
+
+    // ── Permiso retribuido (PR) ──
+    // Dos por año natural. Cuentan los que marca gestión aquí y los que el
+    // trabajador registra como PR en su app; el mismo día no cuenta dos veces.
+    PR_ANUALES: 2,
+
+    _prsDe(u, año) {
+        const dias = new Set((u?.prs || []).filter(f => String(f).startsWith(año)));
+        (u?.jornadas || []).forEach(j => { if (j?.p && String(j.f || '').startsWith(año)) dias.add(String(j.f).slice(0, 8)); });
+        return dias;
+    },
+
+    async marcarPR(email, fecha, boton) {
+        const u = (this._conductores || {})[email];
+        if (!u) return;
+        const año = fecha.slice(0, 4);
+        const ya = this._prsDe(u, año);
+        const quitar = ya.has(fecha);
+        // El que registró él mismo como PR se quita desde su app, no desde aquí
+        if (quitar && !(u.prs || []).includes(fecha)) {
+            this._globo(boton, 'Este PR lo registró el trabajador en su app');
+            return;
+        }
+        if (!quitar && ya.size >= this.PR_ANUALES) {
+            this._globo(boton, `Ya ha usado los ${this.PR_ANUALES} PR de ${año}`);
+            return;
+        }
+        try {
+            const resp = await fetch(this.USUARIOS_URL, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Email': this.usuarioActual?.email || '' },
+                body: JSON.stringify({ email, pr: !quitar, fecha })
+            });
+            const data = await resp.json();
+            if (!resp.ok) { this._globo(boton, data.error || 'No se ha podido guardar'); return; }
+            this._conductores = data;
+            const n = this._prsDe(data[email], año).size;
+            const dia = `${fecha.slice(6, 8)}/${fecha.slice(4, 6)}`;
+            this._renderConductores();
+            // El botón se ha vuelto a pintar: el globo va sobre el nuevo
+            const nuevo = [...document.querySelectorAll('.pr-btn')]
+                .find(b => (b.getAttribute('onclick') || '').includes(`'${email}'`)) || boton;
+            this._globo(nuevo, quitar ? `PR del ${dia} quitado · lleva ${n} de ${this.PR_ANUALES}`
+                                      : `PR ${n} de ${this.PR_ANUALES} · ${dia}`);
+        } catch (e) { this._globo(boton, 'Error: ' + e.message); }
+    },
+
+    // Un globo pequeño encima del botón, que se va solo
+    _globo(el, texto) {
+        document.querySelectorAll('.globo-pr').forEach(g => g.remove());
+        const g = document.createElement('div');
+        g.className = 'globo-pr';
+        g.textContent = texto;
+        document.body.appendChild(g);
+        const r = el?.getBoundingClientRect?.();
+        if (r) {
+            const x = Math.min(window.innerWidth - g.offsetWidth - 8, Math.max(8, r.left + r.width / 2 - g.offsetWidth / 2));
+            g.style.left = x + 'px';
+            g.style.top = Math.max(8, r.top - g.offsetHeight - 8) + 'px';
+        }
+        setTimeout(() => g.classList.add('fuera'), 2200);
+        setTimeout(() => g.remove(), 2600);
+    },
+
+    // En la de Desarrollador: en línea (señal hace menos de 7 min) o cuándo fue
+    _chipConexion(email) {
+        const iso = (this._conexiones || {})[String(email || '').toLowerCase()];
+        const t = Date.parse(iso || '');
+        if (!t) return '<span class="cond-con">sin conexión</span>';
+        const min = Math.round((Date.now() - t) / 60000);
+        if (min < 7) return '<span class="cond-con on" title="Conectado ahora">● en línea</span>';
+        const d = new Date(t);
+        const hoy = new Date();
+        const txt = min < 60 ? `hace ${min} min`
+            : d.toDateString() === hoy.toDateString() ? `hoy ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
+            : d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        return `<span class="cond-con" title="Última conexión">${txt}</span>`;
     },
 
     // Ocultar un trabajador real de la pestaña Trabajadores (sus datos se
@@ -8834,7 +8919,8 @@ const app = {
                         <div class="cond-nombre">${esc(u.nombre) || esc(u.email)}
                             ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}
                             ${u.ficticio ? '<span class="pr-badge2">PRUEBA</span>' : ''}
-                            ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}</div>
+                            ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${
+                            ES_APP_DEV ? this._chipConexion(u.email) : ''}</div>
                         <div class="cond-num">${esc(u.conductor) || 'sin nº'}${
                             this._desviaciones(u) ? `<span class="cond-alerta" title="Horarios que no cuadran"
                                 onclick="event.stopPropagation();app.revisarHorarios('${esc(u.email)}')">❗${
@@ -8855,6 +8941,8 @@ const app = {
                             onclick="event.stopPropagation();app.editarVacaciones('${esc(u.email)}')">VC</button>
                     <button class="be-btn${enBaja ? ' on' : ''}" title="Fechas de baja"
                             onclick="event.stopPropagation();app.editarBajas('${esc(u.email)}')">BE</button>
+                    <button class="be-btn pr-btn${this._prsDe(u, fecha.slice(0, 4)).has(fecha) ? ' on' : ''}" title="Permiso retribuido (2 al año)"
+                            onclick="event.stopPropagation();app.marcarPR('${esc(u.email)}','${esc(fecha)}',this)">PR</button>
                     <button class="be-btn" title="${u.oculto ? 'Mostrar en Trabajadores' : 'Ocultar de Trabajadores'}"
                             onclick="event.stopPropagation();app._toggleOcultoTrabajador('${esc(u.email)}')">${u.oculto ? '🙈' : '👁️'}</button>
                     <span class="cond-chev">▾</span>
