@@ -91,17 +91,18 @@
         "texto": "Kek",
         "adjuntos": [],
         "en": "2026-09-28T20:42:49.620Z"
+      },
+      {
+        "de": "gestor",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "Ek",
+        "adjuntos": [],
+        "en": "2026-09-28T20:43:08.597Z"
       }
     ],
     "archivada": false,
     "de": "trabajador",
     "tipo": "gestion",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T20:43:06.415Z",
-      "gestion": true
-    }
+    "estado": "pendiente"
   }
 }
