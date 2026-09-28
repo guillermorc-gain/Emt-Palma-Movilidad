@@ -26,5 +26,25 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T15:07:57.590Z"
     }
+  },
+  "20260928203830242-drq42-0": {
+    "id": "20260928203830242-drq42-0",
+    "email": "g.rioscorrea@gmail.com",
+    "creado": "2026-09-28T20:38:30.242Z",
+    "nombre": "Desarrollador",
+    "conductor": "💻",
+    "mensajes": [
+      {
+        "de": "trabajador",
+        "autor": "Desarrollador",
+        "texto": "Bb",
+        "adjuntos": [],
+        "en": "2026-09-28T20:38:30.242Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "gestion",
+    "estado": "pendiente"
   }
 }
