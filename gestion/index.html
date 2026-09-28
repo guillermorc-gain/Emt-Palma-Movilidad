@@ -912,6 +912,12 @@
         .app-content.dark .ca-por{color:#8fb8f5;}
         .ca-exp-op{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;border:none;border-bottom:1px solid #f0f0f0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:#2c3e50;cursor:pointer;text-align:left;}
         .modal-card.dark .ca-exp-op{color:#e0e0e0;border-color:#2d3561;}
+        /* Mensajes borrados y el botón de borrar uno propio */
+        .bub{position:relative;}
+        .bub.borrado .bub-txt{font-style:italic;opacity:.7;}
+        .bub-x{position:absolute;top:2px;right:4px;border:none;background:transparent;font-size:11px;opacity:.45;cursor:pointer;padding:2px;line-height:1;}
+        .bub-x:active{opacity:1;}
+        .bub.mio{padding-right:22px;}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}
