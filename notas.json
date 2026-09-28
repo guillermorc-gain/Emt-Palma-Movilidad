@@ -103,5 +103,38 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T15:07:57.590Z"
     }
+  },
+  "20260928151556854-mxwpc-g": {
+    "id": "20260928151556854-mxwpc-g",
+    "tipo": "grupo",
+    "creado": "2026-09-28T15:15:56.854Z",
+    "creadoPor": "guillermo.rcvpn@gmail.com",
+    "email": "guillermo.rcvpn@gmail.com",
+    "participantes": [
+      {
+        "email": "guillermo.rc82@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1418-3"
+      },
+      {
+        "email": "guillermo.rcxx@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "num": "1234-5"
+      }
+    ],
+    "conGestion": true,
+    "titulo": "",
+    "mensajes": [
+      {
+        "de": "gestor",
+        "autor": "Guillermo Rios",
+        "texto": "Hola",
+        "adjuntos": [],
+        "en": "2026-09-28T15:15:56.854Z"
+      }
+    ],
+    "archivada": false,
+    "de": "gestor",
+    "estado": "pendiente"
   }
 }
