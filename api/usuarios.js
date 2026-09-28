@@ -1,6 +1,6 @@
 import { emailDelToken, tokenDe, exigirGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { avisarPersonas, avisarGestion } from './_push.js';
-import { apuntarPresencia, leerPresencia, apuntarVersion, leerVersiones } from './_presencia.js';
+import { apuntarPresencia, leerPresencia, apuntarVersion, leerVersiones, apuntarMarca, leerMarcas } from './_presencia.js';
 import { hayBaseDeDatos, leerUsuarios, leerUsuario, leerAvatares, guardarUsuario, borrarUsuario } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
@@ -482,6 +482,14 @@ export default async function handler(req, res) {
       return res.status(200).json(await leerPresencia());
     }
 
+    // Las marcas de «ya visto» de quien pregunta (el tutorial, por ejemplo)
+    if (req.method === 'GET' && req.query?.misMarcas !== undefined) {
+      res.setHeader('Cache-Control', 'no-store');
+      const pide = await emailDelToken(tokenDe(req)).catch(() => null);
+      if (!pide) return res.status(401).json({ error: 'Falta la sesión' });
+      return res.status(200).json(await leerMarcas(pide));
+    }
+
     // Con qué versión anda cada uno en cada app (solo para el desarrollador)
     if (req.method === 'GET' && req.query?.versiones !== undefined) {
       res.setHeader('Cache-Control', 'no-store');
@@ -559,6 +567,7 @@ export default async function handler(req, res) {
         await Promise.all([
           b.soloVersion ? null : apuntarPresencia(delToken),
           b.app && b.version ? apuntarVersion(delToken, b.app, b.version).catch(() => {}) : null,
+          b.marca ? apuntarMarca(delToken, b.marca).catch(() => {}) : null,
         ]);
         return res.status(200).json({ ok: true });
       }

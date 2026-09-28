@@ -80,3 +80,27 @@ export async function apuntarVersion(email, app, version) {
     if (r.status !== 409) return;
   }
 }
+
+// Marcas de «ya visto» de cada cuenta (el tutorial de gestión, por ejemplo),
+// para que no se repitan al cerrar sesión o cambiar de móvil. Van en el
+// mismo fichero que las versiones, en marcas.
+export async function leerMarcas(email) {
+  return (await leerFichero(VERSIONES)).data[String(email || '').toLowerCase()]?.marcas || {};
+}
+export async function apuntarMarca(email, clave) {
+  email = String(email || '').toLowerCase();
+  clave = String(clave || '');
+  if (!email.includes('@') || !/^[a-zA-Z]{1,32}$/.test(clave)) return;
+  for (let intento = 0; intento < 3; intento++) {
+    const { data, sha } = await leerFichero(VERSIONES);
+    if (data[email]?.marcas?.[clave]) return;
+    const yo = data[email] || {};
+    const nuevo = { ...data, [email]: { ...yo, marcas: { ...(yo.marcas || {}), [clave]: new Date().toISOString() } } };
+    const body = { message: `Marca ${clave} de ${email}`, branch: BRANCH,
+                   content: Buffer.from(JSON.stringify(nuevo, null, 1) + '\n').toString('base64') };
+    if (sha) body.sha = sha;
+    const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${VERSIONES}`, {
+      method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.status !== 409) return;
+  }
+}
