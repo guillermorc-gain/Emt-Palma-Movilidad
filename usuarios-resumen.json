@@ -2729,7 +2729,7 @@
     "nombre": "Francisca Villalonga Mestre",
     "conductor": "",
     "avatar": null,
-    "version": "0",
+    "version": "build-346",
     "horasMes": 0,
     "horasTotales": 0,
     "horasAnuales": 777,
@@ -2755,6 +2755,6 @@
       "trabajador"
     ],
     "grupo": null,
-    "actualizado": "2026-09-28T07:36:48.972Z"
+    "actualizado": "2026-09-28T07:37:57.584Z"
   }
 }
