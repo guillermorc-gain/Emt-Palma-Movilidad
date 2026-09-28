@@ -10834,7 +10834,9 @@ const app = {
             // El tema, su versión clara u oscura, la letra…: que vuelvan al
             // entrar otra vez, aunque al salir se borre todo del móvil. Cada
             // app el suyo: gestión y desarrollador comparten la copia de Drive.
-            [ES_APP_DEV ? 'personalDev' : 'personal']: leerPersonal()
+            [ES_APP_DEV ? 'personalDev' : 'personal']: leerPersonal(),
+            // Y los sonidos de los avisos, también cada app los suyos
+            [ES_APP_DEV ? 'sonidosDev' : 'sonidos']: { notifSound: this.notifSound, notifSoundChat: this.notifSoundChat }
         };
     },
 
@@ -10899,9 +10901,22 @@ const app = {
         if (Array.isArray(prefs.workLocations) && prefs.workLocations.length > 0) {
             this._saveWorkLocations(prefs.workLocations);
         }
-        if (prefs.notifSound) {
-            this.notifSound = prefs.notifSound;
-            localStorage.setItem('notifSound', prefs.notifSound);
+        // Los sonidos de los avisos, también al móvil: es quien los hace sonar
+        // con la app cerrada, y al cerrar sesión se le borraron
+        const sonidos = prefs[ES_APP_DEV ? 'sonidosDev' : 'sonidos'] || { notifSound: prefs.notifSound };
+        if (sonidos.notifSound) {
+            this.notifSound = sonidos.notifSound;
+            localStorage.setItem('notifSound', sonidos.notifSound);
+            window.AndroidBridge?.saveToPrefs?.('notifSound', sonidos.notifSound);
+            const sel = document.getElementById('notifSoundSelect');
+            if (sel) sel.value = sonidos.notifSound;
+        }
+        if (sonidos.notifSoundChat) {
+            this.notifSoundChat = sonidos.notifSoundChat;
+            localStorage.setItem('notifSoundChat', sonidos.notifSoundChat);
+            window.AndroidBridge?.saveToPrefs?.('notifSoundChat', sonidos.notifSoundChat);
+            const sel = document.getElementById('notifSoundChat');
+            if (sel) sel.value = sonidos.notifSoundChat;
         }
         this.actualizarBotonesPerfil();
     },

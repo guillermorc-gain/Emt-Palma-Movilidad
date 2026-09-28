@@ -10227,9 +10227,22 @@ const app = {
         if (Array.isArray(prefs.workLocations) && prefs.workLocations.length > 0) {
             this._saveWorkLocations(prefs.workLocations);
         }
-        if (prefs.notifSound) {
-            this.notifSound = prefs.notifSound;
-            localStorage.setItem('notifSound', prefs.notifSound);
+        // Los sonidos de los avisos, también al móvil: es quien los hace sonar
+        // con la app cerrada, y al cerrar sesión se le borraron
+        const sonidos = { notifSound: prefs.notifSound, notifSoundChat: prefs.notifSoundChat };
+        if (sonidos.notifSound) {
+            this.notifSound = sonidos.notifSound;
+            localStorage.setItem('notifSound', sonidos.notifSound);
+            window.AndroidBridge?.saveToPrefs?.('notifSound', sonidos.notifSound);
+            const sel = document.getElementById('notifSoundSelect');
+            if (sel) sel.value = sonidos.notifSound;
+        }
+        if (sonidos.notifSoundChat) {
+            this.notifSoundChat = sonidos.notifSoundChat;
+            localStorage.setItem('notifSoundChat', sonidos.notifSoundChat);
+            window.AndroidBridge?.saveToPrefs?.('notifSoundChat', sonidos.notifSoundChat);
+            const sel = document.getElementById('notifSoundChat');
+            if (sel) sel.value = sonidos.notifSoundChat;
         }
         this.actualizarBotonesPerfil();
     },
