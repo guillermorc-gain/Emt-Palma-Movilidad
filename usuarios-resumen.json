@@ -2730,8 +2730,8 @@
     "conductor": "966-2",
     "avatar": null,
     "version": "build-346",
-    "horasMes": 0,
-    "horasTotales": 0,
+    "horasMes": 7,
+    "horasTotales": 7,
     "horasAnuales": 1500,
     "jornadaHoras": 7,
     "dias": [
@@ -2742,12 +2742,21 @@
       5
     ],
     "diasAt": 1790581303846,
-    "diasMes": 0,
-    "turno": "",
-    "horaInicio": "",
-    "horaFin": "",
-    "horarioDe": "anterior",
-    "jornadas": [],
+    "diasMes": 1,
+    "turno": "N",
+    "horaInicio": "05:00",
+    "horaFin": "12:00",
+    "horarioDe": "hoy",
+    "jornadas": [
+      {
+        "f": "20260928",
+        "h": 7,
+        "i": "05:00",
+        "o": "12:00",
+        "n": 0,
+        "pu": "Control de acceso"
+      }
+    ],
     "vacaciones": [],
     "vacacionesAt": 0,
     "puesto": "",
@@ -2761,6 +2770,6 @@
       "trabajador"
     ],
     "grupo": null,
-    "actualizado": "2026-09-28T07:41:48.697Z"
+    "actualizado": "2026-09-28T07:43:33.738Z"
   }
 }
