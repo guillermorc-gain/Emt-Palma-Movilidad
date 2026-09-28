@@ -503,6 +503,7 @@ const app = {
         this._alVolverAutorizado();
         this._pintarIdentidadApp();
         this._instalarFirmaApi();
+        this._ponerBotonesEmoji();
         this._vigilarEnvios();
         this._vigilarPestanas();
         // The update check must run even if any earlier step throws, otherwise a
@@ -4486,6 +4487,8 @@ const app = {
         (this._notas || []).forEach(n => {
             const v = n?.vistoPor;
             if (!v || (v.email || '').toLowerCase() !== yo) return;
+            // Lo que vio gestión es de gestión, y lo que vio la persona, suyo
+            if (!!v.gestion !== !ES_APP_DEV) return;
             const cuando = v.en || '';
             if (cuando && cuando > (leidas[n.id] || '')) { leidas[n.id] = cuando; cambia = true; }
         });
@@ -5312,6 +5315,9 @@ const app = {
     // Quién soy yo en esa conversación: una persona, o gestión
     _yoEnHilo(n) {
         const me = (this.usuarioActual?.email || '').toLowerCase();
+        // En la app de gestión se es gestión en toda conversación en la que
+        // está gestión, aunque se entre con la misma cuenta que la otra parte
+        if (!ES_APP_DEV && this._participantesDe(n).some(p => p.gestion)) return { gestion: true };
         return this._participantesDe(n).find(p => !p.gestion && (p.email || '').toLowerCase() === me)
             || ((!ES_APP_DEV && !this._soyElDesarrollador()) ? { gestion: true } : null);
     },
@@ -5369,6 +5375,37 @@ const app = {
 
     _emojisRecientes() {
         try { return JSON.parse(localStorage.getItem('emojisRecientes') || '[]').slice(0, 24); } catch (_) { return []; }
+    },
+
+    // Un botón 😊 en cada cuadro de escribir mensajes: abre el mismo selector
+    // que los grupos y mete el emoji donde esté el cursor.
+    _ponerBotonesEmoji() {
+        ['hiloTexto', 'respTexto'].forEach(id => {
+            const t = document.getElementById(id);
+            if (!t || t.parentElement?.classList.contains('emo-campo')) return;
+            const caja = document.createElement('div');
+            caja.className = 'emo-campo';
+            t.parentNode.insertBefore(caja, t);
+            caja.appendChild(t);
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'emo-meter';
+            b.title = 'Poner un emoji';
+            b.textContent = '😊';
+            b.addEventListener('mousedown', e => e.preventDefault());
+            b.addEventListener('click', async () => {
+                const ini = t.selectionStart ?? t.value.length, fin = t.selectionEnd ?? t.value.length;
+                const e = await this._elegirEmoji();
+                if (!e) return;
+                const nuevo = t.value.slice(0, ini) + e + t.value.slice(fin);
+                if (t.maxLength > 0 && nuevo.length > t.maxLength) return;
+                t.value = nuevo;
+                t.focus();
+                t.setSelectionRange(ini + e.length, ini + e.length);
+                t.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            caja.appendChild(b);
+        });
     },
 
     // Abre el selector y devuelve el emoji elegido (o null)
@@ -5514,7 +5551,7 @@ const app = {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json',
                            'X-User-Email': this.usuarioActual?.email || '' },
-                body: JSON.stringify({ id: n.id, borrarMensaje: i, enMensaje: m.en, nombre: (this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor()), gestor: (this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor()) }),
+                body: JSON.stringify({ id: n.id, borrarMensaje: i, enMensaje: m.en, bandeja: !ES_APP_DEV, nombre: (this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor()), gestor: (this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor()) }),
             });
             const data = await r.json();
             if (!r.ok) { this._mostrarToast('❌ ' + (data.error || r.status), 4000); return; }
@@ -5621,7 +5658,7 @@ const app = {
                            'X-User-Email': this.usuarioActual?.email || '' },
                 // El servidor decide si firma como gestión o como persona; se
                 // mandan los dos nombres
-                body: JSON.stringify({ id: this._hiloAbierto, texto, gestor: this._nombreGestor(),
+                body: JSON.stringify({ id: this._hiloAbierto, texto, gestor: this._nombreGestor(), bandeja: !ES_APP_DEV,
                     nombre: this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor() })
             });
             const data = await r.json();
@@ -5646,7 +5683,7 @@ const app = {
                 headers: { 'Content-Type': 'application/json',
                            'X-User-Email': this.usuarioActual?.email || '',
                            'X-Admin-Email': this.usuarioActual?.email || '' },
-                body: JSON.stringify({ id, ...cuerpo })
+                body: JSON.stringify({ id, ...cuerpo, bandeja: !ES_APP_DEV })
             });
             const data = await r.json();
             if (!r.ok) { this._mostrarToast('❌ ' + (data.error || r.status), 4000); return; }

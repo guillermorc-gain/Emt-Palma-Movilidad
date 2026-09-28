@@ -250,20 +250,23 @@ function puedeTocar(nota, quien, deGestion = false) {
 // Quien escribe en nombre de gestión: un gestor en una conversación de
 // gestión en la que no está como persona. El desarrollador también es gestor,
 // y cuando gestión le escribe a él, lo que contesta es suyo, no de gestión.
-function escribeComoGestion(nota, quien, deGestion) {
+// Salvo si lo hace desde la app de gestión (bandeja): ahí siempre es gestión,
+// aunque entre con la misma cuenta que usa como persona.
+function escribeComoGestion(nota, quien, deGestion, bandeja = false) {
   if (!deGestion || nota.tipo === 'companero') return false;
+  if (bandeja) return nota.tipo !== 'grupo' || !!nota.conGestion;
   if (nota.tipo === 'grupo') return !!nota.conGestion && !enGrupo(nota, quien);
   return (nota.email || '').toLowerCase() !== quien;
 }
 
 // Borrar un mensaje suelto, como en WhatsApp: el globo se queda, sin el texto,
 // diciendo quién lo borró y cuándo. Solo lo borra quien lo escribió.
-function borrarMensaje(nota, i, en, { quien, nombre, deGestion }) {
+function borrarMensaje(nota, i, en, { quien, nombre, deGestion, bandeja }) {
   const n = normalizar(nota);
   const m = n.mensajes[i];
   if (!m || (en && m.en !== en) || m.borrado || m.sistema) return { error: 'Ese mensaje ya no está', status: 404 };
   const suyo = (m.de || '').toLowerCase() === quien
-    || (m.de === 'gestor' && escribeComoGestion(n, quien, deGestion))
+    || (m.de === 'gestor' && escribeComoGestion(n, quien, deGestion, bandeja))
     || (m.de === 'trabajador' && n.tipo !== 'grupo' && (n.email || '').toLowerCase() === quien);
   if (!suyo) return { error: 'Solo puedes borrar tus mensajes', status: 403 };
   const mensajes = n.mensajes.slice();
@@ -298,7 +301,7 @@ function añadirMensaje(nota, { de, autor, cuerpo, adjuntos }) {
 // Dar el visto o archivar. El visto es de los dos: lo dé quien lo dé, queda
 // apuntado en la conversación con su nombre y su hora, así que el otro lo ve
 // en su app sin que nadie tenga que escribir nada.
-function tocarNota(nota, { visto, archivada, quien, nombre, deGestion, titulo, emoji }) {
+function tocarNota(nota, { visto, archivada, quien, nombre, deGestion, bandeja, titulo, emoji }) {
   const n = normalizar(nota);
   // Los grupos: su nombre y su emoji los puede cambiar cualquiera de dentro
   if (n.tipo === 'grupo') {
@@ -308,12 +311,13 @@ function tocarNota(nota, { visto, archivada, quien, nombre, deGestion, titulo, e
   if (visto !== undefined) {
     if (visto) {
       n.estado = 'visto';
+      const comoGestion = escribeComoGestion(n, quien, deGestion, bandeja);
       n.vistoPor = { email: quien, nombre: String(nombre || '').slice(0, 80),
-                     en: new Date().toISOString() };
+                     en: new Date().toISOString(), ...(comoGestion ? { gestion: true } : {}) };
       // En un grupo cada uno apunta hasta dónde ha leído, para que debajo
       // de cada mensaje salga quién lo ha visto
       if (n.tipo === 'grupo') {
-        const k = escribeComoGestion(n, quien, deGestion) ? 'gestion' : quien;
+        const k = comoGestion ? 'gestion' : quien;
         n.leidos = { ...(n.leidos || {}), [k]: { nombre: String(nombre || '').slice(0, 80), en: n.vistoPor.en } };
       }
     } else {
@@ -435,7 +439,7 @@ export default async function handler(req, res) {
         if (!puedeTocar(previa, quien, deGestion)) {
           return res.status(403).json({ error: 'Esa conversación no es tuya' });
         }
-        const soyGestor = escribeComoGestion(previa, quien, deGestion);
+        const soyGestor = escribeComoGestion(previa, quien, deGestion, !!b.bandeja);
         const conMensaje = añadirMensaje(previa, {
           de: soyGestor ? 'gestor' : quien,
           autor: soyGestor ? (b.gestor || 'Gestión') : (b.nombre || b.deNombre || ''),
@@ -583,6 +587,7 @@ export default async function handler(req, res) {
       const quien = delToken || (req.headers['x-admin-email'] || req.headers['x-user-email'] || '')
         .toLowerCase().trim();
       const { id, visto, archivada, gestor, nombre, borrarMensaje: iBorrar, enMensaje, titulo, emoji } = req.body || {};
+      const bandeja = !!req.body?.bandeja;
       if (!id) return res.status(400).json({ error: 'Falta la nota' });
       if (!quien || !quien.includes('@')) return res.status(400).json({ error: 'Falta el usuario' });
       const deGestion = !!delToken && await esGestor(delToken);
@@ -590,10 +595,10 @@ export default async function handler(req, res) {
       const esDesarrollador = !!delToken && delToken === GESTOR_PRINCIPAL;
       // El visto lo da cualquiera de los dos: no hace falta comprobar nada
       // más de lo que ya comprueba puedeTocar.
-      const quita = { visto, archivada, quien, nombre: gestor || nombre, deGestion, titulo, emoji };
+      const quita = { visto, archivada, quien, nombre: gestor || nombre, deGestion, bandeja, titulo, emoji };
       const borraUno = metodo === 'PATCH' && Number.isInteger(iBorrar);
       if (borraUno) {
-        const quienBorra = { quien, nombre: gestor || nombre, deGestion };
+        const quienBorra = { quien, nombre: gestor || nombre, deGestion, bandeja };
         if (hayBaseDeDatos()) {
           const n = await leerNota(id);
           if (!puedeTocar(n, quien, deGestion)) return res.status(404).json({ error: 'Esa conversación no es tuya' });
