@@ -117,59 +117,5 @@
       "nombre": "Guillermo Ríos Correa",
       "en": "2026-09-28T18:59:49.052Z"
     }
-  },
-  "20260928190920273-wa96o-g": {
-    "id": "20260928190920273-wa96o-g",
-    "tipo": "grupo",
-    "creado": "2026-09-28T19:09:20.273Z",
-    "creadoPor": "guillermo.rc82@gmail.com",
-    "email": "guillermo.rc82@gmail.com",
-    "participantes": [
-      {
-        "email": "guillermo.rc82@gmail.com",
-        "nombre": "Guillermo Ríos Correa",
-        "num": "1418-3"
-      },
-      {
-        "email": "g.rioscorrea@gmail.com",
-        "nombre": "Desarrollador",
-        "num": "💻"
-      }
-    ],
-    "conGestion": true,
-    "titulo": "Test",
-    "emoji": "👥",
-    "leidos": {
-      "guillermo.rc82@gmail.com": {
-        "nombre": "Guillermo Ríos Correa",
-        "en": "2026-09-28T19:09:20.273Z"
-      },
-      "g.rioscorrea@gmail.com": {
-        "nombre": "Guillermo Ríos Correa",
-        "en": "2026-09-28T19:09:50.550Z"
-      },
-      "gestion": {
-        "nombre": "Guillermo Ríos Correa",
-        "en": "2026-09-28T19:10:02.500Z"
-      }
-    },
-    "mensajes": [
-      {
-        "de": "guillermo.rc82@gmail.com",
-        "autor": "Guillermo Ríos Correa",
-        "texto": "hol😒",
-        "adjuntos": [],
-        "en": "2026-09-28T19:09:20.273Z"
-      }
-    ],
-    "archivada": false,
-    "de": "trabajador",
-    "estado": "visto",
-    "vistoPor": {
-      "email": "g.rioscorrea@gmail.com",
-      "nombre": "Guillermo Ríos Correa",
-      "en": "2026-09-28T19:10:02.500Z",
-      "gestion": true
-    }
   }
 }
