@@ -277,11 +277,15 @@ function reglasDeTema(id, oscuro) {
         Object.entries(roles).forEach(([rol, lista]) => lista.forEach(c => { mapa[tipo][c] = t[rol]; }));
     });
     const pre = `html[data-tema="${id}"]`;
+    // Con :where el tema no suma prioridad: cada regla suya pesa lo mismo
+    // que la que cambia, y así no pisa a las más concretas (el botón
+    // elegido, el activo…), que se quedaban con el fondo de los demás.
+    const cond = `:where([data-tema="${id}"])`;
     const conPrefijo = sel => sel.split(/,(?![^(]*\))/).map(x => {
         x = x.trim();
-        if (/^html\b/.test(x)) return x.replace(/^html/, pre);
-        if (/^:root\b/.test(x)) return x.replace(/^:root/, pre);
-        return pre + ' ' + x;
+        if (/^html\b/.test(x)) return x.replace(/^html/, 'html' + cond);
+        if (/^:root\b/.test(x)) return x.replace(/^:root/, ':root' + cond);
+        return `:where(${pre}) ${x}`;
     }).join(', ');
     const props = [['color', 'texto'], ['background-color', 'fondo'],
                    ['border-top-color', 'borde'], ['border-right-color', 'borde'],
