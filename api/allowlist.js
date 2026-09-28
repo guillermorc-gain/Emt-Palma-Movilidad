@@ -216,6 +216,18 @@ async function cuentasDeCorreo(req, res) {
   }
   // Lo que hace el desarrollador
   if (!await exigirAdmin(req, res, GESTOR_PRINCIPAL)) return;
+  // Probar que el correo propio sale: uno de prueba al propio desarrollador
+  if (q.probarCorreo !== undefined) {
+    if (!hayCorreoPropio()) return res.status(200).json({ ok: false, error: 'Falta GMAIL_CLAVE_APP en Vercel (o no se ha vuelto a desplegar)' });
+    try {
+      const c = correoAutorizado({ nombre: 'Guillermo', email: GESTOR_PRINCIPAL, app: 'trabajador',
+                                   enlace: seguirEn('trabajador'), confirmar: false });
+      await enviarCorreo({ para: GESTOR_PRINCIPAL, asunto: '🧪 Prueba · ' + c.asunto, html: c.html, texto: c.texto });
+      return res.status(200).json({ ok: true, para: GESTOR_PRINCIPAL });
+    } catch (e) {
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
   if (req.method === 'GET') return res.status(200).json(Object.values((await leerJson(SOLICITUDES)).data));
   const email = String(req.body?.email || '').toLowerCase().trim();
   if (!email.includes('@')) return res.status(400).json({ error: 'Email inválido' });
@@ -251,7 +263,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const q = req.query || {};
-  if (['solicitud', 'reenviar', 'solicitudes', 'aprobar', 'rechazar'].some(k => q[k] !== undefined)) {
+  if (['solicitud', 'reenviar', 'solicitudes', 'aprobar', 'rechazar', 'probarCorreo'].some(k => q[k] !== undefined)) {
     try { return await cuentasDeCorreo(req, res); }
     catch (e) { return res.status(500).json({ error: e.message }); }
   }

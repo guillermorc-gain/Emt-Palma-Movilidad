@@ -7167,9 +7167,24 @@ const app = {
         return n ? this._buildNumToVersion(n) : '🌐 navegador';
     },
 
+    // Manda un correo de prueba desde la cuenta de Gmail de Gestión al
+    // desarrollador, para ver que la clave de Vercel está bien puesta
+    async probarCorreo() {
+        this._mostrarToast('📧 Enviando el correo de prueba…', 3000);
+        try {
+            const r = await fetch(this.API_BASE + 'allowlist?probarCorreo=1', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            const d = await r.json().catch(() => ({}));
+            if (d.ok) this._mostrarToast(`✅ Enviado a ${d.para}. Míralo en tu bandeja (y en Spam).`, 6000);
+            else alert('❌ No se ha podido enviar el correo de prueba:\n\n' + (d.error || r.status));
+        } catch (e) { alert('❌ ' + e.message); }
+    },
+
     _renderAcceso(id) {
         const el = document.getElementById('grpAccLista');
         if (!el) return;
+        const bp = document.getElementById('btnProbarCorreo');
+        if (bp) bp.style.display = this._soyElDesarrollador() ? '' : 'none';
         const correos = this._listasAcceso[id] || [];
         if (!correos.length) {
             el.innerHTML = '<div style="color:#888;font-size:12px;padding:4px 0;">'
