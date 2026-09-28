@@ -1166,10 +1166,10 @@
         /* Los avisos salen de la campana, arriba, con un pico que la señala */
         .sol-caja.desde-campana{bottom:auto;top:70px;left:10px;right:10px;margin:0;max-width:none;max-height:none;overflow:visible;animation:desdeCampana .18s ease-out;transform-origin:calc(var(--pico,90%) + 8px) 0;}
         .sol-caja.desde-campana > *{position:relative;}
-        .sol-caja.desde-campana .sol-cerrar{position:absolute;}
+        .sol-caja.desde-campana .sol-cerrar{position:absolute;z-index:3;}
         .sol-caja.desde-campana::before{content:'';position:absolute;top:-8px;left:var(--pico,calc(100% - 70px));width:16px;height:16px;background:var(--tut-fondo,#fff);transform:rotate(45deg);border-radius:3px;box-shadow:-3px -3px 6px rgba(0,0,0,.06);}
         @keyframes desdeCampana{from{opacity:0;transform:scale(.92) translateY(-6px);}to{opacity:1;transform:none;}}
-        .sol-cerrar{position:absolute;top:8px;right:8px;width:30px;height:30px;border:none;border-radius:50%;background:var(--tut-toque,#eef3fb);color:var(--tut-tinta,#1f2d45);font-size:14px;font-weight:800;cursor:pointer;line-height:1;}
+        .sol-cerrar{position:absolute;z-index:3;top:8px;right:8px;width:30px;height:30px;border:none;border-radius:50%;background:var(--tut-toque,#eef3fb);color:var(--tut-tinta,#1f2d45);font-size:14px;font-weight:800;cursor:pointer;line-height:1;}
         .sol-caja .sol-tit{padding-right:36px;}
         .aviso-fila{cursor:pointer;}
         .aus-fila{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0;}
