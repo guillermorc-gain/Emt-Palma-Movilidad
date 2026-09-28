@@ -71,7 +71,7 @@ async function certificadosFirebase() {
   certificados = { claves: await r.json(), hasta: Date.now() + Math.min(edad, 6 * 3600) * 1000 };
   return certificados.claves;
 }
-async function revisarFirebase(token) {
+export async function revisarFirebase(token, sinVerificar = false) {
   const [h, p, s] = token.split('.');
   let cab, datos;
   try {
@@ -90,9 +90,10 @@ async function revisarFirebase(token) {
     return { motivo: 'otra_aplicacion' };
   }
   if (!datos.sub || !(datos.exp > ahora) || datos.iat > ahora + 300) return { motivo: 'token_caducado' };
-  if (datos.email_verified !== true) return { motivo: 'correo_sin_verificar' };
+  if (datos.email_verified !== true && !sinVerificar) return { motivo: 'correo_sin_verificar' };
   const email = String(datos.email || '').toLowerCase().trim();
   if (!email.includes('@')) return { motivo: 'token_sin_correo' };
+  if (sinVerificar) return { email, uid: datos.sub, nombre: String(datos.name || '') };
   cache.set(token, { email, hasta: Math.min(Date.now() + TTL, datos.exp * 1000) });
   return { email };
 }

@@ -1968,8 +1968,9 @@ const app = {
             const u = info.users?.[0] || {};
             if (!u.emailVerified) {
                 this._fbPendiente = d.idToken;
-                this.mostrarMensaje('Falta confirmar tu correo: abre el enlace que te enviamos y vuelve a darle a Entrar. '
-                    + '¿No te ha llegado? Mira en spam o pulsa «Reenviar el correo».', 'error');
+                this.mostrarMensaje('Tu cuenta aún no está lista: primero la aprueba el Departamento y después te llega un correo '
+                    + 'para confirmarla. Si ya te llegó, abre el enlace y vuelve a darle a Entrar. ¿No lo encuentras? Mira en spam '
+                    + 'o pulsa «Reenviar el correo».', 'error');
                 const re = document.getElementById('cReenviar');
                 if (re) re.hidden = false;
                 return;
@@ -1987,17 +1988,34 @@ const app = {
         try {
             const d = await this._fbPost('signUp', { ...d0, returnSecureToken: true });
             await this._fbPost('update', { idToken: d.idToken, displayName: nombre.slice(0, 80), returnSecureToken: false }).catch(() => {});
-            await this._fbPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: d.idToken });
-            this.mostrarMensaje(`✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarlo y luego pulsa Entrar.`, 'success');
+            // Antes del correo de confirmación, el Departamento tiene que
+            // aprobarla (y decir si es de gestión o trabajador)
+            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre });
+            this.mostrarMensaje(r.aprobado
+                ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarlo y luego pulsa Entrar.`
+                : `✅ Cuenta creada y enviada al Departamento para aprobarla. Cuando la aprueben te llegará un correo a ${d0.email}: abre el enlace y luego pulsa Entrar.`, 'success');
         } catch (e) { this.mostrarMensaje(e.message, 'error'); }
     },
 
     async reenviarVerificacion() {
         if (!this._fbPendiente) return;
         try {
-            await this._fbPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: this._fbPendiente });
+            await this._pedirAlta(this._fbPendiente, 'reenviar');
             this.mostrarMensaje('📧 Correo de confirmación enviado otra vez.', 'success');
         } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    // Al servidor, con la sesión aún sin confirmar: pedir el alta o que se
+    // reenvíe la confirmación. Va directo, sin la firma de la app, que
+    // pondría la sesión de otro si la hubiera.
+    async _pedirAlta(idToken, que, cuerpo = {}) {
+        const envio = this._fetchOriginal || window.fetch.bind(window);
+        const r = await envio(`${this.API_BASE}allowlist?${que}=1`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify(cuerpo) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+        return d;
     },
 
     async olvideContrasena() {

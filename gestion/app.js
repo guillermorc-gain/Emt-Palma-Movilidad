@@ -492,6 +492,8 @@ const app = {
         poner('splashRol', '⚙️ Desarrollador');
         const btn = document.getElementById('tabBtnPartes');
         if (btn) btn.style.display = '';
+        const ayuda = document.getElementById('sectionAyuda');
+        if (ayuda) ayuda.style.display = 'none';
         const logo = document.getElementById('authLogo');
         if (logo) logo.src = 'icons/icon-dev-192.png';
         document.title = 'Desarrollador EMT - Palma (Movilidad)';
@@ -822,6 +824,7 @@ const app = {
             }
             this.mostrarApp();
             this._caComprobarAcceso();
+            this._cargarSolicitudes();
             this._tutorialPrimeraVez();
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
@@ -2026,6 +2029,8 @@ const app = {
     // Al entrar: la primera vez, el tutorial; luego ya lo demás (el permiso
     // de batería), que si no se le echa encima
     _tutorialPrimeraVez() {
+        // La de Desarrollador no lleva tutorial
+        if (ES_APP_DEV) { this._pedirBateriaSiHaceFalta(); return; }
         let visto = false;
         try { visto = localStorage.getItem('tutorialVisto') === '1'; } catch (_) {}
         if (visto) { this._pedirBateriaSiHaceFalta(); return; }
@@ -4887,12 +4892,60 @@ const app = {
             .catch(() => {});
     },
 
+    // ── Cuentas nuevas por aprobar (solo Desarrollador) ──────────────────────
+    // Quien crea una cuenta con un correo que no es de Google espera aquí: se
+    // elige si es de gestión o trabajador, se le apunta en esa lista y el
+    // servidor le manda el correo para confirmar la cuenta.
+    async _cargarSolicitudes() {
+        if (!ES_APP_DEV || !this.usuarioActual) return;
+        try {
+            const r = await fetch(this.API_BASE + 'allowlist?solicitudes=1', { cache: 'no-store' });
+            if (!r.ok) return;
+            this._solicitudes = await r.json();
+            this._pintarSolicitudes();
+        } catch (_) {}
+    },
+
+    _pintarSolicitudes() {
+        document.getElementById('solicitudesCaja')?.remove();
+        const lista = Array.isArray(this._solicitudes) ? this._solicitudes : [];
+        if (!lista.length) return;
+        const esc = t => String(t || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+        const caja = document.createElement('div');
+        caja.id = 'solicitudesCaja';
+        caja.className = 'sol-caja';
+        caja.innerHTML = `<div class="sol-tit">🆕 ${lista.length === 1 ? 'Una cuenta nueva' : lista.length + ' cuentas nuevas'} por aprobar</div>`
+            + lista.map(s => `<div class="sol-fila">
+                <div class="sol-quien"><b>${esc(s.nombre) || esc(s.email)}</b><span>${esc(s.email)}</span></div>
+                <div class="sol-btns">
+                    <button type="button" onclick="app.resolverSolicitud('${esc(s.email)}','trabajador')">Trabajador</button>
+                    <button type="button" onclick="app.resolverSolicitud('${esc(s.email)}','gestion')">Gestión</button>
+                    <button type="button" class="no" onclick="app.resolverSolicitud('${esc(s.email)}','')" title="Rechazar">✕</button>
+                </div></div>`).join('');
+        document.body.appendChild(caja);
+    },
+
+    async resolverSolicitud(email, como) {
+        if (!como && !confirm(`¿Rechazar la cuenta de ${email}? No le llegará ningún correo.`)) return;
+        try {
+            const r = await fetch(this.API_BASE + 'allowlist?' + (como ? 'aprobar=1' : 'rechazar=1'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, como }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { this._mostrarToast('❌ ' + (d.error || r.status), 5000); return; }
+            this._solicitudes = (this._solicitudes || []).filter(s => s.email !== email);
+            this._pintarSolicitudes();
+            this._mostrarToast(como ? `✅ Apuntado como ${como === 'gestion' ? 'gestión' : 'trabajador'}: le hemos mandado el correo de confirmación`
+                                    : '🗑️ Solicitud rechazada', 4000);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
+    },
+
     // Lo que ha cambiado, según el aviso: se trae solo eso
     _alAvisoPush(tipo) {
         if (!this.usuarioActual) return;
         if (tipo === 'chat') { this._huellaChat = null; this._sondearChat(); }
         else if (tipo === 'acceso') { this._caTraer?.(); this.caCargarVisitantes?.(); }
         else if (tipo === 'plantilla' && !document.querySelector('.modal.show')) this._cargarConductores(true);
+        else if (tipo === 'solicitud') this._cargarSolicitudes();
     },
 
     _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
@@ -7912,15 +7965,16 @@ const app = {
     _chipConexion(email) {
         const iso = (this._conexiones || {})[String(email || '').toLowerCase()];
         const t = Date.parse(iso || '');
-        if (!t) return '<span class="cond-con">sin conexión</span>';
+        // Corto, para que quepa junto al nombre sin hacer la tarjeta más alta
+        if (!t) return '<span class="cond-con" title="Nunca se ha conectado">○</span>';
         const min = Math.round((Date.now() - t) / 60000);
-        if (min < 7) return '<span class="cond-con on" title="Conectado ahora">● en línea</span>';
         const d = new Date(t);
-        const hoy = new Date();
-        const txt = min < 60 ? `hace ${min} min`
-            : d.toDateString() === hoy.toDateString() ? `hoy ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
-            : d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        return `<span class="cond-con" title="Última conexión">${txt}</span>`;
+        const completa = d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        if (min < 7) return '<span class="cond-con on" title="En línea ahora">● en línea</span>';
+        const txt = min < 60 ? `${min} min`
+            : d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+            : `${Math.max(1, Math.round(min / 1440))} d`;
+        return `<span class="cond-con" title="Última conexión: ${completa}">● ${txt}</span>`;
     },
 
     // Ocultar un trabajador real de la pestaña Trabajadores (sus datos se
@@ -8943,7 +8997,7 @@ const app = {
                 <div class="cond-top" onclick="app._plegarTrabajador('${esc(u.email)}')">
                     ${av}
                     <div class="cond-id">
-                        <div class="cond-nombre">${esc(u.nombre) || esc(u.email)}
+                        <div class="cond-nombre${ES_APP_DEV ? ' compacta' : ''}"><span class="cond-nom-txt">${esc(u.nombre) || esc(u.email)}</span>
                             ${turno ? `<span class="cond-turno ${turno}">${turno}</span>` : ''}
                             ${u.ficticio ? '<span class="pr-badge2">PRUEBA</span>' : ''}
                             ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${

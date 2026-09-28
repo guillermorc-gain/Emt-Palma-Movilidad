@@ -72,7 +72,7 @@ export async function registrarPush({ email, token, app, bandeja, control }) {
 // La cuenta de servicio. Si al pegarla en Vercel los saltos de línea de la
 // clave quedaron de verdad (y no como \n), el JSON ya no se lee: entonces se
 // sacan los tres datos que hacen falta a mano.
-function cuentaDeServicio() {
+export function cuentaDeServicio() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT || '';
   if (!raw.trim()) return null;
   try {
@@ -184,6 +184,9 @@ export const avisarPersonas = (emails, datos) => {
   const para = new Set((emails || []).map(e => String(e || '').toLowerCase()));
   return conTope(avisarFiltro(t => !t.bandeja && para.has(t.email), datos));
 };
+// Al desarrollador, en su app (por ejemplo, una cuenta nueva por aprobar)
+export const avisarDesarrollador = (email, datos) =>
+  conTope(avisarFiltro(t => t.app === 'desarrollador' && t.email === String(email).toLowerCase(), datos));
 // A las apps de gestión y desarrollador, menos a quien lo ha hecho
 export const avisarGestion = (datos, salvo = '') =>
   conTope(avisarFiltro(t => (t.app === 'gestion' || t.app === 'desarrollador') && t.email !== salvo, datos));
