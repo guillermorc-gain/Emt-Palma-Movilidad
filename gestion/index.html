@@ -1130,9 +1130,15 @@
         .globo-pr::after{content:"";position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:#1f2d45;}
         .globo-pr.fuera{opacity:0;transform:translateY(-4px);}
         .cond-con{font-size:10px;font-weight:600;color:#95a5a6;white-space:nowrap;flex-shrink:0;}
-        .cond-nombre.compacta{flex-wrap:nowrap;min-width:0;}
-        .cond-nombre.compacta .cond-nom-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        /* Desarrollador: el nombre entero (salta de línea si hace falta) y los
+           cuatro botones en un cuadro de 2×2 para dejarle sitio */
+        .cond-nombre.compacta{flex-wrap:wrap;min-width:0;row-gap:2px;}
+        .cond-nombre.compacta .cond-nom-txt{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.25;}
         .cond-nombre.compacta .cond-turno,.cond-nombre.compacta .pr-badge2{flex-shrink:0;}
+        .cond-btns{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+        .cond-btns.cuadro{display:grid;grid-template-columns:repeat(2,36px);grid-auto-rows:36px;gap:5px;}
+        .cond-btns.cuadro .be-btn{width:36px;height:36px;padding:0;border-radius:9px;font-size:12px;letter-spacing:0;display:flex;align-items:center;justify-content:center;}
+        .cond-btns.cuadro .be-btn:last-child{font-size:16px;}
         .cond-con.on{color:#1e9e5a;}
         /* Cuentas nuevas por aprobar (Desarrollador) */
         .sol-caja{position:fixed;left:10px;right:10px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:8000;background:var(--tut-fondo,#fff);color:var(--tut-tinta,#1f2d45);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.28);padding:12px;display:flex;flex-direction:column;gap:8px;max-width:520px;margin:0 auto;max-height:50vh;overflow-y:auto;}
