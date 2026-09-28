@@ -20,6 +20,11 @@
     "deEmail": "g.rioscorrea@gmail.com",
     "deNombre": "Desarrollador",
     "deConductor": "💻",
-    "estado": "pendiente"
+    "estado": "visto",
+    "vistoPor": {
+      "email": "guillermo.rc82@gmail.com",
+      "nombre": "Guillermo Ríos Correa",
+      "en": "2026-09-28T23:04:58.386Z"
+    }
   }
 }
