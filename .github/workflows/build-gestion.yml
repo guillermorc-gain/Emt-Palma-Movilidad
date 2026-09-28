@@ -1214,7 +1214,7 @@ jobs:
                       // delante y no hace nada.
                       try { if ("chat".equals(tipo)) ChatReceiver.mirarChat(ctx); } catch (Exception ignored) {}
                       // Una cuenta nueva por aprobar: el aviso con lo que manda el servidor
-                      if ("solicitud".equals(tipo)) {
+                      if ("solicitud".equals(tipo) || "registro".equals(tipo)) {
                           try {
                               String tit = msg.getData().get("titulo"), txt = msg.getData().get("texto");
                               NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -1222,7 +1222,7 @@ jobs:
                                   | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
                               Intent oi = new Intent(ctx, MainActivity.class);
                               oi.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                              nm.notify(1007, new NotificationCompat.Builder(ctx, canalChat(ctx))
+                              nm.notify("registro".equals(tipo) ? 1008 : 1007, new NotificationCompat.Builder(ctx, canalChat(ctx))
                                   .setSmallIcon(R.drawable.ic_stat_chat)
                                   .setContentTitle(tit == null ? "Cuenta nueva por aprobar" : tit)
                                   .setContentText(txt == null ? "" : txt)
