@@ -161,12 +161,45 @@ function recortar(data) {
 // lee como visto; lo denegado vuelve a pendiente, que es lo único que queda.
 const ESTADO = e => (e === 'visto' || e === 'ok') ? 'visto' : 'pendiente';
 
+// Quién está en cada conversación, dicho igual para todos los tipos: cada
+// uno con su correo, su nombre y su número, y gestión como un participante
+// más ({ gestion: true }). Así las apps pueden decir siempre quién escribe y
+// a quién, en vez de adivinarlo por el tipo de conversación.
+//   · gestion:   el trabajador (email) y gestión
+//   · companero: quien empezó (deEmail) y quien recibe (email)
+//   · grupo:     los que se eligieron, más gestión si se la eligió
+function participantesDe(n) {
+  if (n.tipo === 'grupo') {
+    const ps = (Array.isArray(n.participantes) ? n.participantes : []).filter(p => p && p.email);
+    return n.conGestion ? [...ps, { gestion: true, nombre: 'Gestión' }] : ps;
+  }
+  if (n.tipo === 'companero') {
+    return [{ email: (n.deEmail || '').toLowerCase(), nombre: n.deNombre || '', num: n.deConductor || '' },
+            { email: (n.email || '').toLowerCase(), nombre: n.nombre || '', num: n.conductor || '' }];
+  }
+  return [{ email: (n.email || '').toLowerCase(), nombre: n.nombre || '', num: n.conductor || '' },
+          { gestion: true, nombre: 'Gestión' }];
+}
+const enGrupo = (n, quien) => n.tipo === 'grupo'
+  && (n.participantes || []).some(p => (p.email || '').toLowerCase() === quien);
+
+// Qué conversaciones ve cada uno: con correo, en las que participa; sin él
+// (la bandeja de gestión), las que tienen a gestión dentro.
+function laVe(n, quien) {
+  if (quien) {
+    if (n.tipo === 'grupo') return enGrupo(n, quien);
+    return (n.email || '').toLowerCase() === quien || (n.deEmail || '').toLowerCase() === quien;
+  }
+  if (n.tipo === 'grupo') return !!n.conGestion;
+  return n.tipo !== 'companero';
+}
+
 // Las conversaciones antiguas guardaban un texto y como mucho una respuesta.
 // Se leen como lo que son: los dos primeros mensajes del hilo.
 function normalizar(nota) {
   if (!nota) return nota;
   if (nota.estado !== ESTADO(nota.estado)) nota = { ...nota, estado: ESTADO(nota.estado) };
-  if (Array.isArray(nota.mensajes)) return nota;
+  if (Array.isArray(nota.mensajes)) return { ...nota, participantes: participantesDe(nota) };
   const mensajes = [];
   if (nota.texto || nota.adjuntos?.length) {
     mensajes.push({
@@ -183,16 +216,52 @@ function normalizar(nota) {
     });
   }
   const { texto: _t, adjuntos: _a, respuesta: _r, ...resto } = nota;
-  return { ...resto, mensajes };
+  return { ...resto, mensajes, participantes: participantesDe(nota) };
 }
+
+// Al guardar, los participantes calculados no se guardan (salen solos al
+// leer), salvo en los grupos, donde son la conversación misma.
+const paraGuardar = n => {
+  if (n.tipo === 'grupo') {
+    return { ...n, participantes: (n.participantes || []).filter(p => p && p.email) };
+  }
+  const { participantes: _p, ...resto } = n;
+  return resto;
+};
 
 // Quién puede escribir y tocar una conversación: los dos que hablan, y
 // gestión en las que van dirigidas a ella. Que quien llama sea de gestión se
 // comprueba fuera, que ahí se puede esperar a la respuesta.
 function puedeTocar(nota, quien, deGestion = false) {
   if (!nota) return false;
+  if (nota.tipo === 'grupo') return enGrupo(nota, quien) || (deGestion && !!nota.conGestion);
   if (deGestion) return nota.tipo !== 'companero' || nota.email === quien;
   return nota.email === quien || nota.deEmail === quien;
+}
+
+// Quien escribe en nombre de gestión: un gestor en una conversación de
+// gestión en la que no está como persona. El desarrollador también es gestor,
+// y cuando gestión le escribe a él, lo que contesta es suyo, no de gestión.
+function escribeComoGestion(nota, quien, deGestion) {
+  if (!deGestion || nota.tipo === 'companero') return false;
+  if (nota.tipo === 'grupo') return !!nota.conGestion && !enGrupo(nota, quien);
+  return (nota.email || '').toLowerCase() !== quien;
+}
+
+// Borrar un mensaje suelto, como en WhatsApp: el globo se queda, sin el texto,
+// diciendo quién lo borró y cuándo. Solo lo borra quien lo escribió.
+function borrarMensaje(nota, i, en, { quien, nombre, deGestion }) {
+  const n = normalizar(nota);
+  const m = n.mensajes[i];
+  if (!m || (en && m.en !== en) || m.borrado || m.sistema) return { error: 'Ese mensaje ya no está', status: 404 };
+  const suyo = (m.de || '').toLowerCase() === quien
+    || (m.de === 'gestor' && escribeComoGestion(n, quien, deGestion))
+    || (m.de === 'trabajador' && n.tipo !== 'grupo' && (n.email || '').toLowerCase() === quien);
+  if (!suyo) return { error: 'Solo puedes borrar tus mensajes', status: 403 };
+  const mensajes = n.mensajes.slice();
+  mensajes[i] = { de: m.de, autor: m.autor, en: m.en, texto: '', adjuntos: [],
+                  borrado: { nombre: String(nombre || m.autor || '').slice(0, 80), en: new Date().toISOString() } };
+  return { nota: { ...n, mensajes } };
 }
 
 // El visto vale para lo que hay dicho hasta ese momento: en cuanto alguien
@@ -259,6 +328,11 @@ export default async function handler(req, res) {
       // Android lo pone de título, y sin esto solo podía decir "tienes un
       // mensaje" —sin saber de quién ni de qué— y obligaba a abrir la app.
       const conQuien = n => {
+        if (n.tipo === 'grupo') {
+          const otros = participantesDe(n).filter(p => p.gestion ? !!quien : (p.email || '') !== quien)
+            .map(p => p.gestion ? 'Gestión' : (p.nombre || p.email));
+          return '👥 ' + (n.titulo || otros.join(', '));
+        }
         if (n.tipo === 'companero') {
           return (n.deEmail || '').toLowerCase() === quien
             ? (n.nombre || n.email || '') : (n.deNombre || n.deEmail || '');
@@ -281,20 +355,19 @@ export default async function handler(req, res) {
       });
       // Al gestor, que pregunta sin correo, no le toca saber siquiera que
       // existen las conversaciones entre compañeros.
-      const paraQuienPregunta = notas => quien
-        ? notas : notas.filter(n => n.tipo !== 'companero');
       if (hayBaseDeDatos()) {
-        const notas = (await leerNotas(quien)).map(normalizar);
-        return res.status(200).json(soloResumen ? huella(paraQuienPregunta(notas)) : notas);
+        // Los grupos no van por el correo de la fila: se leen todas y se filtra
+        const notas = (await leerNotas('')).filter(n => laVe(n, quien)).map(normalizar);
+        return res.status(200).json(soloResumen ? huella(notas) : notas);
       }
       const { data } = await getFile();
-      // Las mías son las que me llegan y las que he mandado a un compañero
+      // Las mías son las que me llegan, las que he mandado y los grupos en los
+      // que estoy; a gestión, las que la tienen dentro
       const notas = Object.values(data)
-        .filter(n => !quien || (n.email || '').toLowerCase() === quien
-                            || (n.deEmail || '').toLowerCase() === quien)
+        .filter(n => laVe(n, quien))
         .sort((a, b) => (b.creado || '').localeCompare(a.creado || ''))
         .map(normalizar);
-      return res.status(200).json(soloResumen ? huella(paraQuienPregunta(notas)) : notas);
+      return res.status(200).json(soloResumen ? huella(notas) : notas);
     }
 
     // El trabajador escribe las suyas. El correo sale del token; la cabecera
@@ -321,20 +394,58 @@ export default async function handler(req, res) {
         if (!puedeTocar(previa, quien, deGestion)) {
           return res.status(403).json({ error: 'Esa conversación no es tuya' });
         }
-        const soyGestor = deGestion && previa.tipo !== 'companero';
+        const soyGestor = escribeComoGestion(previa, quien, deGestion);
         const conMensaje = añadirMensaje(previa, {
           de: soyGestor ? 'gestor' : quien,
           autor: soyGestor ? (b.gestor || 'Gestión') : (b.nombre || b.deNombre || ''),
           cuerpo, adjuntos,
         });
         if (hayBaseDeDatos()) {
-          await guardarNota(conMensaje);
-          return res.status(200).json(conMensaje);
+          await guardarNota(paraGuardar(conMensaje));
+          return res.status(200).json(normalizar(conMensaje));
         }
         const guardado = await guardarConReintento(
-          data => acotarAdjuntos({ ...data, [hilo]: conMensaje }), `Mensaje en ${hilo}`);
-        return guardado ? res.status(200).json(conMensaje)
+          data => acotarAdjuntos({ ...data, [hilo]: paraGuardar(conMensaje) }), `Mensaje en ${hilo}`);
+        return guardado ? res.status(200).json(normalizar(conMensaje))
                         : res.status(500).json({ error: 'No se pudo guardar' });
+      }
+
+      // Varios a la vez es un grupo: una sola conversación con todos, en la que
+      // lo que escribe uno lo leen los demás. Gestión puede ser uno más.
+      if (b.grupo) {
+        const lista = Array.isArray(b.participantes) ? b.participantes : [];
+        const vistos = new Set();
+        const otros = lista.map(p => ({ email: String(p?.email || '').toLowerCase().trim(),
+                                        nombre: String(p?.nombre || '').slice(0, 80),
+                                        num: String(p?.num || '').slice(0, 12) }))
+          .filter(p => p.email.includes('@') && p.email !== quien && !vistos.has(p.email) && vistos.add(p.email))
+          .slice(0, MAX_DESTINOS);
+        const conGestion = !!b.conGestion;
+        // Quien escribe como gestión no entra en la lista: está como "gestión"
+        const comoGestion = deGestion && !!b.comoGestion;
+        const cuantos = otros.length + (conGestion && !comoGestion ? 1 : 0);
+        if (cuantos < 1) return res.status(400).json({ error: 'No has elegido a nadie' });
+        const creado = new Date().toISOString();
+        const yo = { email: quien, nombre: String(b.deNombre || '').slice(0, 80), num: String(b.deConductor || '').slice(0, 12) };
+        const grupo = {
+          id: `${creado.replace(/[-:.TZ]/g, '')}-${Math.random().toString(36).slice(2, 7)}-g`,
+          tipo: 'grupo', creado, creadoPor: quien,
+          email: quien,                     // para el almacén; quién está lo dice participantes
+          participantes: comoGestion ? otros : [yo, ...otros],
+          conGestion: conGestion || comoGestion,
+          titulo: String(b.titulo || '').slice(0, 80),
+          mensajes: [{ de: comoGestion ? 'gestor' : quien,
+                       autor: comoGestion ? String(b.gestor || 'Gestión').slice(0, 80) : yo.nombre,
+                       texto: cuerpo, adjuntos, en: creado }],
+          archivada: false, de: comoGestion ? 'gestor' : 'trabajador', estado: 'pendiente',
+        };
+        if (hayBaseDeDatos()) {
+          await guardarNota(grupo);
+          return res.status(200).json(normalizar(grupo));
+        }
+        const nuevo = await guardarConReintento(data => acotarAdjuntos(recortar({ ...data, [grupo.id]: grupo })),
+          `Grupo de ${quien} con ${grupo.participantes.length} personas`);
+        return nuevo ? res.status(200).json(normalizar(grupo)) : res.status(500).json({ error: 'No se pudo guardar' });
       }
 
       // El gestor puede abrir la conversación él: la nota se guarda a nombre
@@ -414,13 +525,36 @@ export default async function handler(req, res) {
       const delToken = await emailDelToken(tokenDe(req));
       const quien = delToken || (req.headers['x-admin-email'] || req.headers['x-user-email'] || '')
         .toLowerCase().trim();
-      const { id, visto, archivada, gestor, nombre } = req.body || {};
+      const { id, visto, archivada, gestor, nombre, borrarMensaje: iBorrar, enMensaje } = req.body || {};
       if (!id) return res.status(400).json({ error: 'Falta la nota' });
       if (!quien || !quien.includes('@')) return res.status(400).json({ error: 'Falta el usuario' });
       const deGestion = !!delToken && await esGestor(delToken);
       // El visto lo da cualquiera de los dos: no hace falta comprobar nada
       // más de lo que ya comprueba puedeTocar.
       const quita = { visto, archivada, quien, nombre: gestor || nombre };
+      const borraUno = metodo === 'PATCH' && Number.isInteger(iBorrar);
+      if (borraUno) {
+        const quienBorra = { quien, nombre: gestor || nombre, deGestion };
+        if (hayBaseDeDatos()) {
+          const n = await leerNota(id);
+          if (!puedeTocar(n, quien, deGestion)) return res.status(404).json({ error: 'Esa conversación no es tuya' });
+          const r = borrarMensaje(n, iBorrar, enMensaje, quienBorra);
+          if (r.error) return res.status(r.status).json({ error: r.error });
+          await guardarNota(paraGuardar(r.nota));
+          return res.status(200).json(normalizar(r.nota));
+        }
+        let fallo = null, hecha = null;
+        await guardarConReintento(data => {
+          if (!data[id]) { fallo = { status: 404, error: 'Esa conversación ya no está' }; return null; }
+          if (!puedeTocar(data[id], quien, deGestion)) { fallo = { status: 403, error: 'Esa conversación no es tuya' }; return null; }
+          const r = borrarMensaje(data[id], iBorrar, enMensaje, quienBorra);
+          if (r.error) { fallo = r; return null; }
+          hecha = r.nota;
+          return { ...data, [id]: paraGuardar(r.nota) };
+        }, `Mensaje borrado en ${id}`);
+        if (fallo) return res.status(fallo.status).json({ error: fallo.error });
+        return hecha ? res.status(200).json(normalizar(hecha)) : res.status(500).json({ error: 'No se pudo guardar' });
+      }
 
       if (hayBaseDeDatos()) {
         const n = await leerNota(id);
@@ -430,7 +564,7 @@ export default async function handler(req, res) {
           return res.status(200).json({ id, borrada: true });
         }
         const tocada = tocarNota(n, quita);
-        await guardarNota(tocada);
+        await guardarNota(paraGuardar(tocada));
         return res.status(200).json(tocada);
       }
       let prohibido = false;
@@ -438,13 +572,13 @@ export default async function handler(req, res) {
         if (!data[id]) return null;
         if (!puedeTocar(data[id], quien, deGestion)) { prohibido = true; return null; }
         if (metodo === 'DELETE') { const out = { ...data }; delete out[id]; return out; }
-        return acotarAdjuntos({ ...data, [id]: tocarNota(data[id], quita) });
+        return acotarAdjuntos({ ...data, [id]: paraGuardar(tocarNota(data[id], quita)) });
       }, metodo === 'DELETE' ? `Quitar conversación ${id}` : `Cambio en ${id}`);
       if (!nuevo) {
         return res.status(prohibido ? 403 : 404)
           .json({ error: prohibido ? 'Esa conversación no es tuya' : 'No se pudo actualizar' });
       }
-      return res.status(200).json(nuevo[id] || { id, borrada: true });
+      return res.status(200).json(nuevo[id] ? normalizar(nuevo[id]) : { id, borrada: true });
     }
 
     return res.status(405).json({ error: 'Método no permitido' });

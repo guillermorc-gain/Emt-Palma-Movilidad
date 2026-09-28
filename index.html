@@ -739,6 +739,12 @@
         html.p-solo-iconos .tab-ico{font-size:25px;}
         html.p-solo-iconos .tab-btn{padding-top:11px;padding-bottom:11px;}
         html.p-sin-anim *,html.p-sin-anim *::before,html.p-sin-anim *::after{animation:none !important;transition:none !important;}
+        /* Mensajes borrados y el botón de borrar uno propio */
+        .bub{position:relative;}
+        .bub.borrado .bub-txt{font-style:italic;opacity:.7;}
+        .bub-x{position:absolute;top:2px;right:4px;border:none;background:transparent;font-size:11px;opacity:.45;cursor:pointer;padding:2px;line-height:1;}
+        .bub-x:active{opacity:1;}
+        .bub.mio{padding-right:22px;}
         /* ── OPTIONS ── */
         .options-screen{display:none;flex-direction:column;flex:1;min-height:0;}
         .options-screen.active{display:flex;}

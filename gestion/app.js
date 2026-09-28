@@ -4166,7 +4166,9 @@ const app = {
             // Lo que se escriben entre compañeros no pasa por aquí, ni siquiera
             // lo que le escriban al desarrollador: eso es suyo y lo lee en la
             // app de trabajadores. Aquí solo está lo que va con gestión.
-            this._notas = (await r.json()).filter(n => n.tipo !== 'companero');
+            // El desarrollador ve aquí todo lo suyo, también lo que le escriben
+            // los trabajadores de tú a tú: antes se descartaba y no le llegaba.
+            this._notas = (await r.json()).filter(n => ES_APP_DEV || n.tipo !== 'companero');
             localStorage.setItem('notasCache', JSON.stringify(this._notas));
         } catch (_) {
             try { this._notas = JSON.parse(localStorage.getItem('notasCache') || '[]'); } catch (__) {}
@@ -4242,12 +4244,12 @@ const app = {
                     n.archivada ? ' archivada' : ''}${nueva ? ' nueva' : ''}" onclick="app.abrirHilo('${q}')">
                 <div class="cv-top">
                     ${nueva ? '<span class="cv-punto"></span>' : ''}
-                    <span class="nt-num">${esc(n.conductor) || '—'}</span>
-                    <span class="cv-quien">${n.de === 'gestor' ? '→ ' : ''}${esc(n.nombre) || esc(n.email)}</span>
+                    <span class="cv-quien">${esc(this._tituloHilo(n))}</span>
                     <span class="cv-fecha">${esc(this._horaCorta(ultimo?.en || n.creado))}</span>
                 </div>
                 <div class="cv-ultimo">${ultimo ? esc(
-                    (this._esMiMensaje(ultimo, n) ? 'Tú: ' : '') + (ultimo.texto || '📎 Adjunto')) : ''}</div>
+                    (this._esMiMensaje(ultimo, n) ? 'Tú: ' : (n.tipo === 'grupo' ? this._autorMensaje(ultimo, n) + ': ' : ''))
+                    + (ultimo.borrado ? '🚫 Mensaje eliminado' : (ultimo.texto || '📎 Adjunto'))) : ''}</div>
                 <div class="cv-pie">
                     <span class="cv-cnt">${this._mensajesDe(n).length} mensaje${
                         this._mensajesDe(n).length === 1 ? '' : 's'}</span>
@@ -4411,7 +4413,7 @@ const app = {
         document.getElementById('respTitulo').textContent = '✉️ Escribir a';
         document.getElementById('respQuien').textContent = lista.length === 1
             ? this._quienEs(u, lista[0])
-            : `${lista.length} trabajadores · cada uno recibirá su propio mensaje`;
+            : `👥 Grupo con ${lista.length}: todos leerán lo que se escriba`;
         document.getElementById('respOriginal').textContent = '';
         document.getElementById('respTexto').value = '';
         document.getElementById('respFirma').textContent = this._soyElDesarrollador()
@@ -4446,7 +4448,16 @@ const app = {
         };
         try {
             const nuevas = [];
-            if (para.length) {
+            // Más de uno a la vez es un grupo: una sola conversación con todos.
+            // Gestión entra como gestión; el desarrollador, como persona.
+            if (todos.length > 1) {
+                nuevas.push(...await enviar({ grupo: true,
+                    participantes: para.map(e => ({ email: e, nombre: this._fichaDe(e)?.nombre || '',
+                                                    num: this._fichaDe(e)?.conductor || '' })),
+                    ...(comoPersona
+                        ? { conGestion: paraGestion, deNombre: this.DEV_NOMBRE, deConductor: '💻' }
+                        : { comoGestion: true, conGestion: true, gestor: this._nombreGestor() }) }));
+            } else if (para.length) {
                 // Los nombres van en paralelo a los correos para que cada hilo
                 // se titule con el suyo y no con el correo.
                 nuevas.push(...await enviar({ para,
@@ -4456,16 +4467,16 @@ const app = {
                         ? { tipo: 'companero', deNombre: this.DEV_NOMBRE, deConductor: '💻' }
                         : { gestor: this._nombreGestor() }) }));
             }
-            if (paraGestion) {
+            else if (paraGestion) {
                 nuevas.push(...await enviar({ nombre: this.DEV_NOMBRE, conductor: '💻' }));
             }
             if (!nuevas.length) return;
-            // Lo personal no vive en esta bandeja: se lee en la app de
-            // trabajadores, como cualquier conversación entre dos.
-            this._notas = [...nuevas.filter(x => x.tipo !== 'companero'), ...this._notas];
+            // En la de desarrollador están también sus conversaciones de tú a
+            // tú; en la de gestión, lo que va con gestión
+            this._notas = [...nuevas.filter(x => ES_APP_DEV || x.tipo !== 'companero'), ...this._notas];
             this._renderNotasGestor();
-            this._mostrarToast(nuevas.length === 1 ? '📨 Mensaje enviado'
-                : `📨 Mensaje enviado a ${nuevas.length}`, 2500);
+            this._mostrarToast(nuevas[0]?.tipo === 'grupo' ? '📨 Grupo creado y mensaje enviado'
+                : '📨 Mensaje enviado', 2500);
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
 
@@ -4492,7 +4503,8 @@ const app = {
         // lee y las tiene avisadas en la app de trabajadores—.
         window.AndroidBridge?.activarAvisoChat?.(
             this.usuarioActual.email, !ES_APP_DEV, this.NOTAS_URL);
-        window.AndroidBridge?.saveToPrefs?.('chatSinCompaneros', ES_APP_DEV ? '1' : '');
+        // Al desarrollador también le avisan de lo que le escriben de tú a tú
+        window.AndroidBridge?.saveToPrefs?.('chatSinCompaneros', '');
         // Con qué nombre firma el visto que se dé desde el propio aviso
         window.AndroidBridge?.saveToPrefs?.('chatNombre', this.usuarioActual?.name || '');
     },
@@ -4764,26 +4776,88 @@ const app = {
         return m.length ? m[m.length - 1] : null;
     },
 
-    // Alinear a la derecha lo que he escrito yo
-    _esMiMensaje(m, n) {
-        const mio = (this.usuarioActual?.email || '').toLowerCase();
-        // Una nota que va a nombre de uno mismo se lee al revés: es la que el
-        // desarrollador le escribe a gestión desde su app, así que lo suyo es
-        // lo que firma como trabajador y lo de gestión viene del otro lado.
-        if (mio && (n?.email || '').toLowerCase() === mio) return m.de === 'trabajador';
-        // En las conversaciones de gestión lo propio va firmado como "gestor".
-        if (m.de === 'gestor') return true;
-        return !!mio && (m.de || '').toLowerCase() === mio;
+
+
+    // ── Quién está en cada conversación ─────────────────────────────────────
+    // El servidor manda la lista de participantes de cada conversación
+    // (personas y, si está, gestión). Con ella se dice siempre quién escribe
+    // y con quién se habla, sea una conversación de dos o un grupo.
+    _participantesDe(n) {
+        if (Array.isArray(n?.participantes) && n.participantes.length) return n.participantes;
+        if (n?.tipo === 'companero') {
+            return [{ email: (n.deEmail || '').toLowerCase(), nombre: n.deNombre, num: n.deConductor },
+                    { email: (n.email || '').toLowerCase(), nombre: n.nombre, num: n.conductor }];
+        }
+        return [{ email: (n?.email || '').toLowerCase(), nombre: n?.nombre, num: n?.conductor },
+                { gestion: true, nombre: 'Gestión' }];
+    },
+
+    // Quién soy yo en esa conversación: una persona, o gestión
+    _yoEnHilo(n) {
+        const me = (this.usuarioActual?.email || '').toLowerCase();
+        return this._participantesDe(n).find(p => !p.gestion && (p.email || '').toLowerCase() === me)
+            || ((!ES_APP_DEV && !this._soyElDesarrollador()) ? { gestion: true } : null);
+    },
+
+    // "Nombre - número", como en el resto de la app
+    _etiquetaParticipante(p) {
+        if (!p) return '';
+        if (p.gestion) return '🛠️ Gestión';
+        if (p.num === '💻') return '💻 ' + (p.nombre || 'Desarrollador');
+        return [p.nombre || p.email, p.num].filter(Boolean).join(' - ');
+    },
+
+    _otrosEnHilo(n) {
+        const yo = this._yoEnHilo(n);
+        return this._participantesDe(n).filter(p => !yo ? true
+            : yo.gestion ? !p.gestion : (p.gestion || (p.email || '').toLowerCase() !== (yo.email || '').toLowerCase()));
     },
 
     _tituloHilo(n) {
-        if (n.tipo === 'companero') {
-            const mio = (this.usuarioActual?.email || '').toLowerCase();
-            const yoEmpecé = (n.deEmail || '').toLowerCase() === mio;
-            return yoEmpecé ? (n.nombre || n.email) : (n.deNombre || n.deEmail);
-        }
-        if (true) return `${n.conductor ? n.conductor + ' · ' : ''}${n.nombre || n.email}`;
-        return 'Gestión';
+        const otros = this._otrosEnHilo(n).map(p => this._etiquetaParticipante(p));
+        if (n?.tipo === 'grupo') return n.titulo || ('👥 ' + otros.join(', '));
+        return otros[0] || '—';
+    },
+
+    // Alinear a la derecha lo que he escrito yo
+    _esMiMensaje(m, n) {
+        const yo = this._yoEnHilo(n);
+        if (!yo) return false;
+        if (yo.gestion) return m.de === 'gestor';
+        const me = (yo.email || '').toLowerCase();
+        return (m.de || '').toLowerCase() === me
+            || (m.de === 'trabajador' && n.tipo !== 'companero' && n.tipo !== 'grupo'
+                && (n.email || '').toLowerCase() === me);
+    },
+
+    // Quién escribió un mensaje, con su nombre y su número
+    _autorMensaje(m, n) {
+        if (m.de === 'gestor') return '🛠️ Gestión' + (m.autor && m.autor !== 'Gestión' ? ' · ' + m.autor : '');
+        const ps = this._participantesDe(n);
+        const email = m.de === 'trabajador' ? (n.email || '').toLowerCase() : (m.de || '').toLowerCase();
+        const p = ps.find(x => !x.gestion && (x.email || '').toLowerCase() === email);
+        return p ? this._etiquetaParticipante(p) : (m.autor || m.de || '');
+    },
+
+    // Borrar un mensaje propio: se queda "Mensaje eliminado", como en WhatsApp
+    async _borrarMensaje(i) {
+        const n = (this._notas || []).find(x => x.id === this._hiloAbierto);
+        const m = this._mensajesDe(n)[i];
+        if (!n || !m) return;
+        if (!confirm('¿Borrar este mensaje? En la conversación quedará «Mensaje eliminado».')) return;
+        try {
+            const r = await fetch(this.NOTAS_URL, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json',
+                           'X-User-Email': this.usuarioActual?.email || '' },
+                body: JSON.stringify({ id: n.id, borrarMensaje: i, enMensaje: m.en, nombre: (this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor()), gestor: (this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor()) }),
+            });
+            const data = await r.json();
+            if (!r.ok) { this._mostrarToast('❌ ' + (data.error || r.status), 4000); return; }
+            this._notas = this._notas.map(x => x.id === data.id ? data : x);
+            this._renderHilo();
+            this._renderNotasGestor();
+        } catch (e) { this._mostrarToast('❌ Error: ' + e.message, 4000); }
     },
 
     abrirHilo(id) {
@@ -4810,7 +4884,7 @@ const app = {
         if (!n) return;
         const esc = t => String(t || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
         const cont = document.getElementById('hiloMensajes');
-        cont.innerHTML = this._mensajesDe(n).map(m => {
+        cont.innerHTML = this._mensajesDe(n).map((m, i) => {
             const mio = this._esMiMensaje(m, n);
             const adj = (m.adjuntos || []).map(a => a.tipo?.startsWith('image/')
                 ? `<img src="${esc(a.datos)}" onclick="app._verFoto('${esc(a.datos)}')">`
@@ -4825,8 +4899,15 @@ const app = {
                     + (m.autor ? ` · ${esc(m.autor)}` : '')
                     + ` · ${esc(this._horaCorta(m.en))}</div>`;
             }
-            return `<div class="bub ${mio ? 'mio' : 'suyo'}">`
-                + (mio ? '' : `<div class="bub-autor">${esc(m.autor) || (m.de === 'gestor' ? 'Gestión' : '')}</div>`)
+            const autor = mio ? '' : `<div class="bub-autor">${esc(this._autorMensaje(m, n))}</div>`;
+            // Borrado: el globo se queda, sin el texto, con quién lo borró
+            if (m.borrado) {
+                return `<div class="bub ${mio ? 'mio' : 'suyo'} borrado">${autor}<span class="bub-txt">🚫 ${
+                    mio ? 'Has eliminado este mensaje' : 'Mensaje eliminado' + (m.borrado.nombre ? ' por ' + esc(m.borrado.nombre) : '')}</span>`
+                    + `<div class="bub-hora">${esc(this._horaCorta(m.borrado.en || m.en))}</div></div>`;
+            }
+            return `<div class="bub ${mio ? 'mio' : 'suyo'}">` + autor
+                + (mio ? `<button class="bub-x" title="Borrar el mensaje" onclick="app._borrarMensaje(${i})">🗑</button>` : '')
                 + `<span class="bub-txt">${esc(m.texto)}</span>${adj}`
                 + `<div class="bub-hora">${esc(this._horaCorta(m.en))}</div></div>`;
         }).join('') || '<div class="nt-vacio">Sin mensajes</div>';
@@ -4873,9 +4954,10 @@ const app = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json',
                            'X-User-Email': this.usuarioActual?.email || '' },
-                body: JSON.stringify({ id: this._hiloAbierto, texto,
-                    ...(true ? { gestor: this._nombreGestor() }
-                        : { nombre: this.usuarioActual?.name || '' }) })
+                // El servidor decide si firma como gestión o como persona; se
+                // mandan los dos nombres
+                body: JSON.stringify({ id: this._hiloAbierto, texto, gestor: this._nombreGestor(),
+                    nombre: this._soyElDesarrollador() ? this.DEV_NOMBRE : this._nombreGestor() })
             });
             const data = await r.json();
             if (!r.ok) {
