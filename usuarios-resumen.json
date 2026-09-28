@@ -2723,5 +2723,38 @@
       "20260929": "Control de acceso",
       "20260930": "Control de acceso"
     }
+  },
+  "xescavilla1822@gmail.com": {
+    "email": "xescavilla1822@gmail.com",
+    "nombre": "Francisca Villalonga Mestre",
+    "conductor": "",
+    "avatar": null,
+    "version": "0",
+    "horasMes": 0,
+    "horasTotales": 0,
+    "horasAnuales": 777,
+    "jornadaHoras": 7.5,
+    "dias": null,
+    "diasAt": 0,
+    "diasMes": 0,
+    "turno": "",
+    "horaInicio": "",
+    "horaFin": "",
+    "horarioDe": "anterior",
+    "jornadas": [],
+    "vacaciones": [],
+    "vacacionesAt": 0,
+    "puesto": "",
+    "horario": "",
+    "horarios": {},
+    "horariosDia": {},
+    "tramosDia": {},
+    "revisiones": {},
+    "avisoVisto": null,
+    "apps": [
+      "trabajador"
+    ],
+    "grupo": null,
+    "actualizado": "2026-09-28T07:36:48.972Z"
   }
 }
