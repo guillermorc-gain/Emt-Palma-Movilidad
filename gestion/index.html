@@ -1334,6 +1334,9 @@
         .app-content.dark ::-webkit-scrollbar-thumb,.options-content.dark ::-webkit-scrollbar-thumb{background:#3d4571;}
             .auth-espera{margin:10px 0;padding:12px 14px;border-radius:12px;background:#fff8e1;border:1.5px solid #f5c542;color:#6b4e00;font-size:13px;line-height:1.45;text-align:left;}
         .auth-espera[hidden]{display:none;}
+        /* El título de la pantalla de entrada: como regla (y no en línea) para
+           que cada tema le dé su color de texto y se lea también en oscuro */
+        .auth-titulo{color:#2c3e50;font-size:22px;margin-bottom:4px;}
 </style>
     <!-- Leaflet va dentro del APK: depender de un CDN dejaría el mapa en
          blanco con mala cobertura, y es justo donde se usa. -->
@@ -1385,7 +1388,7 @@ document.getElementById('splashScreen').addEventListener('click', function () {
              con un emoji dentro no lo pinta bien cualquier navegador. -->
         <img class="logo" id="authLogo" src="icons/icon-192.png" alt="">
         <div style="text-align:center;">
-            <h1 id="authTitulo" style="color:#2c3e50;font-size:22px;margin-bottom:4px;">Gestión EMT - Movilidad</h1>
+            <h1 id="authTitulo" class="auth-titulo">Gestión EMT - Movilidad</h1>
             <p id="authSub" style="color:#7f8c8d;font-size:13px;">Panel de gestión · EMT Palma</p>
         </div>
         <div id="authError" class="msg error"></div>
