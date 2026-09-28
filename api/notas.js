@@ -1,4 +1,4 @@
-import { emailDelToken, tokenDe, esGestor } from './_auth.js';
+import { emailDelToken, tokenDe, esGestor, GESTOR_PRINCIPAL } from './_auth.js';
 import { hayBaseDeDatos, leerNotas, leerNota, guardarNota, borrarNota } from './_almacen.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
 
@@ -529,6 +529,8 @@ export default async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'Falta la nota' });
       if (!quien || !quien.includes('@')) return res.status(400).json({ error: 'Falta el usuario' });
       const deGestion = !!delToken && await esGestor(delToken);
+      // Solo con el token: el desarrollador puede borrar cualquier conversación
+      const esDesarrollador = !!delToken && delToken === GESTOR_PRINCIPAL;
       // El visto lo da cualquiera de los dos: no hace falta comprobar nada
       // más de lo que ya comprueba puedeTocar.
       const quita = { visto, archivada, quien, nombre: gestor || nombre };
@@ -558,7 +560,9 @@ export default async function handler(req, res) {
 
       if (hayBaseDeDatos()) {
         const n = await leerNota(id);
-        if (!puedeTocar(n, quien, deGestion)) return res.status(404).json({ error: 'Esa conversación no es tuya' });
+        // El desarrollador puede borrar cualquier conversación
+        const puede = puedeTocar(n, quien, deGestion) || (metodo === 'DELETE' && !!n && esDesarrollador);
+        if (!puede) return res.status(404).json({ error: 'Esa conversación no es tuya' });
         if (metodo === 'DELETE') {
           await borrarNota(id);
           return res.status(200).json({ id, borrada: true });
@@ -570,7 +574,8 @@ export default async function handler(req, res) {
       let prohibido = false;
       const nuevo = await guardarConReintento(data => {
         if (!data[id]) return null;
-        if (!puedeTocar(data[id], quien, deGestion)) { prohibido = true; return null; }
+        const puede = puedeTocar(data[id], quien, deGestion) || (metodo === 'DELETE' && esDesarrollador);
+        if (!puede) { prohibido = true; return null; }
         if (metodo === 'DELETE') { const out = { ...data }; delete out[id]; return out; }
         return acotarAdjuntos({ ...data, [id]: paraGuardar(tocarNota(data[id], quita)) });
       }, metodo === 'DELETE' ? `Quitar conversación ${id}` : `Cambio en ${id}`);

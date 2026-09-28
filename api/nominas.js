@@ -110,7 +110,11 @@ function limpiarNomina(n) {
       mei:       numero(t.mei, 100),
       irpf:      numero(t.irpf, 100),
     },
-    dias:            { asistencia: numero(n?.dias?.asistencia, 31) },
+    // Los días de asistencia salen de los días de trabajo registrados; solo
+    // se guardan si se ponen a mano. Antes se guardaba un 0 cuando no venían,
+    // y ese 0 tapaba la cuenta: el plus dejaba de salir en la nómina.
+    dias: (n?.dias?.asistencia === undefined || n?.dias?.asistencia === null || n?.dias?.asistencia === ''
+           || !Number(n?.dias?.asistencia)) ? {} : { asistencia: numero(n.dias.asistencia, 31) },
     // Las horas extras salen de lo que registró; solo se guardan si se le
     // ponen otras a mano. El precio de la hora sí, que no está en el convenio.
     extra: {

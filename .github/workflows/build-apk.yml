@@ -964,6 +964,35 @@ jobs:
               // de fondo no llegaba nada. Esto pregunta cada rato por su cuenta.
               public static final String CHAT_CHANNEL = "chat_emt";
 
+              // El canal de los mensajes con el sonido elegido en la app. En
+              // Android el sonido va con el canal y no se puede cambiar después,
+              // así que hay uno por sonido; "ninguno" es uno callado.
+              static String canalChat(Context ctx) {
+                  SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                  String s = p.getString("notifSoundChat", "default");
+                  if (s == null || s.isEmpty()) s = "default";
+                  String id = "default".equals(s) ? CHAT_CHANNEL : CHAT_CHANNEL + "_" + s;
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      try {
+                          NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                          if (nm != null && nm.getNotificationChannel(id) == null) {
+                              NotificationChannel ch = new NotificationChannel(id, "Mensajes", NotificationManager.IMPORTANCE_HIGH);
+                              if ("ninguno".equals(s)) {
+                                  ch.setSound(null, null);
+                              } else if (!"default".equals(s)) {
+                                  int res = ctx.getResources().getIdentifier(s, "raw", ctx.getPackageName());
+                                  if (res != 0) ch.setSound(
+                                      android.net.Uri.parse("android.resource://" + ctx.getPackageName() + "/" + res),
+                                      new android.media.AudioAttributes.Builder()
+                                          .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION).build());
+                              }
+                              nm.createNotificationChannel(ch);
+                          }
+                      } catch (Exception ignored) { return CHAT_CHANNEL; }
+                  }
+                  return id;
+              }
+
               public static void programarAvisoChat(Context ctx) {
                   SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                   if (prefs.getString("chatEmail", "").isEmpty()) return;
@@ -1383,7 +1412,7 @@ jobs:
                       Intent oi = new Intent(ctx, MainActivity.class);
                       oi.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                       PendingIntent pi = PendingIntent.getActivity(ctx, 4, oi, flags);
-                      nm.notify(1004, new NotificationCompat.Builder(ctx, CHAT_CHANNEL)
+                      nm.notify(1004, new NotificationCompat.Builder(ctx, canalChat(ctx))
                           .setSmallIcon(R.drawable.ic_stat_chat)
                           .setContentTitle("Cuadrante del mes publicado")
                           .setContentText(texto)
@@ -1477,7 +1506,7 @@ jobs:
                       Intent oi = new Intent(ctx, MainActivity.class);
                       oi.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                       PendingIntent pi = PendingIntent.getActivity(ctx, 3, oi, flags);
-                      nm.notify(1003, new NotificationCompat.Builder(ctx, CHAT_CHANNEL)
+                      nm.notify(1003, new NotificationCompat.Builder(ctx, canalChat(ctx))
                           .setSmallIcon(R.drawable.ic_stat_chat)
                           .setContentTitle("Te han cambiado la jornada de hoy")
                           .setContentText(texto)
@@ -1594,7 +1623,7 @@ jobs:
                               .setAllowGeneratedReplies(false)
                               .build();
 
-                          nm.notify(idAviso, new NotificationCompat.Builder(ctx, CHAT_CHANNEL)
+                          nm.notify(idAviso, new NotificationCompat.Builder(ctx, canalChat(ctx))
                               .setSmallIcon(R.drawable.ic_stat_chat)
                               .setContentTitle(quien)
                               .setContentText(cuerpo)
