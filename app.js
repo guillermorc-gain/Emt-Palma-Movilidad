@@ -1707,8 +1707,11 @@ const app = {
                 const fechaKey     = fechaDia.replace(/-/g, '');
                 const registroId   = this._nuevoRegistroId(datos.historial, fechaKey);
                 datos.historial[registroId] = {
-                    fecha: fechaFormato, horas,
+                    // Un día de baja cuenta como jornada hecha: 3,5 h la media
+                    // jornada y las suyas la completa
+                    fecha: fechaFormato, horas: esBaja ? this._horasBaja() : horas,
                     timestamp: new Date(fechaDia + 'T12:00:00').getTime(),
+                    creado: Date.now(),
                     ...(horaInicio && horaFin ? { horaInicio, horaFin } : {}),
                     ...(horasNocturnas > 0 ? { horasNocturnas, precioNoche, extraNoche } : {}),
                     ...(esPR ? { pr: true } : {}),
@@ -1820,8 +1823,9 @@ const app = {
         const registroId   = this._fechaDeId(this.editingId) === fechaKey
             ? this.editingId : this._nuevoRegistroId(datos.historial, fechaKey);
         datos.historial[registroId] = {
-            fecha: fechaFormato, horas: horas || 0,
+            fecha: fechaFormato, horas: esBe ? this._horasBaja() : (horas || 0),
             timestamp: new Date(fecha + 'T12:00:00').getTime(),
+            editado: Date.now(),
             ...(horaInicio && horaFin ? { horaInicio, horaFin } : {}),
             ...(horasN > 0 ? { horasNocturnas: horasN, precioNoche: precioN, extraNoche: Math.round(horasN * precioN * 100) / 100 } : {}),
             ...(esPR ? { pr: true } : {}),
@@ -2404,11 +2408,6 @@ const app = {
     guardarPerfil() {
         this.actualizarBotonesPerfil();
         alert('✅ Perfil guardado');
-    },
-
-    _hoyISO() {
-        const h = new Date();
-        return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
     },
 
     establecerFechaHoy() {
@@ -6828,6 +6827,76 @@ const app = {
         return `${a?.fecha || ''}|${a?.lugar || ''}|${h}|${a?.rev || 0}`;
     },
 
+    // Lo que gestión asigna o rectifica manda sobre lo que ya había: el
+    // horario de hoy pasa a ser el que propone Registro, y si un día ya
+    // estaba registrado de antes de que gestión lo cambiara, se corrige en el
+    // historial con el horario de gestión.
+    async _aplicarAjustesDeGestion(a) {
+        const plan = a?.horario;
+        if (plan?.i && plan?.f && !a.baja && !a.vacaciones && !a.libre) {
+            const huella = `${a.fecha}|${plan.i}|${plan.f}|${a.rev || 0}`;
+            if (localStorage.getItem('horarioGestionAplicado') !== huella) {
+                localStorage.setItem('horarioGestionAplicado', huella);
+                localStorage.setItem('lastHoraInicio', plan.i);
+                localStorage.setItem('lastHoraFin', plan.f);
+                const ini = document.getElementById('horaInicio');
+                const fin = document.getElementById('horaFin');
+                const escribiendo = [ini, fin].includes(document.activeElement);
+                if (ini && fin && !escribiendo && !this.editingId) {
+                    ini.value = plan.i; fin.value = plan.f;
+                    this.calcularHorasPorTiempo();
+                }
+            }
+        }
+        const ajustes = a?.ajustes || {};
+        if (!Object.keys(ajustes).length || this._ajustando) return;
+        this._ajustando = true;
+        try {
+            const datos = await this._readDriveFile();
+            if (!datos?.historial) return;
+            const cambiados = [];
+            let tocado = false;
+            for (const [f, aj] of Object.entries(ajustes)) {
+                const ids = Object.keys(datos.historial).filter(id => this._fechaDeId(id) === f);
+                // Con varios registros ese día (tramos, extras) no se toca nada
+                if (ids.length !== 1) continue;
+                const r = datos.historial[ids[0]];
+                if (r.vacaciones || r.be || r.pr || r.sinAsistencia || r.extraManual) continue;
+                if ((r.ajusteRev || 0) >= aj.rev) continue;
+                // Lo que el trabajador registró o cambió después de gestión, vale
+                const suyo = r.editado || r.creado || 0;
+                if (suyo > aj.rev) continue;
+                // Registros de antes de guardar cuándo se hicieron: solo si
+                // gestión lo cambió después de empezar ese día
+                if (!suyo && aj.rev < (r.timestamp || 0) - 12 * 3600 * 1000) continue;
+                r.ajusteRev = aj.rev;
+                tocado = true;
+                if (r.horaInicio !== aj.i || r.horaFin !== aj.f) {
+                    r.horaInicio = aj.i;
+                    r.horaFin = aj.f;
+                    r.horas = this._horasEntre(aj.i, aj.f);
+                    const noche = this._calcHorasNocturnas(aj.i, aj.f);
+                    if (noche > 0) {
+                        r.horasNocturnas = noche;
+                        if (r.precioNoche) r.extraNoche = Math.round(noche * r.precioNoche * 100) / 100;
+                    } else { delete r.horasNocturnas; delete r.extraNoche; }
+                    delete r.tramos;
+                    cambiados.push(f);
+                }
+            }
+            if (!tocado) return;
+            datos.horasTrabajadas = this._calcTotales(datos.historial).anualReal;
+            await this._writeDriveFile(datos);
+            if (cambiados.length) {
+                this.actualizarUI(datos);
+                this._publicarResumen();
+                const dias = cambiados.map(f => `${f.slice(6, 8)}/${f.slice(4, 6)}`).join(', ');
+                this._mostrarToast(`🛠️ Gestión ha corregido tu horario del ${dias}: ya está cambiado en tu historial`, 6000);
+            }
+        } catch (_) { /* se vuelve a intentar en la próxima carga */ }
+        finally { this._ajustando = false; }
+    },
+
     async _cargarAsignacion() {
         const email = this.usuarioActual?.email;
         if (!email) return;
@@ -6845,6 +6914,7 @@ const app = {
             this._asignacion = a;
             localStorage.setItem('asignacionHoy', JSON.stringify(a));
             this._avisarCambioDeJornada(antes, a);
+            this._aplicarAjustesDeGestion(a);
             // Lo que ya ha visto la app no se lo tiene que volver a decir el
             // aviso nativo cuando despierte dentro de un rato.
             window.AndroidBridge?.saveToPrefs?.('jornadaVista', this._claveJornada(a));

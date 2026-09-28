@@ -387,6 +387,32 @@ function sellarAsignacion(u, fechas) {
     : Object.fromEntries(claves.slice(-MAX_SELLOS).map(k => [k, sellos[k]]));
 }
 
+function ajustesRecientes(u, hoy) {
+  const desde = new Date(+hoy.slice(0, 4), +hoy.slice(4, 6) - 1, +hoy.slice(6, 8) - 40);
+  const minimo = `${desde.getFullYear()}${String(desde.getMonth() + 1).padStart(2, '0')}${String(desde.getDate()).padStart(2, '0')}`;
+  const out = {};
+  for (const [f, rev] of Object.entries(u.asignadoDia || {})) {
+    if (f < minimo || f > hoy) continue;
+    if (deBajaEse(u, f) || deVacacionesEse(u, f)) continue;
+    const h = planDelDia(u, f);
+    if (h?.i && h?.f) out[f] = { i: h.i, f: h.f, rev };
+  }
+  return out;
+}
+
+// Los días que el trabajador acaba de marcar como baja, vacaciones, permiso
+// retribuido o que no fue (lo que antes no estaba así)
+const AUSENCIAS = { b: 'BE', v: 'Vacaciones', p: 'PR', na: 'No vino' };
+function ausenciasQueAparecen(antes, ahora) {
+  if (!Array.isArray(ahora)) return [];
+  const ya = new Set((antes || []).flatMap(j => Object.keys(AUSENCIAS).filter(k => j?.[k]).map(k => `${j.f}|${k}`)));
+  const out = [];
+  for (const j of ahora) for (const k of Object.keys(AUSENCIAS)) {
+    if (j?.[k] && /^\d{8}$/.test(String(j.f || '')) && !ya.has(`${j.f}|${k}`)) out.push({ f: j.f, que: AUSENCIAS[k] });
+  }
+  return out.sort((a, b) => a.f.localeCompare(b.f));
+}
+
 function loQueLeToca(u, f) {
   if (!u) return null;
   const delDia = (u.lugares || {})[f] || '';
@@ -397,6 +423,10 @@ function loQueLeToca(u, f) {
     // asignadas en momentos distintos son dos avisos distintos.
     rev: (u.asignadoDia || {})[f] || 0,
     habitual: u.puesto || '',
+    // Los días que gestión ha asignado o rectificado en las últimas semanas,
+    // con su horario y cuándo: la app corrige con ellos lo que tenga
+    // registrado de antes de ese momento.
+    ajustes: ajustesRecientes(u, f),
     // Para que la app pueda decir que ese día va a otro sitio
     excepcion: !!delDia && clavePuesto(delDia) !== clavePuesto(u.puesto || ''),
     horario: planDelDia(u, f),
@@ -559,8 +589,10 @@ export default async function handler(req, res) {
         return nuevo ? res.status(200).json(nuevo[quien] || {}) : res.status(500).json({ error: 'No se pudo guardar' });
       }
 
+      let ausenciasNuevas = [];
       const nuevo = await mutarUsuario(quien, data => {
         const previo = data[quien] || {};
+        ausenciasNuevas = ausenciasQueAparecen(previo.jornadas, b.jornadas);
         data[quien] = {
           ...previo,
           email: quien,
@@ -607,8 +639,17 @@ export default async function handler(req, res) {
         return data;
       }, `Resumen de ${quien}`);
 
-      // Gestión ve el cambio en su lista al momento
-      if (nuevo) await avisarGestion({ tipo: 'plantilla' }, quien);
+      // Gestión ve el cambio en su lista al momento; y si ha marcado días de
+      // baja, vacaciones, permiso o que no fue, se le avisa para confirmarlo
+      if (nuevo) {
+        const u = nuevo[quien] || {};
+        await avisarGestion(ausenciasNuevas.length ? {
+          tipo: 'ausencia', email: quien,
+          titulo: `📅 ${u.nombre || quien} ha marcado días`,
+          texto: ausenciasNuevas.slice(0, 6).map(a => `${a.que} el ${a.f.slice(6, 8)}/${a.f.slice(4, 6)}`).join(', ')
+            + (ausenciasNuevas.length > 6 ? '…' : '') + '. Confírmalo en la app.',
+        } : { tipo: 'plantilla' }, quien);
+      }
       return nuevo ? res.status(200).json(nuevo[quien]) : res.status(500).json({ error: 'No se pudo guardar' });
     }
 
@@ -701,7 +742,13 @@ export default async function handler(req, res) {
         }
         else if (data[clave] && grupo !== undefined) data[clave].grupo = limpiarGrupo(grupo);
         else if (data[clave] && revisiones !== undefined) {
+          const antes = data[clave].revisiones || {};
           data[clave].revisiones = limpiarRevisiones(revisiones);
+          // Los días en que gestión da por bueno su horario se sellan: la app
+          // del trabajador corrige con él lo que tuviera registrado ese día
+          const rectificados = Object.entries(data[clave].revisiones)
+            .filter(([f, v]) => v === 'plan' && antes[f] !== 'plan').map(([f]) => f);
+          if (rectificados.length) sellarAsignacion(data[clave], rectificados);
         }
         // Horario para unas fechas concretas. Tiene que ir antes que las dos
         // ramas de abajo: una mira solo `horario` y la otra solo el tramo, y
