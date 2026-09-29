@@ -2554,6 +2554,20 @@
         "i": "20:00",
         "f": "03:00"
       }
+    },
+    "horariosDia": {
+      "20260929": {
+        "i": "20:00",
+        "f": "03:00"
+      }
+    },
+    "libresDia": {},
+    "asignadoDia": {
+      "20260929": 1790708499737
+    },
+    "tramosDia": {},
+    "lugares": {
+      "20260929": "Son Rossinyol"
     }
   },
   "prueba-1789763845092@prueba.local": {
