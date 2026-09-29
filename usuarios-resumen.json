@@ -2294,13 +2294,13 @@
   "xescavilla1822@gmail.com": {
     "email": "xescavilla1822@gmail.com",
     "nombre": "Francisca Villalonga Mestre",
-    "conductor": "966-2",
+    "conductor": "",
     "avatar": null,
     "version": "build-346",
     "horasMes": 7,
     "horasTotales": 7,
-    "horasAnuales": 1500,
-    "jornadaHoras": 7,
+    "horasAnuales": 777,
+    "jornadaHoras": 7.5,
     "dias": [
       1,
       2,
@@ -2313,7 +2313,7 @@
     "turno": "N",
     "horaInicio": "05:00",
     "horaFin": "12:00",
-    "horarioDe": "hoy",
+    "horarioDe": "anterior",
     "jornadas": [
       {
         "f": "20260928",
@@ -2337,6 +2337,10 @@
       "trabajador"
     ],
     "grupo": null,
-    "actualizado": "2026-09-28T07:43:36.552Z"
+    "actualizado": "2026-09-29T05:04:18.706Z",
+    "avatarEmoji": null,
+    "avatarBg": null,
+    "comunicacion": true,
+    "bienvenidaVista": false
   }
 }
