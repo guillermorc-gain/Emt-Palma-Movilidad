@@ -1151,6 +1151,8 @@ const app = {
             }
             this._abrirAvisoNativo();
             if (this.usuarioActual) this._cargarNotasGestor();
+            // Las cuentas por aprobar que llegaron con la app de fondo
+            if (ES_APP_DEV && this.usuarioActual) this._cargarSolicitudes();
             // Puede haber cambiado algo mientras la app estaba de fondo
             if (this.usuarioActual) this._cargarConductores(true);
             // If RegistrarReceiver updated Drive while in background, refresh the data
@@ -5356,7 +5358,13 @@ const app = {
     // elige si es de gestión o trabajador, se le apunta en esa lista y el
     // servidor le manda el correo para confirmar la cuenta.
     async _cargarSolicitudes() {
-        if (!ES_APP_DEV || !this.usuarioActual) return;
+        if (!ES_APP_DEV || !this.usuarioActual) return false;
+        // De vuelta de fondo la sesión puede haber caducado: sin renovarla,
+        // la lista no se deja leer y la solicitud no salía hasta mucho después
+        if (!(this.accessToken && Date.now() < this.tokenExpiry)) {
+            if (!this.refreshToken && !this._esCuentaCorreo()) return false;
+            await this._silentReauth();
+        }
         try {
             const r = await fetch(this.API_BASE + 'allowlist?solicitudes=1', { cache: 'no-store' });
             if (!r.ok) return false;
@@ -5431,9 +5439,22 @@ const app = {
         if (tipo === 'chat') { this._huellaChat = null; this._sondearChat(); }
         else if (tipo === 'acceso') { this._caTraer?.(); this.caCargarVisitantes?.(); }
         else if (tipo === 'plantilla' && !document.querySelector('.modal.show')) this._cargarConductores(true);
-        else if (tipo === 'solicitud') this._cargarSolicitudes();
+        else if (tipo === 'solicitud') this._buscarSolicitudNueva();
         else if (tipo === 'ausencia') { this._cargarConductores(true).then(() => this._pintarCampana()); this._mostrarToast('📅 Un trabajador ha marcado días: míralo en la 🔔', 4500); }
         else if (tipo === 'registro') this._mostrarToast('✅ Se ha registrado una cuenta que ya estaba autorizada: le ha llegado el correo de confirmación', 5000);
+    },
+
+    // El aviso llega nada más guardarse la solicitud, y la lista, que se lee
+    // de GitHub, puede tardar unos segundos en traerla: se vuelve a mirar
+    // hasta que aparece, en vez de esperar a la siguiente vez.
+    async _buscarSolicitudNueva(intento = 0) {
+        const antes = new Set((this._solicitudes || []).map(s => s.email));
+        await this._cargarSolicitudes();
+        const nueva = (this._solicitudes || []).some(s => !antes.has(s.email));
+        if (nueva) { this._mostrarSolicitudes(true); return true; }
+        const esperas = [2000, 4000, 8000, 15000, 30000];
+        if (intento < esperas.length) setTimeout(() => this._buscarSolicitudNueva(intento + 1), esperas[intento]);
+        return false;
     },
 
     _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
@@ -5458,7 +5479,13 @@ const app = {
             if (!(this.accessToken && Date.now() < this.tokenExpiry)) await this._silentReauth();
             if (!(this.accessToken && Date.now() < this.tokenExpiry)) return;   // sigue apuntado para luego
             if (aviso === 'solicitud') {
-                if (!await this._cargarSolicitudes()) {
+                let ok = await this._cargarSolicitudes();
+                // Recién guardada puede no estar aún en la lista: se espera un poco
+                for (let i = 0; ok && !(this._solicitudes || []).length && i < 4; i++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    ok = await this._cargarSolicitudes();
+                }
+                if (!ok) {
                     this._mostrarToast('❌ No se ha podido cargar la cuenta por aprobar. Mírala en la 🔔', 4500);
                 } else if (!(this._solicitudes || []).length) {
                     this._mostrarToast('✅ Esa cuenta ya está resuelta: no queda ninguna por aprobar', 4000);
