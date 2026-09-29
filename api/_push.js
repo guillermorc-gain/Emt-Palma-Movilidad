@@ -138,7 +138,7 @@ async function enviar(sa, permiso, token, datos) {
 
 // Manda el toque a esos móviles y borra los que ya no tienen la app
 async function mandarA(sa, tokens, datos) {
-  if (!tokens.length) return;
+  if (!tokens.length) return { ok: 0, total: 0 };
   const permiso = await tokenDeGoogle(sa);
   const res = await Promise.all(tokens.map(t => enviar(sa, permiso, t, datos)
     .catch(e => { console.error(`Aviso ${datos?.tipo || ''}: ${e.message}`); return 'fallo'; })));
@@ -151,6 +151,7 @@ async function mandarA(sa, tokens, datos) {
       return { ...d, tokens: tk };
     }, `Avisos: fuera ${caducados.length} móvil${caducados.length === 1 ? '' : 'es'} sin la app`);
   }
+  return { ok: res.filter(x => x === 'ok').length, total: tokens.length, caducados: caducados.length };
 }
 
 // A quién: los que están en la conversación menos quien escribe, en sus
@@ -195,8 +196,14 @@ async function avisarFiltro(filtro, datos) {
   if (!sa) return;
   const { data } = await leer();
   const tokens = Object.entries(data.tokens || {}).filter(([, t]) => filtro(t)).map(([k]) => k);
-  await mandarA(sa, tokens, datos);
+  return mandarA(sa, tokens, datos);
 }
+
+// Un aviso de prueba a la app de desarrollador, esperando la respuesta: para
+// saber si llega a la barra sin tener que registrar a nadie
+export const probarAvisoDesarrollador = email =>
+  avisarFiltro(t => t.app === 'desarrollador' && t.email === String(email).toLowerCase(),
+    { tipo: 'solicitud', titulo: '🧪 Prueba de aviso', texto: 'Si ves esto en la barra, los avisos de cuentas nuevas te llegan bien.' });
 const conTope = async p => {
   try { await Promise.race([p, new Promise(r => setTimeout(r, 6000))]); } catch (_) { /* ya mirará */ }
 };

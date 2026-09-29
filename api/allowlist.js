@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { exigirAdmin, GESTOR_PRINCIPAL, tokenDe, revisarFirebase, revisarToken } from './_auth.js';
-import { cuentaDeServicio, avisarDesarrollador } from './_push.js';
+import { cuentaDeServicio, avisarDesarrollador, probarAvisoDesarrollador } from './_push.js';
 import { enviarCorreo, correoAutorizado, hayCorreoPropio } from './_correo.js';
 import { quitarDeApp } from './usuarios.js';
 import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
@@ -266,8 +266,11 @@ async function cuentasDeCorreo(req, res) {
       return { ...d, [s.email]: { email: s.email, uid: s.uid || '', nombre: nombre || d[s.email]?.nombre || '',
                                    google: !esFirebase, desde, en: d[s.email]?.en || new Date().toISOString() } };
     }, `Solicitud de cuenta de ${s.email}`);
-    // Un solo aviso por persona, aunque vuelva a intentarlo
-    if (!yaPedida) {
+    // Un solo aviso por persona, aunque vuelva a intentarlo. Si lo vuelve a
+    // pedir él pulsando y hace más de 10 minutos del último, se avisa otra vez.
+    const hace = yaPedida && manual
+      ? Date.now() - (Date.parse((await leerJson(AVISADOS)).data[s.email] || '') || 0) : 0;
+    if (!yaPedida || hace > 10 * 60 * 1000) {
       await avisarDesarrollador(GESTOR_PRINCIPAL, { tipo: 'solicitud',
         titulo: esFirebase ? '🆕 Cuenta nueva por aprobar' : '🆕 Alguien ha entrado con Google sin estar autorizado',
         texto: `${nombre || s.email} (${s.email})${desde ? ' desde la app de ' + (desde === 'gestion' ? 'gestión' : 'trabajadores') : ''}: ¿gestión o trabajador?` });
@@ -289,6 +292,13 @@ async function cuentasDeCorreo(req, res) {
     } catch (e) {
       return res.status(200).json({ ok: false, error: e.message });
     }
+  }
+  // Probar el aviso: espera unos segundos para que dé tiempo a salir de la app
+  // (con la app delante el aviso no va a la barra, lo recoge ella)
+  if (q.probarAviso !== undefined) {
+    await new Promise(r => setTimeout(r, 8000));
+    try { return res.status(200).json({ ok: true, ...(await probarAvisoDesarrollador(GESTOR_PRINCIPAL) || {}) }); }
+    catch (e) { return res.status(200).json({ ok: false, error: e.message }); }
   }
   if (req.method === 'GET') return res.status(200).json(Object.values((await leerJson(SOLICITUDES)).data));
   const email = String(req.body?.email || '').toLowerCase().trim();
@@ -326,7 +336,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const q = req.query || {};
-  if (['solicitud', 'reenviar', 'solicitudes', 'aprobar', 'rechazar', 'probarCorreo'].some(k => q[k] !== undefined)) {
+  if (['solicitud', 'reenviar', 'solicitudes', 'aprobar', 'rechazar', 'probarCorreo', 'probarAviso'].some(k => q[k] !== undefined)) {
     try { return await cuentasDeCorreo(req, res); }
     catch (e) { return res.status(500).json({ error: e.message }); }
   }

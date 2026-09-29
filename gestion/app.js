@@ -7617,11 +7617,28 @@ const app = {
         } catch (e) { alert('❌ ' + e.message); }
     },
 
+    // Manda un aviso de cuenta nueva de prueba a esta app, a los 8 segundos:
+    // hay que salir de la app, porque con ella delante no va a la barra
+    async probarAviso() {
+        if (!confirm('Te llegará un aviso de prueba en 8 segundos.\n\nPulsa Aceptar y sal de la app (botón de inicio) para verlo en la barra de notificaciones.')) return;
+        try {
+            const r = await fetch(this.API_BASE + 'allowlist?probarAviso=1', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            const d = await r.json().catch(() => ({}));
+            if (!d.ok) { alert('❌ No se ha podido mandar el aviso:\n\n' + (d.error || r.status)); return; }
+            if (!d.total) alert('❌ Este móvil no está apuntado para recibir avisos en Desarrollador. Cierra la app del todo y vuelve a abrirla.');
+            else this._mostrarToast(`🔔 Aviso enviado a ${d.ok} de ${d.total} móvil${d.total === 1 ? '' : 'es'}`
+                + (d.caducados ? ` (${d.caducados} ya sin la app)` : ''), 6000);
+        } catch (e) { alert('❌ ' + e.message); }
+    },
+
     _renderAcceso(id) {
         const el = document.getElementById('grpAccLista');
         if (!el) return;
         const bp = document.getElementById('btnProbarCorreo');
         if (bp) bp.style.display = this._soyElDesarrollador() ? '' : 'none';
+        const ba = document.getElementById('btnProbarAviso');
+        if (ba) ba.style.display = this._soyElDesarrollador() && ES_APP_DEV ? '' : 'none';
         const correos = this._listasAcceso[id] || [];
         if (!correos.length) {
             el.innerHTML = '<div style="color:#888;font-size:12px;padding:4px 0;">'
