@@ -7,7 +7,6 @@
     "version": "build-394",
     "horasMes": 65,
     "horasTotales": 558.5,
-    "diasMes": 21,
     "turno": "M",
     "puesto": "Control",
     "actualizado": "2026-09-29T16:54:01.044Z",
@@ -1413,10 +1412,13 @@
     ],
     "vacacionesAt": 1790632366288,
     "dias": [
-      0,
-      6
+      1,
+      2,
+      3,
+      4,
+      5
     ],
-    "diasAt": 1790700871847,
+    "diasAt": 1790700919669,
     "horario": "",
     "grupo": null,
     "horarios": {
