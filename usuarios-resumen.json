@@ -3324,5 +3324,42 @@
     "actualizado": "2026-09-29T18:09:05.610Z",
     "oculto": true,
     "ocultoPor": "desarrollador"
+  },
+  "prueba-1790706906349@prueba.local": {
+    "nombre": "Rubén",
+    "conductor": "1400-0",
+    "puesto": "Control",
+    "avatar": null,
+    "version": "build-264",
+    "horasMes": 8,
+    "horasTotales": 8,
+    "diasMes": 1,
+    "horaInicio": "06:00",
+    "horaFin": "14:00",
+    "horarioDe": "hoy",
+    "turno": "M",
+    "jornadaHoras": 7,
+    "horasAnuales": 1700,
+    "ritmo": "lv",
+    "dias": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "jornadas": [
+      {
+        "f": "20260929",
+        "i": "06:00",
+        "o": "14:00",
+        "h": 8,
+        "n": 0,
+        "pu": ""
+      }
+    ],
+    "email": "prueba-1790706906349@prueba.local",
+    "ficticio": true,
+    "actualizado": "2026-09-29T18:35:41.223Z"
   }
 }
