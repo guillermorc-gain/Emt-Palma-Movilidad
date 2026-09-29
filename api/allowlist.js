@@ -164,6 +164,27 @@ async function marcarVerificada(uid) {
   if (!r.ok) throw new Error('Firebase: ' + (d?.error?.message || r.status));
 }
 
+// Quitar a alguien o rechazar su solicitud borra también su cuenta de correo
+// (la de contraseña), si ya no tiene acceso a ninguna app. Si no, al volver a
+// registrarse con el mismo correo le decía que ya existía y le pedía la
+// contraseña de antes. Las cuentas de Google no se tocan.
+async function borrarCuentaCorreo(email) {
+  if (await yaAutorizado(email)) return false;
+  const { sa, access_token } = await permisoAdmin();
+  const cab = { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' };
+  const base = `https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts`;
+  const r = await fetch(`${base}:lookup`, { method: 'POST', headers: cab, body: JSON.stringify({ email: [email] }) });
+  const d = await r.json().catch(() => ({}));
+  const u = (d.users || [])[0];
+  if (!u?.localId) return false;
+  const proveedores = (u.providerUserInfo || []).map(p => p.providerId);
+  if (proveedores.some(p => p !== 'password')) return false;
+  const b = await fetch(`${base}:delete`, { method: 'POST', headers: cab, body: JSON.stringify({ localId: u.localId }) });
+  if (!b.ok) throw new Error('Firebase ' + b.status);
+  console.log(`Cuenta de correo de ${email} borrada`);
+  return true;
+}
+
 async function enlaceVerificacion(email, como) {
   const { sa, access_token } = await permisoAdmin();
   const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:sendOobCode`, {
@@ -275,6 +296,7 @@ async function cuentasDeCorreo(req, res) {
   const sol = (await leerJson(SOLICITUDES)).data[email];
   if (q.rechazar !== undefined) {
     await mutarSolicitudes(d => { delete d[email]; return d; }, `Solicitud de ${email} rechazada`);
+    await borrarCuentaCorreo(email).catch(e => console.error(`No se pudo borrar la cuenta de ${email}: ${e.message}`));
     return res.status(200).json({ ok: true });
   }
   const app = COMO[req.body?.como];
@@ -352,6 +374,8 @@ export default async function handler(req, res) {
         try { plantilla = await quitarDeApp(norm, deApp); }
         catch (e) { plantilla = { error: e.message }; }
       }
+      // Sin acceso a ninguna app, su cuenta de correo tampoco se queda
+      await borrarCuentaCorreo(norm).catch(e => console.error(`No se pudo borrar la cuenta de ${norm}: ${e.message}`));
       return res.status(200).json({ emails: filtered, plantilla });
     }
   } catch (e) {

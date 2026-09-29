@@ -2082,7 +2082,13 @@ const app = {
             }
             this._guardarSesionCorreo(d, u.displayName || '');
             this._loadUserAndStart();
-        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+        } catch (e) {
+            // Venía de «Crear cuenta» y ese correo ya tenía cuenta con otra contraseña
+            const yaExistia = this._yaExistia && /INVALID_(LOGIN_CREDENTIALS|PASSWORD)/.test(String(e.codigo || ''));
+            this.mostrarMensaje(yaExistia
+                ? 'Ese correo ya tiene una cuenta creada con otra contraseña. Entra con esa contraseña o pulsa «He olvidado la contraseña» para poner una nueva.'
+                : e.message, 'error');
+        } finally { this._yaExistia = false; }
     },
 
     async crearCuentaCorreo() {
@@ -2105,7 +2111,12 @@ const app = {
         } catch (e) {
             // Ya estaba creada (por ejemplo, se creó antes y aún espera): en vez
             // de quedarse ahí, se entra con esa contraseña y se sigue desde donde iba
-            if (String(e.codigo || '').startsWith('EMAIL_EXISTS')) { this._modoCorreo('entrar'); this.entrarConCorreo(); return; }
+            if (String(e.codigo || '').startsWith('EMAIL_EXISTS')) {
+                this._modoCorreo('entrar');
+                this._yaExistia = true;
+                this.entrarConCorreo();
+                return;
+            }
             this.mostrarMensaje(e.message, 'error');
         }
     },
