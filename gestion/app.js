@@ -7093,9 +7093,10 @@ const app = {
                 ? `<button class="ct-chip ${u.grupo ? 'grupo' : 'aviso'}"
                         onclick="app._editarGrupo('${q(u.email)}')">🔄 ${u.grupo ? 'Grupo ' + u.grupo : 'sin grupo'}</button>`
                 : '';
-            const estado = this._estadoTrabajador(u, fecha);
-            const color = estado === 'be' ? 'baja' : estado === 'vacaciones' ? 'vacaciones'
-                : estado === 'libre' ? 'libre' : lugar.trim() ? 'asignado' : 'sinlugar';
+            // El cuadrante es del mes entero: el color no depende de cómo esté
+            // un día concreto (salía en rojo por tener libre el día 1), solo de
+            // si tiene lugar asignado
+            const color = lugar.trim() ? 'asignado' : 'sinlugar';
             return `<div class="ct-row ${color}">
                 <div class="ct-top">
                     <span class="ct-num">${esc(u.conductor) || '—'}</span>
