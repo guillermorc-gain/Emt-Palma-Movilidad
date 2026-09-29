@@ -1413,13 +1413,10 @@
     ],
     "vacacionesAt": 1790632366288,
     "dias": [
-      1,
-      2,
-      3,
-      4,
-      5
+      0,
+      6
     ],
-    "diasAt": 1790700603261,
+    "diasAt": 1790700617594,
     "horario": "",
     "grupo": null,
     "horarios": {
