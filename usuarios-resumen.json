@@ -3137,8 +3137,7 @@
         "f": "09:00"
       }
     },
-    "oculto": true,
-    "ocultoPor": "desarrollador"
+    "oculto": false
   },
   "prueba-1789850043571@prueba.local": {
     "nombre": "Buja",
