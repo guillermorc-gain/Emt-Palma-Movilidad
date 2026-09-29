@@ -97,18 +97,20 @@ export async function enviarCorreo({ para, asunto, html, texto, nombre = 'Gesti�
 export function correoAutorizado({ nombre, email, app, enlace, confirmar }) {
   const esc = t => String(t || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   const cual = app === 'gestion' ? 'Gestión EMT · Movilidad' : 'EMT Palma · Movilidad';
-  const asunto = `✅ Tu cuenta de ${cual} ya está autorizada`;
+  // El asunto y el comienzo del texto dicen cosas distintas: en la bandeja del
+  // móvil se ven uno debajo del otro y, si se parecen, queda repetido.
+  const asunto = `✅ Acceso concedido · ${cual}`;
   const boton = confirmar ? 'Confirmar mi correo y entrar' : 'Entrar en la aplicación';
-  const texto = `Hola${nombre ? ' ' + nombre : ''}:\n\n`
-    + `El Departamento ha autorizado tu cuenta (${email}) para usar ${cual}.\n\n`
-    + (confirmar ? 'Para terminar, confirma tu correo abriendo este enlace. Después seguirás donde lo dejaste:\n'
-                 : 'Abre este enlace para seguir donde lo dejaste:\n')
+  const saludo = `Hola${nombre ? ' ' + nombre : ''}, ya puedes entrar: pulsa el botón y sigue donde lo dejaste.`;
+  const texto = `${saludo}\n\n`
+    + `El Departamento ha dado de alta tu cuenta (${email}) en ${cual}.\n\n`
+    + (confirmar ? 'Antes, confirma tu correo abriendo este enlace:\n' : 'Entra con este enlace:\n')
     + `${enlace}\n\nUn saludo,\nGestión`;
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#1f2d45;">
-    <h2 style="color:#1565C0;margin:0 0 12px;">✅ Tu cuenta ya está autorizada</h2>
-    <p>Hola${nombre ? ' <b>' + esc(nombre) + '</b>' : ''}:</p>
-    <p>El Departamento ha autorizado tu cuenta (<b>${esc(email)}</b>) para usar <b>${esc(cual)}</b>.</p>
-    <p>${confirmar ? 'Para terminar, confirma tu correo con el botón. Después seguirás donde lo dejaste.'
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(saludo)}</span>
+    <p style="font-size:16px;">Hola${nombre ? ' <b>' + esc(nombre) + '</b>' : ''}, ya puedes entrar.</p>
+    <p>El Departamento ha dado de alta tu cuenta (<b>${esc(email)}</b>) en <b>${esc(cual)}</b>.</p>
+    <p>${confirmar ? 'Solo falta confirmar tu correo con el botón. Después seguirás donde lo dejaste.'
                    : 'Pulsa el botón para seguir donde lo dejaste.'}</p>
     <p style="text-align:center;margin:24px 0;"><a href="${esc(enlace)}"
        style="background:#1565C0;color:#fff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold;display:inline-block;">${boton}</a></p>
