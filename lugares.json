@@ -53,14 +53,7 @@
       "lng": 2.711581,
       "radio": 100
     },
-    "dias": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
+    "dias": null,
     "prioridad": 0
   },
   "taller": {
