@@ -168,9 +168,7 @@
         "mei": 0.15,
         "irpf": 15
       },
-      "dias": {
-        "asistencia": 0
-      },
+      "dias": {},
       "extra": {
         "p": 0
       },
@@ -179,7 +177,7 @@
       },
       "extras": [],
       "nota": "",
-      "actualizado": "2026-09-27T14:46:25.956Z"
+      "actualizado": "2026-09-29T20:35:19.451Z"
     },
     "guillermo.rcxx@gmail.com": {
       "bienios": 0,
