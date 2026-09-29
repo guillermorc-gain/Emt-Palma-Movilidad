@@ -5361,12 +5361,26 @@ const app = {
     // Viene del enlace del correo de «ya estás autorizado»: se le vuelve a
     // preguntar si sigue en el navegador o se baja la aplicación, y se limpia
     // la dirección, que Firebase le añade sus códigos.
+    // El enlace del correo de «acceso concedido» se abre en el navegador del
+    // móvil. Si la cuenta se creó en la aplicación, su sesión está allí y no
+    // aquí: se abre la aplicación, que entra sola. Si no está instalada, el
+    // navegador vuelve a esta página (con web=1) y sigue aquí.
+    _abrirAppAutorizada(q) {
+        if (window.Capacitor || !/Android/i.test(navigator.userAgent) || q.has('web')) return false;
+        let aqui = false;
+        try { aqui = !!(localStorage.getItem('fbPendRefresh') || localStorage.getItem('gAccessToken') || localStorage.getItem('fbRefresh')); } catch (_) {}
+        if (aqui) return false;
+        const vuelta = window.location.href + (window.location.search ? '&' : '?') + 'web=1';
+        window.location.href = `intent://localhost/?autorizado=1#Intent;scheme=https;package=${ANDROID_PACKAGE};`
+            + `S.browser_fallback_url=${encodeURIComponent(vuelta)};end`;
+        return true;
+    },
+
     _alVolverAutorizado() {
-        if (!new URLSearchParams(window.location.search).has('autorizado')) return;
-        try {
-            localStorage.removeItem('modoUso');
-            sessionStorage.setItem('recienAutorizado', '1');
-        } catch (_) {}
+        const q = new URLSearchParams(window.location.search);
+        if (!q.has('autorizado')) return;
+        if (this._abrirAppAutorizada(q)) return;
+        try { sessionStorage.setItem('recienAutorizado', '1'); } catch (_) {}
         this._vieneDelEnlaceAutorizado = true;
         history.replaceState(null, '', window.location.pathname);
     },
