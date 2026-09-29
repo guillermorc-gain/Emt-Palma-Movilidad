@@ -161,14 +161,18 @@ async function avisarAutorizado({ email, uid, google, como, nombre }) {
       const enlace = confirmar ? await enlaceVerificacion(email, como) : seguirEn(como);
       await enviarCorreo({ para: email, ...correoAutorizado({ nombre, email, enlace, confirmar,
                                                               app: como === 'gestion' ? 'gestion' : 'trabajador' }) });
-      return;
+      console.log(`Correo de autorizado a ${email}: enviado desde Gmail`);
+      return 'gmail';
     } catch (e) {
       console.error('Correo propio:', e.message);   // se intenta con el de Firebase
     }
   }
+  if (!hayCorreoPropio()) console.warn('Correo de autorizado: falta GMAIL_CLAVE_APP, lo manda Firebase');
   if (google) await mandarAvisoGoogle(email, como);
   else if (uid) await mandarConfirmacion(uid, como);
   else throw new Error('No hay cómo avisarle');
+  console.log(`Correo de autorizado a ${email}: enviado por Firebase`);
+  return 'firebase';
 }
 
 async function cuentasDeCorreo(req, res) {
@@ -243,14 +247,14 @@ async function cuentasDeCorreo(req, res) {
   if (!emails.map(e => String(e).toLowerCase()).includes(email)) emails.push(email);
   if (!await setFile(APPS[app].file, emails, sha)) return res.status(500).json({ error: 'No se pudo apuntar en la lista' });
   // Ya está apuntado: el correo se intenta, y si falla se dice, pero el alta vale
-  let correo = true, aviso = '';
+  let correo = true, aviso = '', via = '';
   try {
     if (sol.google || sol.uid) {
-      await avisarAutorizado({ email, uid: sol.uid, google: !!sol.google, como: req.body.como, nombre: sol.nombre });
+      via = await avisarAutorizado({ email, uid: sol.uid, google: !!sol.google, como: req.body.como, nombre: sol.nombre });
     } else correo = false;
-  } catch (e) { correo = false; aviso = e.message; }
+  } catch (e) { correo = false; aviso = e.message; console.error(`Correo de autorizado a ${email}: ${e.message}`); }
   await mutarSolicitudes(d => { delete d[email]; return d; }, `Solicitud de ${email} aprobada (${req.body.como})`);
-  return res.status(200).json({ ok: true, correo, ...(aviso ? { aviso } : {}) });
+  return res.status(200).json({ ok: true, correo, via, ...(aviso ? { aviso } : {}) });
 }
 
 export default async function handler(req, res) {
