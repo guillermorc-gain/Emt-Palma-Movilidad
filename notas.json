@@ -18,6 +18,9 @@
     "de": "gestor",
     "tipo": "gestion",
     "gestor": "Guillermo Ríos Correa",
-    "estado": "pendiente"
+    "estado": "pendiente",
+    "borradaPara": {
+      "gestion": "2026-09-29T17:10:26.752Z"
+    }
   }
 }
