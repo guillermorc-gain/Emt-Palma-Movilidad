@@ -1996,9 +1996,9 @@ const app = {
         c = String(c || '');
         const m = {
             EMAIL_EXISTS: 'Ese correo ya tiene cuenta: entra con tu contraseña.',
-            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo.',
+            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo. Si te quitaron el acceso, vuelve a crearla con «Crear cuenta».',
             INVALID_PASSWORD: 'La contraseña no es correcta.',
-            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos.',
+            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos. Si te quitaron el acceso, tu cuenta se borró: vuelve a crearla con «Crear cuenta».',
             USER_DISABLED: 'Esta cuenta está desactivada.',
             INVALID_EMAIL: 'Ese correo no es válido.',
             MISSING_PASSWORD: 'Escribe la contraseña.',
@@ -5155,7 +5155,10 @@ const app = {
             tipos:     { ...this.TIPOS_NOMINA, ...(g.tipos || {}) },
             // Sin nada guardado se quedan a undefined y los pone el cálculo a
             // partir de los registros; en cuanto se escriben, mandan.
-            dias:      { asistencia: g.dias?.asistencia },
+            // Los domingos, solo los puestos a mano en este mismo mes: los del
+            // anterior no valen para este
+            dias:      { asistencia: g.dias?.asistencia,
+                         domingos: this._misNominas?.[mes] ? g.dias?.domingos : undefined },
             extra:     { h: g.extra?.h, p: Number(g.extra?.p ?? this.precioExtraDefault ?? 0) },
             noct:      { h: g.noct?.h,  p: Number(g.noct?.p ?? this.precioNocheDefault ?? 0) },
             extras:    (g.extras || []).map(e => ({ ...e })),
@@ -5246,7 +5249,9 @@ const app = {
         // El de vacaciones va sin la antigüedad: esta se le suma aparte, que
         // también sube el día de vacaciones y la hora extra. En la nómina de
         // junio, 26,83 son estos 25,5551 con el 5 % encima.
-        porDia: { base: 772.58 / 30, vacaciones: 375.66 / 14 / 1.05, asistencia: 4.19 },
+        // El plus de domingo va por domingo trabajado; su precio lo pone cada
+        // uno en Cambiar datos (de partida, sin precio).
+        porDia: { base: 772.58 / 30, vacaciones: 375.66 / 14 / 1.05, asistencia: 4.19, domingo: 0 },
         delMes: { noAbsorbible: 136.21, transporte: 68.02, ajuste: 130.01,
                   ajuste2: 6.44, responsabilidad: 51.77 },
     },
@@ -5282,13 +5287,16 @@ const app = {
             else if (r.sinAsistencia) { /* no lleva plus, pero tampoco resta del base */ }
             else if ((parseFloat(r.horas) || 0) > 0) trabajados.add(f);
         });
+        // Los domingos que ha trabajado, para el plus de domingo
+        const domingos = [...trabajados].filter(f =>
+            new Date(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8), 12).getDay() === 0).length;
         const vacaciones = Math.min(this.DIAS_NOMINA, vac.size);
         const permiso    = Math.min(this.DIAS_NOMINA - vacaciones, pr.size);
         // El plus de asistencia se cobra por día efectivo: los que ha trabajado
         // y los de permiso retribuido. Los de baja son día efectivo para el
         // salario —por eso no se descuentan del base— pero no llevan plus.
         const asistencia = trabajados.size + permiso;
-        return { vacaciones, permiso, asistencia, baja: baja.size,
+        return { vacaciones, permiso, asistencia, baja: baja.size, domingos,
                  base: Math.max(0, this.DIAS_NOMINA - vacaciones - permiso) };
     },
 
@@ -5392,6 +5400,9 @@ const app = {
             devengos.push(delMes('Compl. Responsabilidad/Calidad', C.delMes.responsabilidad));
         }
         if (diasAsist) devengos.push(porDia('Complemento Asistencia', diasAsist, C.porDia.asistencia));
+        // Por cada domingo trabajado, salvo que se hayan puesto a mano
+        const domingos = g.dias?.domingos !== undefined && g.dias?.domingos !== '' ? (Number(g.dias.domingos) || 0) : dias.domingos;
+        if (domingos) devengos.push(porDia('Plus domingo', domingos, Number(C.porDia.domingo) || 0));
         // Estas dos van siempre, aunque sean 0: si aparecen y desaparecen
         // según el mes, la nómina entera sube o baja una línea al pasar de
         // una a otra.
@@ -5431,7 +5442,7 @@ const app = {
         return { dias, devengos, deducciones, devengado, prorrata, base, aDeducir,
                  liquido: r2(devengado - aDeducir), precios: C, tipos, sindicato,
                  pctBienios, pctAnt, anios: this._aniosEnLaEmpresa(desde, mes), desde,
-                 hExtra, pExtra, hNoct, pNoct, diasAsist,
+                 hExtra, pExtra, hNoct, pNoct, diasAsist, domingos,
                  esMesExtra: this._esMesExtra(mes), conPagaExtra };
     },
 
@@ -5486,6 +5497,7 @@ const app = {
             ${campo('Salario base', P.porDia.base, 'precios.porDia.base', '€/día')}
             ${campo('Vacaciones <small>sin antigüedad</small>', P.porDia.vacaciones, 'precios.porDia.vacaciones', '€/día')}
             ${campo('Asistencia', P.porDia.asistencia, 'precios.porDia.asistencia', '€/día')}
+            ${campo('Plus domingo', P.porDia.domingo, 'precios.porDia.domingo', '€/domingo')}
             ${campo('Comp. No Absorbible', P.delMes.noAbsorbible, 'precios.delMes.noAbsorbible', '€/mes')}
             ${campo('Plus Transporte', P.delMes.transporte, 'precios.delMes.transporte', '€/mes')}
             ${campo('Ajuste convenio', P.delMes.ajuste, 'precios.delMes.ajuste', '€/mes')}
@@ -5509,6 +5521,7 @@ const app = {
             <div class="nom-nota">Hora nocturna a <b>${num(c.pNoct)} €</b>, el precio que hay
                 puesto en Ajustes › Trabajo.</div>
             ${campo('Días de asistencia', c.diasAsist, 'dias.asistencia', 'días')}
+            ${campo('Domingos trabajados', c.domingos, 'dias.domingos', 'días')}
             ${(n.extras || []).map((e, k) => `<div class="nom-edit">
                 <input type="text" style="flex:1" value="${esc(e.c)}" placeholder="Otro concepto"
                        onchange="app._setMiExtra(${k},'c',this.value)">
@@ -5538,7 +5551,7 @@ const app = {
                 <span class="nom-liquido-l">Líquido</span>
                 <span class="nom-liquido-v">${this._eur(c.liquido)}</span></div>
             <div class="nom-sec">Devengos</div>
-            ${c.devengos.map(l => linea(l, false)).join('')}
+            ${c.devengos.filter(l => editando || Math.abs(l.i) >= 0.005).map(l => linea(l, false)).join('')}
             <div class="nom-sec">Deducciones</div>
             ${c.deducciones.map(l => linea(l, true)).join('')}
             <div class="nom-l" style="font-weight:800;"><span class="nom-l-c">A deducir</span>
@@ -5552,6 +5565,7 @@ const app = {
                 ${c.dias.vacaciones ? `<span class="nom-dato"><b>${c.dias.vacaciones}</b> de vacaciones</span>` : ''}
                 ${c.dias.permiso ? `<span class="nom-dato"><b>${c.dias.permiso}</b> de permiso</span>` : ''}
                 ${c.diasAsist ? `<span class="nom-dato"><b>${c.diasAsist}</b> de asistencia</span>` : ''}
+                ${c.domingos ? `<span class="nom-dato"><b>${c.domingos}</b> domingo${c.domingos === 1 ? '' : 's'}</span>` : ''}
                 ${c.hExtra ? `<span class="nom-dato"><b>${num(c.hExtra)}</b> horas extras</span>` : ''}
             </div>
             ${!editando && n.nota ? `<div class="nom-sec">Nota</div>

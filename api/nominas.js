@@ -113,8 +113,17 @@ function limpiarNomina(n) {
     // Los días de asistencia salen de los días de trabajo registrados; solo
     // se guardan si se ponen a mano. Antes se guardaba un 0 cuando no venían,
     // y ese 0 tapaba la cuenta: el plus dejaba de salir en la nómina.
-    dias: (n?.dias?.asistencia === undefined || n?.dias?.asistencia === null || n?.dias?.asistencia === ''
-           || !Number(n?.dias?.asistencia)) ? {} : { asistencia: numero(n.dias.asistencia, 31) },
+    dias: {
+      ...((n?.dias?.asistencia === undefined || n?.dias?.asistencia === null || n?.dias?.asistencia === ''
+           || !Number(n?.dias?.asistencia)) ? {} : { asistencia: numero(n.dias.asistencia, 31) }),
+      // Los domingos trabajados salen de lo registrado; solo si se ponen a mano
+      ...((n?.dias?.domingos === undefined || n?.dias?.domingos === null || n?.dias?.domingos === '')
+           ? {} : { domingos: numero(n.dias.domingos, 6) }),
+    },
+    // El precio del plus de domingo no está en el convenio de partida: lo pone
+    // cada uno y se guarda, para que el mes siguiente salga ya puesto
+    ...(numero(n?.precios?.porDia?.domingo, 999)
+        ? { precios: { porDia: { domingo: numero(n.precios.porDia.domingo, 999) } } } : {}),
     // Las horas extras salen de lo que registró; solo se guardan si se le
     // ponen otras a mano. El precio de la hora sí, que no está en el convenio.
     extra: {

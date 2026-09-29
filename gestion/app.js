@@ -5141,9 +5141,9 @@ const app = {
         c = String(c || '');
         const m = {
             EMAIL_EXISTS: 'Ese correo ya tiene cuenta: entra con tu contraseña.',
-            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo.',
+            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo. Si te quitaron el acceso, vuelve a crearla con «Crear cuenta».',
             INVALID_PASSWORD: 'La contraseña no es correcta.',
-            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos.',
+            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos. Si te quitaron el acceso, tu cuenta se borró: vuelve a crearla con «Crear cuenta».',
             USER_DISABLED: 'Esta cuenta está desactivada.',
             INVALID_EMAIL: 'Ese correo no es válido.',
             MISSING_PASSWORD: 'Escribe la contraseña.',

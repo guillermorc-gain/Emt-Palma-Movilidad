@@ -200,6 +200,21 @@ async function enlaceEntrar(email, como) {
   return `${seguirEn(como)}&email=${encodeURIComponent(email)}&c=${encodeURIComponent(codigo)}`;
 }
 
+// Una sesión de Firebase vale una hora aunque la cuenta se haya borrado
+// mientras tanto: sin mirarlo, una app abierta podía pedir el alta de una
+// cuenta que ya no existe y se aprobaba sin que nadie pudiera entrar con ella.
+async function cuentaExiste(uid) {
+  try {
+    const { sa, access_token } = await permisoAdmin();
+    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:lookup`, {
+      method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ localId: [uid] }) });
+    if (!r.ok) return true;              // sin poder mirarlo, no se le deja fuera
+    const d = await r.json().catch(() => ({}));
+    return Array.isArray(d.users) && d.users.length > 0;
+  } catch (_) { return true; }
+}
+
 async function enlaceVerificacion(email, como) {
   const { sa, access_token } = await permisoAdmin();
   const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:sendOobCode`, {
@@ -254,6 +269,9 @@ async function cuentasDeCorreo(req, res) {
     const esFirebase = /^eyJ/.test(token);
     const s = esFirebase ? await revisarFirebase(token, true) : await revisarToken(token);
     if (!s.email) return res.status(401).json({ error: 'Sesión no válida' });
+    if (esFirebase && s.uid && !await cuentaExiste(s.uid)) {
+      return res.status(410).json({ error: 'Esa cuenta ya no existe: vuelve a crearla con «Crear cuenta».' });
+    }
     const como = await yaAutorizado(s.email);
     if (como && !esFirebase) return res.status(200).json({ aprobado: true });
     if (como) {
