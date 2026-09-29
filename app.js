@@ -2327,12 +2327,24 @@ const app = {
     // por semana, si hace más de un mes de la última copia, se le recuerda.
     _recordarCopiaLocal() {
         if (!this._esCuentaCorreo()) return;
+        // La primera vez solo se le informa: aún no tiene nada que guardar
+        if (!localStorage.getItem('copiaInformada')) {
+            localStorage.setItem('copiaInformada', '1');
+            localStorage.setItem('copiaRecordada', String(Date.now()));
+            setTimeout(() => this._mostrarToast('ℹ️ Tu cuenta no es de Google: tus jornadas y tu personalización se guardan '
+                + 'solo en este móvil. Cuando tengas jornadas, exporta de vez en cuando una copia (Ajustes › Copia de seguridad).', 9000), 4000);
+            return;
+        }
+        // Después, el recordatorio de exportar solo si hay jornadas que perder
+        let hay = 0;
+        try { hay = Object.keys(JSON.parse(localStorage.getItem('datosLocales') || '{}')?.historial || {}).length; } catch (_) {}
+        if (!hay) return;
         const ultima = Number(localStorage.getItem('ultimaExportacion') || 0);
         const avisado = Number(localStorage.getItem('copiaRecordada') || 0);
         if (Date.now() - ultima < 30 * 864e5 || Date.now() - avisado < 7 * 864e5) return;
         localStorage.setItem('copiaRecordada', String(Date.now()));
         setTimeout(() => {
-            if (confirm('Tu cuenta no es de Google, así que tus jornadas y tu personalización solo están en este móvil. '
+            if (confirm(`Tu cuenta no es de Google, así que tus ${hay} jornada${hay === 1 ? '' : 's'} y tu personalización solo están en este móvil. `
                 + 'Si desinstalas la aplicación o cambias de móvil, se pierden.\n\n'
                 + '¿Exportas ahora una copia? Guárdala en un sitio seguro: con «Importar archivo JSON» lo recuperas todo.')) {
                 this.exportarDatos();
