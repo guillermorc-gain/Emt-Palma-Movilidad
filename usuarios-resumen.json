@@ -3360,6 +3360,12 @@
     ],
     "email": "prueba-1790706906349@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-09-29T18:36:16.960Z"
+    "actualizado": "2026-09-29T18:36:16.960Z",
+    "horarios": {
+      "202610": {
+        "i": "12:00",
+        "f": "19:00"
+      }
+    }
   }
 }
