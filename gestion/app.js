@@ -10016,11 +10016,14 @@ const app = {
             const comunica = u.ficticio ? '' : u.comunicacion === false
                 ? '<span class="cond-com off" title="Ha quitado la comunicación con el Departamento">Sin conexión</span>'
                 : '<span class="cond-com on" title="Mantiene la comunicación con el Departamento">Conectado</span>';
-            const turno = sitios.length > 1 || ausente ? ''
-                : (this._turnoDe(lugarHoy, j?.i) || (esHoy ? u.turno : ''));
             // El horario del día, para verlo junto al lugar: con el sitio solo
             // no se sabe a qué hora entra, que es lo primero que se mira.
             const hh = this._horasDelDia(u, fecha, j);
+            // El turno sale de la hora que fichó o, si aún no hay jornada ese
+            // día, de la que tiene asignada: sin esto, a quien no había
+            // registrado nada (los de prueba, sobre todo) no le salía M/T/N.
+            const turno = sitios.length > 1 || ausente ? ''
+                : (this._turnoDe(lugarHoy, j?.i || hh?.i) || (esHoy ? u.turno : ''));
             const horasHoy = (hh?.i && hh?.f) ? `${hh.i}–${hh.f}` : '';
             const t = this._totalesDe(u, fecha);
             const foto = u.avatar || this._avatares[u.email];
