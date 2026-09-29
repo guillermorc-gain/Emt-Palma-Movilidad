@@ -3147,7 +3147,7 @@
     "horasMes": 0,
     "horasTotales": 0,
     "horasAnuales": 777,
-    "jornadaHoras": 7.5,
+    "jornadaHoras": 3.5,
     "dias": null,
     "diasAt": 0,
     "diasMes": 0,
@@ -3170,7 +3170,7 @@
     ],
     "grupo": null,
     "comunicacion": true,
-    "bienvenidaVista": false,
-    "actualizado": "2026-09-29T16:22:24.094Z"
+    "bienvenidaVista": true,
+    "actualizado": "2026-09-29T16:22:44.563Z"
   }
 }
