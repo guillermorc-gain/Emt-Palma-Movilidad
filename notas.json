@@ -1,1 +1,23 @@
-{}
+{
+  "20260929171020817-u9ej4-0": {
+    "id": "20260929171020817-u9ej4-0",
+    "email": "guillermo.rc82@gmail.com",
+    "creado": "2026-09-29T17:10:20.817Z",
+    "nombre": "Guillermo Ríos Correa",
+    "conductor": "1418-3",
+    "mensajes": [
+      {
+        "de": "gestor",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "dke",
+        "adjuntos": [],
+        "en": "2026-09-29T17:10:20.817Z"
+      }
+    ],
+    "archivada": false,
+    "de": "gestor",
+    "tipo": "gestion",
+    "gestor": "Guillermo Ríos Correa",
+    "estado": "pendiente"
+  }
+}
