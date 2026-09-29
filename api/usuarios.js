@@ -456,6 +456,21 @@ function quienHayEn(data, lugar, fecha) {
   return { lugar: String(lugar || ''), fecha: f, gente };
 }
 
+
+// El número que ve gestión. Se guarda aparte el que pone él (conductorPropio),
+// el último que tuvo (conductorAnterior) y el que puso gestión
+// (conductorGestion): quitarlo de su app no lo borra de gestión.
+function numeroDeTrabajador(previo, b) {
+  const enviado = typeof b.conductor === 'string' ? b.conductor.trim().slice(0, 12) : null;
+  const propio = enviado !== null ? enviado
+    : (previo.conductorPropio ?? (previo.conductorGestion ? '' : previo.conductor) ?? '');
+  const anterior = propio || previo.conductorAnterior || (previo.conductorGestion ? '' : previo.conductor) || '';
+  return {
+    conductorPropio: propio,
+    conductorAnterior: anterior,
+    conductor: propio || previo.conductorGestion || anterior || '',
+  };
+}
 // Permiso retribuido: dos al año. Los días que ya lo son ese año, sumando
 // los que marca gestión y los que el trabajador registra como PR.
 const PR_ANUALES = 2;
@@ -608,7 +623,9 @@ export default async function handler(req, res) {
           ...previo,
           email: quien,
           nombre:       typeof b.nombre === 'string' ? b.nombre.slice(0, 80) : previo.nombre || '',
-          conductor:    typeof b.conductor === 'string' ? b.conductor.slice(0, 12) : previo.conductor || '',
+          // El número: el que tenga puesto él; si lo quita, el que puso
+          // gestión o, si no, el último que tuvo, para que gestión no lo pierda
+          ...numeroDeTrabajador(previo, b),
           avatar:       b.avatar ?? previo.avatar ?? null,
           // El avatar de emoji y su color, para quien no ha puesto foto
           avatarEmoji:  typeof b.avatarEmoji === 'string' ? b.avatarEmoji.slice(0, 16) || null
@@ -672,7 +689,7 @@ export default async function handler(req, res) {
       const quienGestiona = await exigirGestor(req, res);
       if (!quienGestiona) return;
       const { email, puesto, ficticio, baja, bajas, vacaciones, nota, fecha,
-              desde, hasta, dias, grupo, horario, mes, revisiones, oculto, pr } = req.body || {};
+              desde, hasta, dias, grupo, horario, mes, revisiones, oculto, pr, numero } = req.body || {};
       // Los usuarios de prueba son cosa de quien lleva la aplicación, no de
       // quien gestiona la plantilla: ni los ve ni los crea.
       if (ficticio && quienGestiona !== GESTOR_PRINCIPAL) {
@@ -706,6 +723,14 @@ export default async function handler(req, res) {
             prs.add(String(fecha));
           } else prs.delete(String(fecha));
           u.prs = [...prs].sort().slice(-20);
+        }
+        // El número de trabajador real, puesto por gestión cuando él no lo ha
+        // puesto en su app. Si lo pone él, manda el suyo.
+        else if (data[clave] && numero !== undefined && !ficticio) {
+          const u = data[clave];
+          const propio = u.conductorPropio ?? (u.conductorGestion ? '' : u.conductor) ?? '';
+          u.conductorGestion = String(numero || '').replace(/[^\d-]/g, '').slice(0, 12);
+          u.conductor = propio || u.conductorGestion || u.conductorAnterior || '';
         }
         else if (ficticio) {
           data[clave] = {

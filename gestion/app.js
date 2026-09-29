@@ -5467,6 +5467,26 @@ const app = {
         return false;
     },
 
+    // El número de trabajador real, para quien no lo ha puesto en su app (o lo
+    // ha quitado). Va con 4 o 5 cifras; la última es la de control.
+    async ponerNumero(email) {
+        const u = (this._conductores || {})[email];
+        if (!u) return;
+        const v = prompt(`Número de trabajador de ${u.nombre || email} (4 o 5 cifras).\nDéjalo vacío para quitarlo.`,
+            String(u.conductorGestion || u.conductor || '').replace(/\D/g, ''));
+        if (v === null) return;
+        const num = v.replace(/\D/g, '');
+        if (num && (num.length < 4 || num.length > 5)) { this._mostrarToast('❌ El nº son 4 o 5 cifras', 3000); return; }
+        const numero = num ? num.slice(0, -1) + '-' + num.slice(-1) : '';
+        try {
+            const r = await fetch(this.API_BASE + 'usuarios', { method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, numero }) });
+            if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || r.status); }
+            await this._cargarConductores(true);
+            this._mostrarToast(numero ? `✅ Nº ${numero} puesto` : '🗑️ Nº quitado', 2500);
+        } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
+    },
+
     _appPush() { return (ES_APP_DEV ? 'desarrollador' : 'gestion'); },
 
     // Se ha entrado tocando el aviso de una cuenta nueva o de días marcados:
@@ -9327,7 +9347,13 @@ const app = {
                      plan: (esHoy || esFuturo) && !v.j ? this._horasPlan(u, fecha) : null,
                      planTramos: (esHoy || esFuturo) && !v.j ? this._tramosPlan(u, fecha) : null };
             if (todas.length < 2) {
-                return [{ ...base, j: v.j, lugar: this._lugarDe(u, fecha, v.j).trim() || SIN }];
+                // El horario que gestión le ha puesto para ese día manda sobre
+                // lo que fichara, igual que en la lista de trabajadores: si no,
+                // aquí seguía saliendo el de antes aunque se le hubiera cambiado.
+                let j = v.j;
+                const hd = j && !v.deAyer && !j.v && !j.p ? this._horasDelDia(u, fecha, j) : null;
+                if (hd && !hd.real && hd.i && hd.f) j = { ...j, i: hd.i, o: hd.f, h: this._horasEntre(hd.i, hd.f), tr: undefined };
+                return [{ ...base, j, lugar: this._lugarDe(u, fecha, v.j).trim() || SIN }];
             }
             // Con varias, manda el lugar que traiga cada una: el que puso el
             // gestor para ese día vale para el conjunto, no para cada tramo.
@@ -9827,7 +9853,11 @@ const app = {
                             ${u.ficticio ? '<span class="pr-badge2">Virtual</span>' : ''}
                             ${u.oculto ? '<span class="pr-badge2">OCULTO</span>' : ''}${
                             ES_APP_DEV ? this._chipConexion(u.email) + comunica : ''}</div>
-                        <div class="cond-num">${esc(u.conductor) || 'sin nº'}${
+                        <div class="cond-num">${u.ficticio || (u.conductorPropio ?? (u.conductorGestion ? '' : u.conductor))
+                            ? (esc(u.conductor) || 'sin nº')
+                            // Él no lo tiene puesto en su app: se le puede poner el real
+                            : `<span class="num-editable" title="Poner su número de trabajador"
+                                onclick="event.stopPropagation();app.ponerNumero('${esc(u.email)}')">${esc(u.conductor) || 'sin nº'} ✎</span>`}${
                             this._desviaciones(u) ? `<span class="cond-alerta" title="Horarios que no cuadran"
                                 onclick="event.stopPropagation();app.revisarHorarios('${esc(u.email)}')">❗${
                                 this._desviaciones(u)}</span>` : ''}
