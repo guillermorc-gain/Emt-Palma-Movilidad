@@ -3242,9 +3242,9 @@
     "horasMes": 21,
     "horasTotales": 21,
     "horasAnuales": 1500,
-    "jornadaHoras": 3.5,
+    "jornadaHoras": 7,
     "dias": null,
-    "diasAt": 0,
+    "diasAt": 1790705340694,
     "diasMes": 4,
     "turno": "T",
     "horaInicio": "14:00",
@@ -3299,7 +3299,7 @@
     "grupo": null,
     "comunicacion": true,
     "bienvenidaVista": true,
-    "actualizado": "2026-09-29T18:08:49.223Z",
+    "actualizado": "2026-09-29T18:09:04.057Z",
     "oculto": false
   }
 }
