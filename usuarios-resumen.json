@@ -3173,6 +3173,8 @@
     "notas": {
       "20260928": "966-2"
     },
-    "conductorGestion": "966-2"
+    "conductorGestion": "966-2",
+    "oculto": true,
+    "ocultoPor": "gestion"
   }
 }
