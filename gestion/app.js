@@ -5355,10 +5355,11 @@ const app = {
         if (!ES_APP_DEV || !this.usuarioActual) return;
         try {
             const r = await fetch(this.API_BASE + 'allowlist?solicitudes=1', { cache: 'no-store' });
-            if (!r.ok) return;
+            if (!r.ok) return false;
             this._solicitudes = await r.json();
             this._pintarSolicitudes();
-        } catch (_) {}
+            return true;
+        } catch (_) { return false; }
     },
 
     // Se enseña sola cuando llega una nueva o al tocar su aviso; con la X se
@@ -5434,12 +5435,31 @@ const app = {
     // Se ha entrado tocando el aviso de una cuenta nueva o de días marcados:
     // se abre directamente en él. Los demás avisos (el chat) se quedan como
     // estaban, sin leer, hasta que se toquen.
-    async _abrirAvisoNativo() {
-        const aviso = window.AndroidBridge?.getPref?.('abrirAviso');
-        if (!aviso || !this.usuarioActual) return;
-        window.AndroidBridge?.removePref?.('abrirAviso');
-        if (aviso === 'solicitud') { await this._cargarSolicitudes(); this._mostrarSolicitudes(true); }
-        else if (aviso === 'ausencia') { await this._cargarConductores(true); this._abrirAvisos(); }
+    // La app suele venir de estar de fondo: la sesión de Google ya ha
+    // caducado y la lista de solicitudes no se dejaba leer, así que el aviso
+    // se tocaba y no salía nada. Primero se renueva la sesión, y el aviso no
+    // se da por abierto hasta que se ha podido enseñar.
+    async _abrirAvisoNativo(intento = 0) {
+        if (!window.AndroidBridge?.getPref) return;
+        const aviso = window.AndroidBridge.getPref('abrirAviso');
+        // Lo apunta el móvil al tocar el aviso, que puede llegar un poco
+        // después de que la app vuelva al frente
+        if (!aviso) { if (intento < 3) setTimeout(() => this._abrirAvisoNativo(intento + 1), 600); return; }
+        if (!this.usuarioActual) return;          // se mira otra vez al terminar de entrar
+        if (this._abriendoAviso) return;
+        this._abriendoAviso = true;
+        try {
+            if (!(this.accessToken && Date.now() < this.tokenExpiry)) await this._silentReauth();
+            if (!(this.accessToken && Date.now() < this.tokenExpiry)) return;   // sigue apuntado para luego
+            if (aviso === 'solicitud') {
+                if (!await this._cargarSolicitudes()) {
+                    this._mostrarToast('❌ No se ha podido cargar la cuenta por aprobar. Mírala en la 🔔', 4500);
+                } else if (!(this._solicitudes || []).length) {
+                    this._mostrarToast('✅ Esa cuenta ya está resuelta: no queda ninguna por aprobar', 4000);
+                } else this._mostrarSolicitudes(true);
+            } else if (aviso === 'ausencia') { await this._cargarConductores(true); this._abrirAvisos(); }
+            window.AndroidBridge?.removePref?.('abrirAviso');
+        } finally { this._abriendoAviso = false; }
     },
 
     // Hasta dónde he leído, para que el aviso nativo no repita lo ya visto
