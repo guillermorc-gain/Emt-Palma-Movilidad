@@ -1385,6 +1385,7 @@
       "20260921": "Taller",
       "20260922": "Son Rossinyol",
       "20260928": "Control",
+      "20260930": "Control de acceso",
       "20261001": "Son Rossinyol",
       "20261002": "Son Rossinyol",
       "20261003": "Control",
@@ -1604,7 +1605,7 @@
     "tramosDia": {
       "20260930": [
         {
-          "p": "",
+          "p": "Control de acceso",
           "i": "08:00",
           "o": "09:00"
         },
@@ -1624,7 +1625,7 @@
       "20260922": 1790070796886,
       "20260927": 1790695307117,
       "20260928": 1790629365348,
-      "20260930": 1790614830146,
+      "20260930": 1790700312572,
       "20261001": 1790686948509,
       "20261002": 1790613466419,
       "20261003": 1790677096709,
@@ -1667,7 +1668,8 @@
     "avatarBg": null,
     "bienvenidaVista": true,
     "conductorPropio": "1418-3",
-    "conductorAnterior": "1418-3"
+    "conductorAnterior": "1418-3",
+    "libresDia": {}
   },
   "prueba-1789758756867@prueba.local": {
     "nombre": "Toni Rodríguez",
