@@ -894,6 +894,7 @@ const app = {
             }
             this.mostrarApp();
             this._avisarRecienAutorizado();
+            this._vigilarAcceso();
             this._sincronizarAvisosNativos();
             this._caArrancar();
             this._alEntrarPrimeraVez();
@@ -1188,6 +1189,8 @@ const app = {
             // Al volver se miran los mensajes: es lo que hace que salte el
             // aviso cuando la app estaba de fondo.
             this._iniciarSondeoChat();
+            // Y si le han quitado el acceso mientras tanto
+            if (this.usuarioActual) this._comprobarAcceso();
             // Si se ha entrado tocando el aviso nativo, se abre en las notas
             if (window.AndroidBridge?.getPref?.('abrirNotas') === '1') {
                 window.AndroidBridge?.removePref?.('abrirNotas');
@@ -2394,6 +2397,37 @@ const app = {
     // Al salir, este móvil deja de recibir avisos de esa cuenta: se da de baja
     // en el servidor (con la sesión que aún se tiene) y se borra lo que usa el
     // aviso nativo para mirar el chat por su cuenta.
+    // Si le quitan el acceso con la app abierta, deja de funcionar: se mira
+    // al volver a la app y cada pocos minutos. Solo cuenta una lista leída
+    // bien; un fallo de red no le echa.
+    _vigilarAcceso() {
+        clearInterval(this._accesoTimer);
+        this._accesoTimer = setInterval(() => { if (!document.hidden) this._comprobarAcceso(); }, 3 * 60 * 1000);
+    },
+
+    async _comprobarAcceso() {
+        const email = String(this.usuarioActual?.email || '').toLowerCase();
+        if (!email || email === SUPER_USER_EMAIL.toLowerCase()) return;
+        try {
+            const envio = this._fetchOriginal || window.fetch.bind(window);
+            const r = await envio('https://emt-palma-movilidad.vercel.app/api/allowlist?app=' + ALLOWLIST_APP, { cache: 'no-store' });
+            if (!r.ok) return;
+            const lista = await r.json();
+            if (!Array.isArray(lista) || !lista.length) return;
+            if (lista.map(e => String(e).toLowerCase()).includes(email)) return;
+        } catch (_) { return; }
+        this._accesoRetirado();
+    },
+
+    async _accesoRetirado() {
+        clearInterval(this._accesoTimer);
+        try { await this._darDeBajaAvisos(); } catch (_) {}
+        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken', 'gUserEmail', 'authTipo', 'fbRefresh', 'fbEmail', 'fbNombre']
+            .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+        try { sessionStorage.setItem('accesoRetirado', '1'); } catch (_) {}
+        window.location.reload();
+    },
+
     async _darDeBajaAvisos() {
         const token = window.AndroidBridge?.pushToken?.();
         if (token && this.accessToken) {
@@ -2692,6 +2726,12 @@ const app = {
 
     mostrarAuth() {
         this._hideSplash();
+        try {
+            if (sessionStorage.getItem('accesoRetirado')) {
+                sessionStorage.removeItem('accesoRetirado');
+                setTimeout(() => this.mostrarMensaje('⛔ Te han retirado el acceso a esta aplicación.', 'error'), 300);
+            }
+        } catch (_) {}
         document.getElementById('authScreen').classList.remove('hidden');
         document.getElementById('appScreen').classList.remove('active');
         document.getElementById('optionsScreen').classList.remove('active');
