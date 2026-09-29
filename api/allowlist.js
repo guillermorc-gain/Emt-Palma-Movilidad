@@ -185,6 +185,21 @@ async function borrarCuentaCorreo(email) {
   return true;
 }
 
+// El enlace para entrar sin contraseña (de un solo uso), para que al abrir el
+// correo en un navegador donde no había entrado quede ya dentro. Se saca el
+// código del enlace de Firebase y va en el nuestro, con el correo.
+async function enlaceEntrar(email, como) {
+  const { sa, access_token } = await permisoAdmin();
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:sendOobCode`, {
+    method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestType: 'EMAIL_SIGNIN', email, returnOobLink: true,
+                           continueUrl: seguirEn(como), canHandleCodeInApp: true }) });
+  const d = await r.json().catch(() => ({}));
+  const codigo = d.oobLink ? new URL(d.oobLink).searchParams.get('oobCode') : '';
+  if (!r.ok || !codigo) throw new Error('Firebase: ' + (d?.error?.message || r.status));
+  return `${seguirEn(como)}&email=${encodeURIComponent(email)}&c=${encodeURIComponent(codigo)}`;
+}
+
 async function enlaceVerificacion(email, como) {
   const { sa, access_token } = await permisoAdmin();
   const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:sendOobCode`, {
@@ -206,7 +221,13 @@ async function avisarAutorizado({ email, uid, google, como, nombre }) {
   if (hayCorreoPropio()) {
     try {
       const confirmar = !google && !!uid && !verificada;
-      const enlace = confirmar ? await enlaceVerificacion(email, como) : seguirEn(como);
+      // Cuenta de correo ya confirmada: el enlace la deja dentro sin contraseña
+      let enlace = seguirEn(como);
+      if (confirmar) enlace = await enlaceVerificacion(email, como);
+      else if (!google && uid) {
+        try { enlace = await enlaceEntrar(email, como); }
+        catch (e) { console.error(`Enlace para entrar de ${email}: ${e.message}`); }
+      }
       await enviarCorreo({ para: email, ...correoAutorizado({ nombre, email, enlace, confirmar,
                                                               app: como === 'gestion' ? 'gestion' : 'trabajador' }) });
       console.log(`Correo de autorizado a ${email}: enviado desde Gmail`);

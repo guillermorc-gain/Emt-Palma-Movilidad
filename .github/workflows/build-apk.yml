@@ -241,7 +241,9 @@ jobs:
                   // El enlace del correo de «acceso concedido»: la app entra
                   // sola con la cuenta que esperaba la autorización
                   if (data.getQueryParameter("autorizado") != null) {
-                      getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl("https://localhost/?autorizado=1"));
+                      String em = data.getQueryParameter("email");
+                      String au = "https://localhost/?autorizado=1" + (em != null && !em.isEmpty() ? "&email=" + Uri.encode(em) : "");
+                      getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(au));
                       return;
                   }
                   String code = data.getQueryParameter("code");

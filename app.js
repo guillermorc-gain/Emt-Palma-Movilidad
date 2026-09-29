@@ -671,6 +671,11 @@ const app = {
             return;
         }
 
+        // Del enlace del correo de «acceso concedido»
+        if (this._codigoAutorizado && this._emailAutorizado && !window.Capacitor) { this._entrarConEnlace(); return; }
+        if (this._emailAutorizado && window.Capacitor && !this.accessToken && !this.refreshToken
+                && !localStorage.getItem('authTipo')) { this._pantallaEntrarCon(this._emailAutorizado); return; }
+
         if (this.accessToken && Date.now() < this.tokenExpiry) {
             this._loadUserAndStart();
         } else if (this._vieneDelEnlaceAutorizado && localStorage.getItem('fbPendRefresh') && !this._esCuentaCorreo()) {
@@ -2217,24 +2222,60 @@ const app = {
     // preguntar si sigue en el navegador o se baja la aplicación, y se limpia
     // la dirección (Firebase le añade sus códigos) dejando solo la app.
     // El enlace del correo de «acceso concedido» se abre en el navegador del
-    // móvil. Si la cuenta se creó en la aplicación, su sesión está allí y no
-    // aquí: se abre la aplicación, que entra sola. Si no está instalada, el
-    // navegador vuelve a esta página (con web=1) y sigue aquí.
+    // móvil. Con la aplicación instalada se abre ella: si la cuenta es de
+    // correo, en la pantalla de entrar con su correo ya puesto. Si no está
+    // instalada, el navegador vuelve a esta página (con web=1) y entra aquí.
     _abrirAppAutorizada(q) {
         if (window.Capacitor || !/Android/i.test(navigator.userAgent) || q.has('web')) return false;
-        let aqui = false;
-        try { aqui = !!(localStorage.getItem('fbPendRefresh') || localStorage.getItem('gAccessToken') || localStorage.getItem('fbRefresh')); } catch (_) {}
-        if (aqui) return false;
+        const email = q.get('email') || '';
+        if (!email) {
+            // Cuenta de Google: solo si su sesión no está en este navegador
+            let aqui = false;
+            try { aqui = !!(localStorage.getItem('fbPendRefresh') || localStorage.getItem('gAccessToken') || localStorage.getItem('fbRefresh')); } catch (_) {}
+            if (aqui) return false;
+        }
         const vuelta = window.location.href + (window.location.search ? '&' : '?') + 'web=1';
-        window.location.href = `intent://localhost/?autorizado=1#Intent;scheme=https;package=${ANDROID_PACKAGE};`
-            + `S.browser_fallback_url=${encodeURIComponent(vuelta)};end`;
+        window.location.href = `intent://localhost/?autorizado=1${email ? '&email=' + encodeURIComponent(email) : ''}`
+            + `#Intent;scheme=https;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(vuelta)};end`;
         return true;
+    },
+
+    // Con el enlace del correo en el navegador: entra con el código de un solo
+    // uso, sin contraseña, y va directo a la bienvenida
+    async _entrarConEnlace() {
+        const email = this._emailAutorizado, oobCode = this._codigoAutorizado;
+        this._codigoAutorizado = '';
+        try {
+            const d = await this._fbPost('signInWithEmailLink', { email, oobCode, returnSecureToken: true });
+            let nombre = '';
+            try { nombre = (await this._fbPost('lookup', { idToken: d.idToken })).users?.[0]?.displayName || ''; } catch (_) {}
+            ['fbPendRefresh', 'fbPendEmail'].forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+            this._guardarSesionCorreo({ ...d, email: d.email || email }, nombre);
+            this._loadUserAndStart();
+        } catch (_) {
+            this._pantallaEntrarCon(email, false);
+            this.mostrarMensaje('Ese enlace ya se ha usado o ha caducado. Entra con tu contraseña.', 'error');
+        }
+    },
+
+    // La pantalla de entrar con correo, con el suyo ya puesto
+    _pantallaEntrarCon(email, avisar = true) {
+        this.mostrarAuth();
+        this.mostrarEntradaCorreo(true, 'entrar');
+        const cE = document.getElementById('cEmail');
+        if (cE) cE.value = email || '';
+        setTimeout(() => document.getElementById('cPass')?.focus(), 80);
+        if (avisar) this.mostrarMensaje('✅ Tu cuenta ya está autorizada: pon tu contraseña para entrar.', 'success');
     },
 
     _alVolverAutorizado() {
         const q = new URLSearchParams(window.location.search);
         if (!q.has('autorizado')) return;
+        this._emailAutorizado = String(q.get('email') || '').toLowerCase().trim();
+        this._codigoAutorizado = q.get('c') || '';
         if (this._abrirAppAutorizada(q)) return;
+        // En la web entra directo: ni pregunta si sigue en el navegador
+        if (this._codigoAutorizado && !window.Capacitor) { try { localStorage.setItem('modoUso', 'web'); } catch (_) {} }
         // Ya ha dado sus datos: entra directamente, sin volver a preguntarle
         // si sigue en el navegador o baja la aplicación
         try { sessionStorage.setItem('recienAutorizado', '1'); } catch (_) {}
