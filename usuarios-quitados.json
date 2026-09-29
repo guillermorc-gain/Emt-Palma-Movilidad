@@ -346,6 +346,73 @@
           "20260928": 1790517642049
         }
       }
+    },
+    {
+      "quitado": "2026-09-29T17:23:26.546Z",
+      "sinAccesoA": "trabajador",
+      "ficha": {
+        "email": "guillermo.rcxx@gmail.com",
+        "nombre": "Guillermo Ríos Correa",
+        "conductorPropio": "1234-5",
+        "conductorAnterior": "1234-5",
+        "conductor": "1234-5",
+        "avatarEmoji": null,
+        "avatarBg": null,
+        "version": "build-395",
+        "horasMes": 14,
+        "horasTotales": 14,
+        "horasAnuales": 1700,
+        "jornadaHoras": 7,
+        "dias": null,
+        "diasAt": 0,
+        "diasMes": 3,
+        "turno": "T",
+        "horaInicio": "18:00",
+        "horaFin": "22:00",
+        "horarioDe": "anterior",
+        "jornadas": [
+          {
+            "f": "20260915",
+            "h": 5,
+            "i": "17:00",
+            "o": "22:00",
+            "n": 1,
+            "pu": ""
+          },
+          {
+            "f": "20260917",
+            "h": 5,
+            "i": "17:00",
+            "o": "22:00",
+            "n": 1,
+            "pu": ""
+          },
+          {
+            "f": "20260918",
+            "h": 4,
+            "i": "18:00",
+            "o": "22:00",
+            "n": 1,
+            "pu": ""
+          }
+        ],
+        "vacaciones": [],
+        "vacacionesAt": 0,
+        "puesto": "",
+        "horario": "",
+        "horarios": {},
+        "horariosDia": {},
+        "tramosDia": {},
+        "revisiones": {},
+        "avisoVisto": null,
+        "apps": [
+          "trabajador"
+        ],
+        "grupo": null,
+        "comunicacion": true,
+        "bienvenidaVista": false,
+        "actualizado": "2026-09-29T17:22:48.776Z"
+      }
     }
   ],
   "guillermo.rc@outlook.com": [
