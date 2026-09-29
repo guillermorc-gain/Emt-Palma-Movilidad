@@ -2893,7 +2893,7 @@
   "xescavilla1822@gmail.com": {
     "email": "xescavilla1822@gmail.com",
     "nombre": "Francisca Villalonga Mestre",
-    "conductor": "",
+    "conductor": "966-2",
     "avatar": null,
     "version": "build-346",
     "horasMes": 7,
@@ -2943,6 +2943,7 @@
     "bienvenidaVista": false,
     "notas": {
       "20260928": "966-2"
-    }
+    },
+    "conductorGestion": "966-2"
   }
 }
