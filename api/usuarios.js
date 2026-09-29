@@ -344,10 +344,13 @@ function deVacacionesEse(u, f) {
 }
 
 // Sin lista de días se entiende que le puede tocar cualquiera
+// Los días puestos para ese mes en el cuadrante mandan sobre los de siempre
 function leTocaEse(u, f) {
-  if (!Array.isArray(u.dias) || !u.dias.length) return true;
+  const delMes = u.diasMes?.[f.slice(0, 6)];
+  const dias = Array.isArray(delMes) ? delMes : u.dias;
+  if (!Array.isArray(dias) || !dias.length) return true;
   const d = new Date(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8), 12).getDay();
-  return u.dias.includes(d);
+  return dias.includes(d);
 }
 
 // El horario asignado para ese día: primero el que le hayan puesto a esa
@@ -779,9 +782,17 @@ export default async function handler(req, res) {
         }
         // Días de la semana: se sella la hora para que gane el último que los
         // toque, venga del cuadrante o de la app del trabajador.
+        // Con mes, solo ese mes (un mes de lunes a viernes, otro el fin de
+        // semana); con «todos», los de siempre y fuera los de cada mes.
+        else if (data[clave] && dias !== undefined && /^\d{6}$/.test(String(mes || ''))) {
+          const dm = { ...(data[clave].diasMes || {}), [mes]: limpiarDiasSemana(dias) || [] };
+          const claves = Object.keys(dm).sort().slice(-24);
+          data[clave].diasMes = Object.fromEntries(claves.map(k => [k, dm[k]]));
+        }
         else if (data[clave] && dias !== undefined) {
           data[clave].dias   = limpiarDiasSemana(dias);
           data[clave].diasAt = Date.now();
+          if (req.body?.todos === true) delete data[clave].diasMes;
         }
         else if (data[clave] && grupo !== undefined) data[clave].grupo = limpiarGrupo(grupo);
         else if (data[clave] && revisiones !== undefined) {
