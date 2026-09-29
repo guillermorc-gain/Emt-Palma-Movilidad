@@ -388,6 +388,48 @@
         "bienvenidaVista": true,
         "actualizado": "2026-09-29T14:05:29.870Z"
       }
+    },
+    {
+      "quitado": "2026-09-29T16:32:27.110Z",
+      "sinAccesoA": "trabajador",
+      "ficha": {
+        "email": "guillermo.rc@outlook.com",
+        "nombre": "Guillermo",
+        "conductorPropio": "",
+        "conductorAnterior": "",
+        "conductor": "",
+        "avatarEmoji": null,
+        "avatarBg": null,
+        "version": "0",
+        "horasMes": 0,
+        "horasTotales": 0,
+        "horasAnuales": 777,
+        "jornadaHoras": 3.5,
+        "dias": null,
+        "diasAt": 0,
+        "diasMes": 0,
+        "turno": "",
+        "horaInicio": "",
+        "horaFin": "",
+        "horarioDe": "anterior",
+        "jornadas": [],
+        "vacaciones": [],
+        "vacacionesAt": 0,
+        "puesto": "",
+        "horario": "",
+        "horarios": {},
+        "horariosDia": {},
+        "tramosDia": {},
+        "revisiones": {},
+        "avisoVisto": null,
+        "apps": [
+          "trabajador"
+        ],
+        "grupo": null,
+        "comunicacion": true,
+        "bienvenidaVista": true,
+        "actualizado": "2026-09-29T16:22:44.563Z"
+      }
     }
   ]
 }
