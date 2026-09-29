@@ -925,6 +925,12 @@ const app = {
     },
 
     async login(silent = false, permisoExtra = '') {
+        // Entra con Google: lo que quedaba de una cuenta de correo esperando
+        // (su cuadro de «pendiente») ya no es de esta sesión
+        if (!silent) {
+            this._quitarEspera?.();
+            try { ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k)); } catch (_) {}
+        }
         const isAndroidNative = !!(window.Capacitor?.isNativePlatform?.());
         // Dentro de la aplicación la página se sirve desde localhost, y ahí
         // Google no puede devolver a nadie: si por lo que sea no se ha
@@ -5154,7 +5160,7 @@ const app = {
                         }
                         // Aún sin autorizar: la solicitud se vuelve a mandar (si ya la
                         // tenía, el desarrollador no recibe otro aviso)
-                        await this._pedirAlta(d.idToken, 'solicitud', { nombre: u.displayName || '', app: 'gestion' }).catch(() => {});
+                        await this._pedirAlta(d.idToken, 'solicitud', { nombre: u.displayName || '', app: 'gestion', manual: true }).catch(() => {});
                     }
                 } else {
                     this._mostrarEspera(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
@@ -5182,7 +5188,7 @@ const app = {
             await this._fbPost('update', { idToken: d.idToken, displayName: nombre.slice(0, 80), returnSecureToken: false }).catch(() => {});
             // Antes del correo de confirmación, el Departamento tiene que
             // aprobarla (y decir si es de gestión o trabajador)
-            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'gestion' });
+            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'gestion', manual: true });
             this._apuntarPendiente(d);
             this._mostrarEspera(r.aprobado
                 ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarla y seguirás desde aquí.`
@@ -5369,6 +5375,8 @@ const app = {
             const r = await fetch(this.API_BASE + 'allowlist?solicitudes=1', { cache: 'no-store' });
             if (!r.ok) return false;
             this._solicitudes = await r.json();
+            // Ninguna por contestar (se resolvió desde otro sitio): fuera el aviso
+            if (Array.isArray(this._solicitudes) && !this._solicitudes.length) window.AndroidBridge?.quitarAviso?.(1007);
             this._pintarSolicitudes();
             return true;
         } catch (_) { return false; }
@@ -5423,6 +5431,8 @@ const app = {
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { this._mostrarToast('❌ ' + (d.error || r.status), 5000); return; }
             this._solicitudes = (this._solicitudes || []).filter(s => s.email !== email);
+            // Contestada en la app: su aviso deja de estar en la barra
+            if (!this._solicitudes.length) window.AndroidBridge?.quitarAviso?.(1007);
             this._pintarSolicitudes();
             const quien = como === 'gestion' ? 'gestión' : 'trabajador';
             this._mostrarToast(!como ? '🗑️ Solicitud rechazada'

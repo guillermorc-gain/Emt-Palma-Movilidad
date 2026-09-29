@@ -54,6 +54,11 @@ async function setFile(FILE_PATH, emails, sha) {
 // desarrollador dice si es de gestión o trabajador: entonces se le apunta en
 // esa lista y se le manda el correo. Las pendientes van en solicitudes.json.
 const SOLICITUDES = 'solicitudes.json';
+// Cuándo se avisó al desarrollador de cada correo. Las versiones viejas de la
+// app vuelven a pedir el alta solas cada minuto mientras esperan: sin esto,
+// cada vez que se rechazaba o se quitaba a alguien volvía a saltar el aviso.
+const AVISADOS = 'solicitudes-avisadas.json';
+const UN_DIA = 24 * 3600 * 1000;
 const CLAVE_WEB = process.env.FIREBASE_WEB_KEY || 'AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI';
 const COMO = { trabajador: 'movilidad', gestion: 'gestion' };
 // Adónde lleva el enlace del correo: a su app, donde lo dejó, que ya sabe que
@@ -69,15 +74,15 @@ async function leerJson(ruta) {
   const m = await r.json();
   return { data: JSON.parse(Buffer.from(m.content, 'base64').toString('utf8') || '{}'), sha: m.sha };
 }
-async function mutarSolicitudes(mutar, mensaje) {
+async function mutarSolicitudes(mutar, mensaje, ruta = SOLICITUDES) {
   for (let i = 0; i < 3; i++) {
-    const { data, sha } = await leerJson(SOLICITUDES);
+    const { data, sha } = await leerJson(ruta);
     const nuevo = mutar({ ...data });
     if (!nuevo) return data;
     const body = { message: mensaje, branch: BRANCH,
       content: Buffer.from(JSON.stringify(nuevo, null, 2) + '\n').toString('base64') };
     if (sha) body.sha = sha;
-    const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${SOLICITUDES}`, {
+    const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${ruta}`, {
       method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (r.ok) return nuevo;
     if (r.status !== 409) throw new Error('No se pudo guardar la solicitud');
@@ -226,6 +231,14 @@ async function cuentasDeCorreo(req, res) {
     const nombre = String(req.body?.nombre || s.nombre || '').slice(0, 80);
     // Desde qué app lo ha intentado, para que el desarrollador lo sepa
     const desde = ['trabajador', 'gestion'].includes(req.body?.app) ? req.body.app : '';
+    // Solo cuenta lo que pide la persona pulsando (Entrar, Crear cuenta o
+    // entrar con Google). Lo automático, si ya se avisó hace menos de un
+    // día, ni vuelve a crear la solicitud ni vuelve a avisar.
+    const manual = req.body?.manual === true;
+    if (!manual) {
+      const avisado = Date.parse((await leerJson(AVISADOS)).data[s.email] || '') || 0;
+      if (Date.now() - avisado < UN_DIA) return res.status(200).json({ pendiente: true });
+    }
     let yaPedida = false;
     await mutarSolicitudes(d => {
       yaPedida = !!d[s.email];
@@ -237,6 +250,8 @@ async function cuentasDeCorreo(req, res) {
       await avisarDesarrollador(GESTOR_PRINCIPAL, { tipo: 'solicitud',
         titulo: esFirebase ? '🆕 Cuenta nueva por aprobar' : '🆕 Alguien ha entrado con Google sin estar autorizado',
         texto: `${nombre || s.email} (${s.email})${desde ? ' desde la app de ' + (desde === 'gestion' ? 'gestión' : 'trabajadores') : ''}: ¿gestión o trabajador?` });
+      await mutarSolicitudes(d => ({ ...d, [s.email]: new Date().toISOString() }), `Aviso de solicitud de ${s.email}`, AVISADOS)
+        .catch(() => {});
     }
     return res.status(200).json({ pendiente: true });
   }
