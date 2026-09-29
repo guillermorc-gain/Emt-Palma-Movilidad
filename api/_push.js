@@ -130,6 +130,8 @@ async function enviar(sa, permiso, token, datos) {
       android: { priority: 'HIGH', ttl: '3600s' } } }) });
   if (r.ok) return 'ok';
   const t = await r.text().catch(() => '');
+  // Queda constancia de por qué no salió, para saber si el móvil no lo recibió
+  console.error(`Aviso ${datos?.tipo || ''} a …${String(token).slice(-8)}: ${r.status} ${t.slice(0, 160)}`);
   // El móvil desinstaló la app o el token caducó: se borra
   return (r.status === 404 || /UNREGISTERED/.test(t)) ? 'caducado' : 'fallo';
 }
@@ -138,7 +140,9 @@ async function enviar(sa, permiso, token, datos) {
 async function mandarA(sa, tokens, datos) {
   if (!tokens.length) return;
   const permiso = await tokenDeGoogle(sa);
-  const res = await Promise.all(tokens.map(t => enviar(sa, permiso, t, datos).catch(() => 'fallo')));
+  const res = await Promise.all(tokens.map(t => enviar(sa, permiso, t, datos)
+    .catch(e => { console.error(`Aviso ${datos?.tipo || ''}: ${e.message}`); return 'fallo'; })));
+  console.log(`Aviso ${datos?.tipo || ''}: ${res.filter(x => x === 'ok').length}/${tokens.length} móviles`);
   const caducados = tokens.filter((_, i) => res[i] === 'caducado');
   if (caducados.length) {
     await guardar(d => {
