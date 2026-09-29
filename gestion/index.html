@@ -1334,6 +1334,15 @@
         .app-content.dark ::-webkit-scrollbar-thumb,.options-content.dark ::-webkit-scrollbar-thumb{background:#3d4571;}
             .auth-espera{margin:10px 0;padding:12px 14px;border-radius:12px;background:#fff8e1;border:1.5px solid #f5c542;color:#6b4e00;font-size:13px;line-height:1.45;text-align:left;}
         .auth-espera[hidden]{display:none;}
+        /* Entrar con correo (sin Google) */
+        .auth-form .auth-correo-link,.auth-correo-link{background:none !important;border:none !important;box-shadow:none !important;color:var(--g1,#1565C0) !important;font-size:13.5px;font-weight:600;cursor:pointer;padding:8px;font-family:inherit;text-decoration:underline;width:auto;align-self:center;}
+        .auth-input{width:100%;padding:12px;border:1.5px solid #dadce0;border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;background:var(--blanco,#fff);color:#2c3e50;}
+        .auth-btn{width:100%;padding:13px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,var(--g1,#1565C0),var(--g2,#003A99));color:#fff;}
+        .auth-btn.sec{background:var(--blanco,#fff);color:var(--g1,#1565C0);border:1.5px solid var(--g1,#1565C0);}
+        #correoForm{display:flex;flex-direction:column;gap:10px;}
+        #correoForm[hidden],#loginForm[hidden]{display:none !important;}
+        #correoForm:not([data-modo="elegir"]) .c-elegir,#correoForm:not([data-modo="entrar"]) .c-entrar,
+        #correoForm:not([data-modo="crear"]) .c-crear,#correoForm[data-modo="elegir"] .c-datos{display:none !important;}
         /* El título de la pantalla de entrada: como regla (y no en línea) para
            que cada tema le dé su color de texto y se lea también en oscuro */
         .auth-titulo{color:#2c3e50;font-size:22px;margin-bottom:4px;}
@@ -1404,6 +1413,23 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                  entrar solo se piden permisos corrientes, que era lo que la
                  hacía salir. Si volviera a aparecer, sería porque se ha vuelto
                  a pedir alguno de los sensibles. -->
+            <button type="button" class="auth-correo-link" id="authCorreoLink" onclick="app.mostrarEntradaCorreo(true)">¿No tienes cuenta de Google? Entra con tu correo</button>
+        </div>
+        <div class="auth-form" id="correoForm" data-modo="elegir" hidden>
+            <p class="c-elegir" style="color:#7f8c8d;font-size:13px;text-align:center;margin-bottom:4px;">Con tu correo y una contraseña. Tu personalización se guarda en este navegador o móvil.</p>
+            <p class="c-entrar" style="color:#7f8c8d;font-size:13px;text-align:center;margin-bottom:4px;">Entra con la cuenta que ya creaste.</p>
+            <p class="c-crear" style="color:#7f8c8d;font-size:13px;text-align:center;margin-bottom:4px;">Cuenta nueva: el Departamento tendrá que autorizarla.</p>
+            <button type="button" class="auth-btn c-elegir" onclick="app._modoCorreo('entrar')">Entrar</button>
+            <button type="button" class="auth-btn sec c-elegir" onclick="app._modoCorreo('crear')">Crear cuenta</button>
+            <input type="text" id="cNombre" class="auth-input c-crear" placeholder="Nombre y apellidos" autocomplete="name">
+            <input type="password" id="cPass" class="auth-input c-datos" placeholder="Contraseña (mínimo 6)" autocomplete="current-password">
+            <input type="email" id="cEmail" class="auth-input c-datos" placeholder="Tu correo" autocomplete="email">
+            <button type="button" class="auth-btn c-entrar" onclick="app.entrarConCorreo()">Entrar</button>
+            <button type="button" class="auth-btn c-crear" onclick="app.crearCuentaCorreo()">Crear cuenta</button>
+            <button type="button" class="auth-correo-link c-datos" id="cReenviar" hidden onclick="app.reenviarVerificacion()">Reenviar el correo de confirmación</button>
+            <button type="button" class="auth-correo-link c-entrar" onclick="app.olvideContrasena()">He olvidado la contraseña</button>
+            <button type="button" class="auth-correo-link c-datos" onclick="app._modoCorreo('elegir')">‹ Atrás</button>
+            <button type="button" class="auth-correo-link" onclick="app.mostrarEntradaCorreo(false)">‹ Volver a entrar con Google</button>
         </div>
     </div>
 
