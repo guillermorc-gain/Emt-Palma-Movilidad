@@ -9504,6 +9504,9 @@ const app = {
                      // Sin jornada y sin ese día en su semana, ese día no es
                      // suyo: ni cubre el lugar ni tiene sentido listarlo.
                      fueraDeSemana: !v.j && !this._trabajaEseDia(u, fecha),
+                     // Con permiso retribuido o sin ir ese día no ocupa lugar,
+                     // igual que de vacaciones o de baja
+                     sinIr: ['PR', 'No vino'].includes(this._ausencia(u, fecha, v.j)),
                      // Lo que tiene asignado ese día, para cuando aún no ha
                      // fichado: de hoy en adelante eso ya cubre el turno, así
                      // que el lugar no sale como vacío teniendo gente puesta.
@@ -9524,7 +9527,7 @@ const app = {
                 lugar: String(j.pu || '').trim() || this._lugarDe(u, fecha, j).trim() || SIN }));
         // Quien está de vacaciones o de baja no ocupa lugar ese día, así que no
         // sale en el cuadro. Sigue en la lista de trabajadores, con su botón.
-        }).filter(x => !x.enVac && !x.enBaja && !x.fueraDeSemana);
+        }).filter(x => !x.enVac && !x.enBaja && !x.fueraDeSemana && !x.sinIr);
 
         // Quien ha pasado por varios lugares sale en cada uno con sus horas, y
         // las horas del día que no haya repartido caen en "Sin servicio".
