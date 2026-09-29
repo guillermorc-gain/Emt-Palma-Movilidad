@@ -5107,7 +5107,7 @@ const app = {
         const pass = document.getElementById('cPass');
         if (pass) pass.autocomplete = modo === 'crear' ? 'new-password' : 'current-password';
         if (modo === 'elegir') { this._quitarEspera(); return; }
-        const primero = document.getElementById(modo === 'crear' ? 'cNombre' : 'cPass');
+        const primero = document.getElementById(modo === 'crear' ? 'cNombre' : 'cEmail');
         if (!f.hidden) setTimeout(() => primero?.focus(), 50);
     },
 
@@ -5142,6 +5142,8 @@ const app = {
                         this._mostrarEspera(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${d0.email} para `
                             + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
                             () => this._retomarCuentaPendiente(true));
+                        // Al aprobarla ya queda confirmada: se mira ya si puede entrar
+                        this._retomarCuentaPendiente(true);
                         return;
                     } catch (e) {
                         if (e.status !== 403) {
@@ -5266,6 +5268,8 @@ const app = {
                         this._mostrarEspera(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${claims.email} para `
                             + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
                             () => this._retomarCuentaPendiente(true));
+                        // Al aprobarla ya queda confirmada: se mira ya si puede entrar
+                        this._retomarCuentaPendiente(true);
                         return;
                     } catch (_) {}
                 }

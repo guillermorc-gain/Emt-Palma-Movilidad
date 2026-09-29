@@ -130,7 +130,7 @@ async function mandarAvisoGoogle(email, como) {
 // El enlace para confirmar el correo, pedido a Firebase como administrador
 // (con la cuenta de servicio): así el correo lo mandamos nosotros, desde la
 // cuenta de Gmail de Gestión, en vez de que lo mande Firebase.
-async function enlaceVerificacion(email, como) {
+async function permisoAdmin() {
   const sa = cuentaDeServicio();
   if (!sa) throw new Error('Falta la clave de Firebase en el servidor');
   const ahora = Math.floor(Date.now() / 1000);
@@ -144,6 +144,23 @@ async function enlaceVerificacion(email, como) {
     body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${sinFirma}.${firma}` }) });
   if (!t.ok) throw new Error('Google ' + t.status + ' al pedir permiso');
   const { access_token } = await t.json();
+  return { sa, access_token };
+}
+
+// Aprobada por el desarrollador, la cuenta queda confirmada sin más: él ya
+// sabe de quién es. Así puede entrar aunque el correo no le llegue (Outlook
+// se tragaba el de confirmación sin dejarlo ni en «Correo no deseado»).
+async function marcarVerificada(uid) {
+  const { sa, access_token } = await permisoAdmin();
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:update`, {
+    method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId: uid, emailVerified: true }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Firebase: ' + (d?.error?.message || r.status));
+}
+
+async function enlaceVerificacion(email, como) {
+  const { sa, access_token } = await permisoAdmin();
   const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${sa.project_id}/accounts:sendOobCode`, {
     method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requestType: 'VERIFY_EMAIL', email, returnOobLink: true, continueUrl: seguirEn(como) }) });
@@ -155,9 +172,14 @@ async function enlaceVerificacion(email, como) {
 // El aviso de «ya estás autorizado». Con la clave de Gmail puesta sale de
 // Gestión (g.rioscorrea@gmail.com) con su asunto; si no, lo manda Firebase.
 async function avisarAutorizado({ email, uid, google, como, nombre }) {
+  let verificada = false;
+  if (!google && uid) {
+    try { await marcarVerificada(uid); verificada = true; }
+    catch (e) { console.error(`No se pudo dar por confirmada la cuenta de ${email}: ${e.message}`); }
+  }
   if (hayCorreoPropio()) {
     try {
-      const confirmar = !google && !!uid;
+      const confirmar = !google && !!uid && !verificada;
       const enlace = confirmar ? await enlaceVerificacion(email, como) : seguirEn(como);
       await enviarCorreo({ para: email, ...correoAutorizado({ nombre, email, enlace, confirmar,
                                                               app: como === 'gestion' ? 'gestion' : 'trabajador' }) });
@@ -168,7 +190,7 @@ async function avisarAutorizado({ email, uid, google, como, nombre }) {
     }
   }
   if (!hayCorreoPropio()) console.warn('Correo de autorizado: falta GMAIL_CLAVE_APP, lo manda Firebase');
-  if (google) await mandarAvisoGoogle(email, como);
+  if (google || verificada) await mandarAvisoGoogle(email, como);
   else if (uid) await mandarConfirmacion(uid, como);
   else throw new Error('No hay cómo avisarle');
   console.log(`Correo de autorizado a ${email}: enviado por Firebase`);
