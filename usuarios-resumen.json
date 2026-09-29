@@ -2241,7 +2241,7 @@
     "email": "prueba-1789760390735@prueba.local",
     "ficticio": true,
     "actualizado": "2026-09-20T15:34:48.700Z",
-    "oculto": true
+    "oculto": false
   },
   "prueba-1789763845092@prueba.local": {
     "nombre": "Toni Sánchez",
