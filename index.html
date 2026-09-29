@@ -1359,8 +1359,8 @@ document.getElementById('splashScreen').addEventListener('click', function () {
             <button type="button" class="auth-btn c-elegir" onclick="app._modoCorreo('entrar')">Entrar</button>
             <button type="button" class="auth-btn sec c-elegir" onclick="app._modoCorreo('crear')">Crear cuenta</button>
             <input type="text" id="cNombre" class="auth-input c-crear" placeholder="Nombre y apellidos" autocomplete="name">
-            <input type="password" id="cPass" class="auth-input c-datos" placeholder="Contraseña (mínimo 6)" autocomplete="current-password">
             <input type="email" id="cEmail" class="auth-input c-datos" placeholder="Tu correo" autocomplete="email">
+            <input type="password" id="cPass" class="auth-input c-datos" placeholder="Contraseña (mínimo 6)" autocomplete="current-password">
             <button type="button" class="auth-btn c-entrar" onclick="app.entrarConCorreo()">Entrar</button>
             <button type="button" class="auth-btn c-crear" onclick="app.crearCuentaCorreo()">Crear cuenta</button>
             <button type="button" class="auth-correo-link c-datos" id="cReenviar" hidden onclick="app.reenviarVerificacion()">Reenviar el correo de confirmación</button>
