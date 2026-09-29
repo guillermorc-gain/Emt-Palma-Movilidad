@@ -3105,6 +3105,12 @@
       "20260928": "Son Rossinyol",
       "20260929": "Son Rossinyol",
       "20260930": "Son Rossinyol"
+    },
+    "horarios": {
+      "202610": {
+        "i": "05:30",
+        "f": "09:00"
+      }
     }
   },
   "prueba-1789850043571@prueba.local": {
