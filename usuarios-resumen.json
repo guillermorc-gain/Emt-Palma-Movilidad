@@ -2443,7 +2443,9 @@
     ],
     "email": "prueba-1789812576607@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-09-29T14:28:49.263Z"
+    "actualizado": "2026-09-29T14:28:49.263Z",
+    "oculto": true,
+    "ocultoPor": "desarrollador"
   },
   "prueba-1789812974724@prueba.local": {
     "nombre": "Pepe Tur",
