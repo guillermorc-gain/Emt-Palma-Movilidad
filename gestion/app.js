@@ -7864,6 +7864,11 @@ const app = {
                     const rc = await fetch(this.USUARIOS_URL + '?conexiones=1', { cache: 'no-store' });
                     if (rc.ok) this._conexiones = await rc.json();
                 } catch (_) {}
+                // Y los gestores, que salen aparte debajo de los trabajadores
+                try {
+                    const rg = await fetch(this.API_BASE + 'allowlist?app=gestion', { cache: 'no-store' });
+                    if (rg.ok) this._gestores = await rg.json();
+                } catch (_) {}
             }
             this._renderConductores();
             this._pintarCampana();      // los días marcados cuentan en la campana
@@ -9923,6 +9928,39 @@ const app = {
         });
     },
 
+    // En la de Desarrollador, debajo de los trabajadores, los gestores: con su
+    // conexión como los demás, pero sin botones ni lugar de trabajo (no
+    // trabajan en los puestos). Salen de la lista de acceso a gestión.
+    _htmlGestores() {
+        if (!ES_APP_DEV || !Array.isArray(this._gestores) || !this._gestores.length) return '';
+        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+        const filas = this._gestores.map(e => String(e).toLowerCase())
+            .map(email => {
+                const u = (this._conductores || {})[email] || {};
+                const conexion = this._conexiones?.[email] || '';
+                return { email, nombre: u.nombre || (email === this.DEV_EMAIL ? this.DEV_NOMBRE : ''), u, conexion };
+            })
+            // Los que se han conectado hace menos, arriba
+            .sort((a, b) => (b.conexion || '').localeCompare(a.conexion || '') || a.email.localeCompare(b.email));
+        return `<div class="gest-sec">🛠️ Gestores <span>${filas.length}</span></div>` + filas.map(({ email, nombre, u }) => {
+            const ini = (nombre || email).trim()[0]?.toUpperCase() || '?';
+            const foto = u.avatar || this._avatares?.[email];
+            const av = foto ? `<img class="cond-avatar" src="${esc(foto)}">`
+                : u.avatarEmoji ? `<div class="cond-avatar emo" style="background:${esc(u.avatarBg || '#667eea')}">${esc(u.avatarEmoji)}</div>`
+                : `<div class="cond-avatar">${esc(ini)}</div>`;
+            return `<div class="cond-card plegada gestor">
+                <div class="cond-top">
+                    ${av}
+                    <div class="cond-id">
+                        <div class="cond-nombre compacta"><span class="cond-nom-txt">${esc(nombre || email)}</span>
+                            ${this._chipConexion(email)}<span class="cond-com on">Conectado</span></div>
+                        <div class="cond-num">${esc(nombre ? email : 'Gestión')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
     _renderConductores() {
         const cont = document.getElementById('condList');
         const fecha = this._fechaOffset(this._puestosOffset);
@@ -9952,6 +9990,7 @@ const app = {
                 : '<div class="tab-empty"><span class="tab-empty-ico">👥</span>'
                   + '<span class="tab-empty-t">Sin trabajadores</span>'
                   + '<span class="tab-empty-s">Aparecerán en cuanto abran su app.</span></div>';
+            cont.innerHTML += this._htmlGestores();
             this._renderPuestos();
             this._renderRegistro();
             this._renderCuadranteTrab();
@@ -10071,7 +10110,7 @@ const app = {
                         : 'nunca'}</div>
                 </div>
             </div>`;
-        }).join('');
+        }).join('') + this._htmlGestores();
         this._ajustarNombres();
         document.getElementById('ordenNombre')?.classList.toggle('activo', orden === 'nombre');
         document.getElementById('ordenNumero')?.classList.toggle('activo', orden === 'numero');
