@@ -5415,7 +5415,9 @@ const app = {
             const quien = como === 'gestion' ? 'gestión' : 'trabajador';
             this._mostrarToast(!como ? '🗑️ Solicitud rechazada'
                 : d.correo === false ? `⚠️ Apuntado como ${quien}, pero no se pudo mandar el correo${d.aviso ? ' (' + d.aviso + ')' : ''}. Avísale tú.`
-                : `✅ Apuntado como ${quien}: le hemos mandado el correo de que ya está autorizado`, d.correo === false ? 8000 : 4000);
+                : `✅ Apuntado como ${quien}: le hemos mandado el correo de que ya está autorizado`
+                  + (d.via === 'firebase' ? ' (desde Firebase: puede caer en «Correo no deseado»)' : d.via === 'gmail' ? ' desde Gestión' : ''),
+                d.correo === false ? 8000 : 5000);
         } catch (e) { this._mostrarToast('❌ ' + e.message, 4000); }
     },
 
