@@ -10,7 +10,7 @@
     "diasMes": 21,
     "turno": "M",
     "puesto": "Control",
-    "actualizado": "2026-09-29T06:55:12.126Z",
+    "actualizado": "2026-09-29T10:18:57.099Z",
     "horaInicio": "09:00",
     "horaFin": "12:30",
     "horarioDe": "hoy",
@@ -1406,13 +1406,10 @@
     ],
     "vacacionesAt": 1790632366288,
     "dias": [
-      1,
-      2,
-      3,
-      4,
-      5
+      0,
+      6
     ],
-    "diasAt": 1789847119245,
+    "diasAt": 1790677133276,
     "horario": "",
     "grupo": null,
     "horarios": {
