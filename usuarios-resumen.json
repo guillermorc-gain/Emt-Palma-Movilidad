@@ -2410,17 +2410,17 @@
   },
   "prueba-1789812576607@prueba.local": {
     "nombre": "Enrique",
-    "conductor": "1254-6",
+    "conductor": "1250-0",
     "puesto": "Calle",
     "avatar": null,
-    "version": "build-119",
-    "horasMes": 0,
-    "horasTotales": 0,
-    "diasMes": 0,
-    "horaInicio": "",
-    "horaFin": "",
-    "horarioDe": "anterior",
-    "turno": "",
+    "version": "build-252",
+    "horasMes": 8,
+    "horasTotales": 8,
+    "diasMes": 1,
+    "horaInicio": "06:00",
+    "horaFin": "14:00",
+    "horarioDe": "hoy",
+    "turno": "M",
     "jornadaHoras": 3.5,
     "horasAnuales": 777,
     "ritmo": "lv",
@@ -2431,11 +2431,19 @@
       4,
       5
     ],
-    "jornadas": [],
+    "jornadas": [
+      {
+        "f": "20260929",
+        "i": "06:00",
+        "o": "14:00",
+        "h": 8,
+        "n": 0,
+        "pu": "Calle"
+      }
+    ],
     "email": "prueba-1789812576607@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-09-20T15:33:52.661Z",
-    "oculto": true
+    "actualizado": "2026-09-29T14:28:49.263Z"
   },
   "prueba-1789812974724@prueba.local": {
     "nombre": "Pepe Tur",
