@@ -3300,6 +3300,7 @@
     "comunicacion": true,
     "bienvenidaVista": true,
     "actualizado": "2026-09-29T18:09:05.610Z",
-    "oculto": false
+    "oculto": true,
+    "ocultoPor": "desarrollador"
   }
 }
