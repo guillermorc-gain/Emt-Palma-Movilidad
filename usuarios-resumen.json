@@ -9,7 +9,7 @@
     "horasTotales": 558.5,
     "turno": "M",
     "puesto": "Control",
-    "actualizado": "2026-09-29T16:54:01.044Z",
+    "actualizado": "2026-09-29T16:56:30.239Z",
     "horaInicio": "09:00",
     "horaFin": "12:30",
     "horarioDe": "hoy",
@@ -1411,14 +1411,8 @@
       }
     ],
     "vacacionesAt": 1790632366288,
-    "dias": [
-      1,
-      2,
-      3,
-      4,
-      5
-    ],
-    "diasAt": 1790700919669,
+    "dias": null,
+    "diasAt": 1790700984363,
     "horario": "",
     "grupo": null,
     "horarios": {
@@ -1670,7 +1664,8 @@
     "bienvenidaVista": true,
     "conductorPropio": "1418-3",
     "conductorAnterior": "1418-3",
-    "libresDia": {}
+    "libresDia": {},
+    "diasMes": 21
   },
   "prueba-1789758756867@prueba.local": {
     "nombre": "Toni Rodríguez",
