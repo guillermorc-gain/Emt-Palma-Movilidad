@@ -1,1 +1,22 @@
-{}
+{
+  "20260929154819164-rxrjq-0": {
+    "id": "20260929154819164-rxrjq-0",
+    "email": "guillermo.rc82@gmail.com",
+    "creado": "2026-09-29T15:48:19.164Z",
+    "nombre": "Guillermo Ríos Correa",
+    "conductor": "1418-3",
+    "mensajes": [
+      {
+        "de": "trabajador",
+        "autor": "Guillermo Ríos Correa",
+        "texto": "✅ He leído el cambio de jornada: Se te asigna este servicio y horario: Control · 09:00–12:30. Confirma como leído. Gracias.",
+        "adjuntos": [],
+        "en": "2026-09-29T15:48:19.164Z"
+      }
+    ],
+    "archivada": false,
+    "de": "trabajador",
+    "tipo": "gestion",
+    "estado": "pendiente"
+  }
+}
