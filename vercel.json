@@ -194,7 +194,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "datos": false
+      "main": true,
+      "claude/**": false
     }
   },
   "redirects": [
