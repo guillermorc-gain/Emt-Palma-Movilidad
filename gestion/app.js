@@ -6425,7 +6425,7 @@ const app = {
     },
 
     _borrarHilo(id) {
-        if (!confirm('¿Borrar esta conversación entera? No se puede deshacer.')) return;
+        if (!confirm('¿Borrar esta conversación? Se quita solo para ti: al otro le sigue saliendo.')) return;
         return this._tocarConversacion(id, {}, '🗑️ Conversación borrada', true);
     },
 
