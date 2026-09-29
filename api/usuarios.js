@@ -352,7 +352,12 @@ function leTocaEse(u, f) {
 
 // El horario asignado para ese día: primero el que le hayan puesto a esa
 // fecha, luego el del mes y por último el de siempre.
+// Días que gestión ha dejado libres con «Quitar»: sin horario ni lugar, ni
+// siquiera el del mes o el habitual, así que queda disponible ese día.
+const libreEse = (u, f) => !!u?.libresDia?.[f];
+
 function planDelDia(u, f) {
+  if (libreEse(u, f)) return null;
   const delDia = u.horariosDia?.[f];
   if (delDia?.i && delDia?.f) return { ...delDia, real: false };
   const delMes = u.horarios?.[f.slice(0, 6)];
@@ -418,7 +423,7 @@ function loQueLeToca(u, f) {
   const delDia = (u.lugares || {})[f] || '';
   return {
     fecha: f,
-    lugar: delDia || u.puesto || '',
+    lugar: libreEse(u, f) ? '' : delDia || u.puesto || '',
     // Va con la jornada porque forma parte de su huella: dos jornadas iguales
     // asignadas en momentos distintos son dos avisos distintos.
     rev: (u.asignadoDia || {})[f] || 0,
@@ -443,7 +448,7 @@ function quienHayEn(data, lugar, fecha) {
   const clave = clavePuesto(lugar);
   const gente = Object.values(data || {})
     .filter(u => u && !u.ficticio && !u.oculto)
-    .filter(u => clavePuesto((u.lugares || {})[f] || u.puesto) === clave && clave)
+    .filter(u => !libreEse(u, f) && clavePuesto((u.lugares || {})[f] || u.puesto) === clave && clave)
     .filter(u => !deBajaEse(u, f) && !deVacacionesEse(u, f) && leTocaEse(u, f))
     .map(u => ({
       email:     u.email,
@@ -798,6 +803,12 @@ export default async function handler(req, res) {
             if (limpio) hs[f] = limpio; else delete hs[f];
           }
           data[clave].horariosDia = limpiarHorariosDia(hs);
+          // «Quitar» deja esos días libres; poner una jornada los vuelve a ocupar
+          const libres = { ...(data[clave].libresDia || {}) };
+          const libre = req.body?.libre === true && !limpio;
+          for (const f of diasEntre(desde, hasta)) { if (libre) libres[f] = 1; else delete libres[f]; }
+          const claves = Object.keys(libres).sort().slice(-MAX_LUGARES);
+          data[clave].libresDia = Object.fromEntries(claves.map(k => [k, 1]));
           sellarAsignacion(data[clave], diasEntre(desde, hasta));
           // El día puede ir repartido entre varios lugares. Se guarda aparte y
           // además se deja la hora de entrada y el primer lugar arriba, que es
@@ -837,6 +848,11 @@ export default async function handler(req, res) {
             else delete lugares[f];
           }
           data[clave].lugares = recortarLugares(lugares);
+          if (puesto && data[clave].libresDia) {
+            const libres = { ...data[clave].libresDia };
+            for (const f of diasEntre(desde, hasta)) delete libres[f];
+            data[clave].libresDia = libres;
+          }
           sellarAsignacion(data[clave], diasEntre(desde, hasta));
         }
         // Sin fechas es el lugar habitual: manda sobre cualquier excepción.
