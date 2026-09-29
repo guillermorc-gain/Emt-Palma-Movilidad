@@ -897,6 +897,8 @@ const app = {
             this.actualizarBotonesPerfil();
             this._actualizarCabeceraUsuario();
             this._cargarAsignacion();
+            // Ya dentro, se mira si hay cuadrante nuevo del que avisar
+            this._cargarCuadrante();
             setTimeout(() => this._autoRellenarFormulario(), 50);
             this._scheduleTokenRefresh();
             // Los mensajes arrancan por su cuenta, antes y fuera de la carga
@@ -8849,6 +8851,9 @@ const app = {
         // solo serviría para pisarle la suya: si la app abre antes de que le
         // toque mirar, se daría por avisado algo que nadie ha avisado.
         if (window.AndroidBridge) return;
+        // Sin haber entrado no se avisa (salía encima de la pantalla de
+        // entrar) ni se da por visto: ya saldrá al entrar.
+        if (!this.usuarioActual) return;
         const cuando = data?.publicadoPor ? (data.actualizado || '') : '';
         if (!cuando) return;
         const visto = localStorage.getItem('cuadranteVisto') || '';
