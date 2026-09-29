@@ -3275,6 +3275,8 @@
     "grupo": null,
     "comunicacion": true,
     "bienvenidaVista": true,
-    "actualizado": "2026-09-29T17:50:38.574Z"
+    "actualizado": "2026-09-29T17:50:38.574Z",
+    "oculto": true,
+    "ocultoPor": "desarrollador"
   }
 }
