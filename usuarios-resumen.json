@@ -1886,7 +1886,20 @@
     ],
     "email": "prueba-1789759132382@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-09-29T14:21:17.687Z"
+    "actualizado": "2026-09-29T14:21:17.687Z",
+    "horariosDia": {
+      "20260928": {
+        "i": "12:00",
+        "f": "19:00"
+      }
+    },
+    "asignadoDia": {
+      "20260928": 1790695265108
+    },
+    "tramosDia": {},
+    "lugares": {
+      "20260928": "Son Rossinyol"
+    }
   },
   "prueba-1789759539366@prueba.local": {
     "nombre": "Juan",
