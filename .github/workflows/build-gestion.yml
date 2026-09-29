@@ -299,6 +299,12 @@ jobs:
                   if (intent == null || getBridge() == null) return;
                   Uri data = intent.getData();
                   if (data == null) return;
+                  // El enlace del correo de «acceso concedido»: la app entra
+                  // sola con la cuenta que esperaba la autorización
+                  if (data.getQueryParameter("autorizado") != null) {
+                      getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl("https://localhost/?autorizado=1"));
+                      return;
+                  }
                   String code = data.getQueryParameter("code");
                   if (code != null && !code.isEmpty()) {
                       String url = "https://localhost/?code=" + Uri.encode(code);
