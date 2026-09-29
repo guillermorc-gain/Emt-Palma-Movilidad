@@ -2156,8 +2156,7 @@
         "f": "19:00"
       }
     },
-    "oculto": true,
-    "ocultoPor": "desarrollador"
+    "oculto": false
   },
   "prueba-1789759539366@prueba.local": {
     "nombre": "Juan",
