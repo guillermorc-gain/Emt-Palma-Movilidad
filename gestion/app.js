@@ -6895,8 +6895,17 @@ const app = {
         return m ? `${h}h ${m}min` : `${h}h`;
     },
 
-    _etiquetaDias(u) {
-        const d = Array.isArray(u?.dias) && u.dias.length ? u.dias : null;
+    // Los días de la semana que trabaja ese mes: los puestos para ese mes en el
+    // cuadrante (un mes de lunes a viernes, otro sábados y domingos…) y, si no
+    // hay, los de siempre.
+    _diasDeMes(u, mes) {
+        const delMes = u?.diasMes?.[mes];
+        if (Array.isArray(delMes)) return delMes.length ? delMes : null;
+        return Array.isArray(u?.dias) && u.dias.length ? u.dias : null;
+    },
+
+    _etiquetaDias(u, mes) {
+        const d = this._diasDeMes(u, mes || this._mesDe(this._fechaOffset(0)));
         if (!d) return '';
         return this.DIAS_ORDEN.filter(x => d.includes(x)).map(x => this.DIAS_LETRA[x]).join(' ');
     },
@@ -7033,7 +7042,7 @@ const app = {
                         ? [{ i: real.i, f: real.f, pu: '' }] : [];
                   })();
             const fuera   = this._desviaciones(u, mes);
-            const dias    = this._etiquetaDias(u);
+            const dias    = this._etiquetaDias(u, mes);
             const completa = this._esCompleta(u);
             // Lo que marca el propio trabajador (BE o vacaciones ese día)
             // enciende el botón igual que lo que pone gestión
@@ -7071,7 +7080,8 @@ const app = {
                     ${fuera ? `<button class="ct-chip aviso" onclick="app._editarHorario('${q(u.email)}','${mes}')"
                             title="Días en que fichó a otra hora">⚠ ${fuera} día${fuera === 1 ? '' : 's'} distinto${fuera === 1 ? '' : 's'}</button>` : ''}
                     <button class="ct-chip${dias ? '' : ' vacio'}"
-                            onclick="app._editarDiasTrab('${q(u.email)}')">📅 ${dias || 'todos los días'}</button>
+                            onclick="app._editarDiasTrab('${q(u.email)}','${mes}')">📅 ${dias || 'todos los días'}${
+                                Array.isArray(u.diasMes?.[mes]) ? ' ·este mes' : ''}</button>
                     ${grupo}
                 </div>
             </div>`;
@@ -7100,12 +7110,16 @@ const app = {
     },
 
     // ── Días de la semana ──
-    _editarDiasTrab(email) {
+    _editarDiasTrab(email, mes) {
         const u = (this._conductores || {})[email];
         if (!u) return;
         this._diasTrabEditando = email;
-        this._diasTrabTmp = Array.isArray(u.dias) ? u.dias.slice() : [];
-        document.getElementById('diasQuien').textContent = this._quienEs(u, email);
+        this._diasTrabMes = /^\d{6}$/.test(String(mes || '')) ? mes : this._mesDe(this._fechaOffset(0));
+        this._diasTrabTmp = (this._diasDeMes(u, this._diasTrabMes) || []).slice();
+        const nombreMes = `${MESES_ES[+this._diasTrabMes.slice(4) - 1].toLowerCase()} ${this._diasTrabMes.slice(0, 4)}`;
+        document.getElementById('diasQuien').textContent = this._quienEs(u, email) + ' · ' + nombreMes;
+        const todos = document.getElementById('diasTodos');
+        if (todos) { todos.checked = false; document.getElementById('diasTodosTxt').textContent = `Solo ${nombreMes}. Marca para todos los meses.`; }
         this._renderDiasTrab();
         document.getElementById('diasModal').classList.add('show');
         if (this.darkMode) document.getElementById('diasModalContent').classList.add('dark');
@@ -7130,7 +7144,10 @@ const app = {
     async _guardarDiasTrab() {
         const dias = this._diasTrabTmp.slice().sort();
         document.getElementById('diasModal').classList.remove('show');
-        await this._guardarCampoTrab(this._diasTrabEditando, { dias },
+        // Por defecto, solo para el mes del cuadrante; marcado, para todos
+        const todos = !!document.getElementById('diasTodos')?.checked;
+        await this._guardarCampoTrab(this._diasTrabEditando,
+            todos ? { dias, todos: true } : { dias, mes: this._diasTrabMes },
             dias.length && dias.length < 7
                 ? `📅 ${dias.map(d => this.DIAS_LETRA[d]).join(' ')}`
                 : 'Sin días fijos');
@@ -10433,7 +10450,7 @@ const app = {
     // trabajado. Se corta en hoy: los días futuros aún no ha dejado de hacerlos.
     _diasBaja(u, hasta) {
         const anio = hasta.slice(0, 4);
-        const conDias = Array.isArray(u?.dias) && u.dias.length > 0;
+        const conDias = !!this._diasDeMes(u, hasta.slice(0, 6));
         const dias = new Set();
         this._bajasDe(u).forEach(b => {
             const fin = (!b.h || b.h > hasta) ? hasta : b.h;
@@ -10462,7 +10479,7 @@ const app = {
     // El día llega como YYYYMMDD y los rangos van en ISO
     // Días de la semana que le tocan. Sin lista, se entiende que cualquiera.
     _trabajaEseDia(u, fecha) {
-        const dias = Array.isArray(u?.dias) && u.dias.length ? u.dias : null;
+        const dias = this._diasDeMes(u, String(fecha).slice(0, 6));
         if (!dias) return true;
         const d = new Date(+fecha.slice(0,4), +fecha.slice(4,6) - 1, +fecha.slice(6,8), 12).getDay();
         return dias.includes(d);
