@@ -5474,7 +5474,7 @@ const app = {
             const envio = this._fetchOriginal || window.fetch.bind(window);
             const r = await envio(`${this.API_BASE}allowlist?solicitud=1`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ nombre: this.usuarioActual?.name || '', app }) });
+                body: JSON.stringify({ nombre: this.usuarioActual?.name || '', app, manual: true }) });
             return r.ok;
         } catch (_) { return false; }
     },
