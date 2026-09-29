@@ -3202,7 +3202,12 @@
     "puesto": "",
     "horario": "",
     "horarios": {},
-    "horariosDia": {},
+    "horariosDia": {
+      "20260929": {
+        "i": "20:00",
+        "f": "03:00"
+      }
+    },
     "tramosDia": {},
     "revisiones": {},
     "avisoVisto": null,
@@ -3212,6 +3217,13 @@
     "grupo": null,
     "comunicacion": true,
     "bienvenidaVista": true,
-    "actualizado": "2026-09-29T16:36:29.364Z"
+    "actualizado": "2026-09-29T16:36:29.364Z",
+    "libresDia": {},
+    "asignadoDia": {
+      "20260929": 1790701981407
+    },
+    "lugares": {
+      "20260929": "Taller"
+    }
   }
 }
