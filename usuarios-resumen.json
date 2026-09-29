@@ -2347,7 +2347,13 @@
     ],
     "email": "prueba-1789814286874@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-09-29T12:46:10.329Z"
+    "actualizado": "2026-09-29T12:46:10.329Z",
+    "horarios": {
+      "202610": {
+        "i": "05:30",
+        "f": "09:00"
+      }
+    }
   },
   "prueba-1789850043571@prueba.local": {
     "nombre": "Buja",
