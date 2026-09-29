@@ -188,6 +188,25 @@ function participantesDe(n) {
   return [{ email: (n.email || '').toLowerCase(), nombre: n.nombre || '', num: n.conductor || '' },
           { gestion: true, nombre: 'Gestión' }];
 }
+// Borrar una conversación la quita solo para quien la borra: al otro le
+// sigue saliendo. Se apunta cuándo la borró cada uno (su correo, o
+// 'gestion' si la borra gestión) y, si luego llega un mensaje nuevo, le
+// vuelve a aparecer. Cuando la han borrado todos, se borra de verdad.
+const claveDe = quien => quien || 'gestion';
+const ultimoEn = n => {
+  const m = Array.isArray(n.mensajes) ? n.mensajes : [];
+  return (m.length ? m[m.length - 1].en : '') || n.creado || '';
+};
+function borradaPara(n, clave) {
+  const b = n?.borradaPara?.[clave];
+  return !!b && ultimoEn(n) <= b;
+}
+function borrarPara(n, clave) {
+  const nota = { ...n, borradaPara: { ...(n.borradaPara || {}), [clave]: new Date().toISOString() } };
+  const todos = participantesDe(normalizar(nota)).map(p => p.gestion ? 'gestion' : (p.email || '').toLowerCase());
+  return { nota, todos: todos.length > 0 && todos.every(k => borradaPara(nota, k)) };
+}
+
 const enGrupo = (n, quien) => n.tipo === 'grupo'
   && (n.participantes || []).some(p => (p.email || '').toLowerCase() === quien);
 
@@ -395,14 +414,14 @@ export default async function handler(req, res) {
       // existen las conversaciones entre compañeros.
       if (hayBaseDeDatos()) {
         // Los grupos no van por el correo de la fila: se leen todas y se filtra
-        const notas = (await leerNotas('')).filter(n => laVe(n, quien)).map(normalizar);
+        const notas = (await leerNotas('')).filter(n => laVe(n, quien) && !borradaPara(n, claveDe(quien))).map(normalizar);
         return res.status(200).json(soloResumen ? huella(notas) : notas);
       }
       const { data } = await getFile();
       // Las mías son las que me llegan, las que he mandado y los grupos en los
       // que estoy; a gestión, las que la tienen dentro
       const notas = Object.values(data)
-        .filter(n => laVe(n, quien))
+        .filter(n => laVe(n, quien) && !borradaPara(n, claveDe(quien)))
         .sort((a, b) => (b.creado || '').localeCompare(a.creado || ''))
         .map(normalizar);
       return res.status(200).json(soloResumen ? huella(notas) : notas);
@@ -633,7 +652,12 @@ export default async function handler(req, res) {
         const puede = puedeTocar(n, quien, deGestion) || (metodo === 'DELETE' && !!n && esDesarrollador);
         if (!puede) return res.status(404).json({ error: 'Esa conversación no es tuya' });
         if (metodo === 'DELETE') {
-          await borrarNota(id);
+          // Solo para quien la borra (el desarrollador, en una que no es suya,
+          // la quita del todo)
+          if (!puedeTocar(n, quien, deGestion)) { await borrarNota(id); return res.status(200).json({ id, borrada: true }); }
+          const clave = escribeComoGestion(normalizar(n), quien, deGestion, bandeja) ? 'gestion' : quien;
+          const r = borrarPara(n, clave);
+          if (r.todos) await borrarNota(id); else await guardarNota(paraGuardar(r.nota));
           return res.status(200).json({ id, borrada: true });
         }
         const tocada = tocarNota(n, quita);
@@ -646,7 +670,14 @@ export default async function handler(req, res) {
         if (!data[id]) return null;
         const puede = puedeTocar(data[id], quien, deGestion) || (metodo === 'DELETE' && esDesarrollador);
         if (!puede) { prohibido = true; return null; }
-        if (metodo === 'DELETE') { const out = { ...data }; delete out[id]; return out; }
+        if (metodo === 'DELETE') {
+          const out = { ...data };
+          if (!puedeTocar(data[id], quien, deGestion)) { delete out[id]; return out; }
+          const clave = escribeComoGestion(normalizar(data[id]), quien, deGestion, bandeja) ? 'gestion' : quien;
+          const r = borrarPara(data[id], clave);
+          if (r.todos) delete out[id]; else out[id] = paraGuardar(r.nota);
+          return out;
+        }
         return acotarAdjuntos({ ...data, [id]: paraGuardar(tocarNota(data[id], quita)) });
       }, metodo === 'DELETE' ? `Quitar conversación ${id}` : `Cambio en ${id}`);
       if (nuevo && nuevo[id] && (visto !== undefined || titulo !== undefined || emoji !== undefined)) await avisarDe(nuevo[id], quien, escribeComoGestion(normalizar(nuevo[id]), quien, deGestion, bandeja));
@@ -654,6 +685,7 @@ export default async function handler(req, res) {
         return res.status(prohibido ? 403 : 404)
           .json({ error: prohibido ? 'Esa conversación no es tuya' : 'No se pudo actualizar' });
       }
+      if (metodo === 'DELETE') return res.status(200).json({ id, borrada: true });
       return res.status(200).json(nuevo[id] ? normalizar(nuevo[id]) : { id, borrada: true });
     }
 
