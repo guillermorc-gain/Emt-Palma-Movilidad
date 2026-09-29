@@ -1193,6 +1193,12 @@ const app = {
                 window.AndroidBridge?.removePref?.('abrirNotas');
                 this.switchTab(2);
             }
+            // Tocando el aviso del cuadrante, a Historial; si no, a la campana
+            if (window.AndroidBridge?.getPref?.('abrirCuadrante') === '1') {
+                window.AndroidBridge?.removePref?.('abrirCuadrante');
+                if (this.usuarioActual) this.switchTab(1);
+            }
+            this._pintarCampana();
             if (this.usuarioActual) this._cargarNotas();
             // Y lo que te toca hoy: el gestor puede haberlo cambiado mientras
             // la app estaba de fondo, o sencillamente haber cambiado el día.
@@ -4441,17 +4447,42 @@ const app = {
         catch (_) { return false; }
     },
 
+    // El cuadrante nuevo sin mirar. El aviso de la barra lo pone el móvil con
+    // la app cerrada; al entrar pasa a la campana y se quita de la barra.
+    _cuadrantePendiente() {
+        const nativo = window.AndroidBridge?.getPref?.('cuadrantePend');
+        if (nativo) {
+            try { localStorage.setItem('cuadranteNuevo', '1'); } catch (_) {}
+            window.AndroidBridge?.removePref?.('cuadrantePend');
+            window.AndroidBridge?.quitarAviso?.(1004);
+        }
+        try { return localStorage.getItem('cuadranteNuevo') === '1'; } catch (_) { return false; }
+    },
+
+    _cuadranteVisto() {
+        try { localStorage.removeItem('cuadranteNuevo'); } catch (_) {}
+        window.AndroidBridge?.removePref?.('cuadrantePend');
+        window.AndroidBridge?.quitarAviso?.(1004);
+        this._pintarCampana();
+    },
+
     _pintarCampana() {
         const el = document.getElementById('campanaN');
         if (!el) return;
         // El cambio de jornada sin dar por leído es un aviso más: la campana
-        // decía cero teniendo eso ahí esperando.
-        const n = this._totalSinLeer() + (this._hayCambioSinLeer() ? 1 : 0);
+        // decía cero teniendo eso ahí esperando. Y el cuadrante nuevo, igual.
+        const n = this._totalSinLeer() + (this._hayCambioSinLeer() ? 1 : 0) + (this._cuadrantePendiente() ? 1 : 0);
         el.textContent = n > 99 ? '99+' : String(n);
         el.classList.toggle('hay', n > 0);
     },
 
     irANotas() {
+        // Con el cuadrante del mes sin mirar, la campana lleva primero a él
+        if (this._cuadrantePendiente()) {
+            this.switchTab(1);
+            this._mostrarToast('🗓️ Ya está el cuadrante del mes', 3000);
+            return;
+        }
         this.switchTab(2);
     },
 
@@ -7433,7 +7464,7 @@ const app = {
         document.querySelectorAll('.tab-panel').forEach(panel => {
             panel.classList.toggle('active', panel.id === 'tabPanel' + idx);
         });
-        if (idx === 1) { this._cargarCuadrante(); this._renderHistorialModal(); }
+        if (idx === 1) { this._cargarCuadrante(); this._renderHistorialModal(); if (this._cuadrantePendiente()) this._cuadranteVisto(); }
         if (idx === 2) this._cargarNotas();
         if (idx === 3) this._cargarMisNominas();
         if (idx === 4 || idx === 5) {
@@ -8920,6 +8951,8 @@ const app = {
         if (!visto || cuando <= visto) return;
         const texto = 'Ya está el cuadrante del mes. Míralo en Historial.';
         this._mostrarToast('🗓️ ' + texto, 6000);
+        try { localStorage.setItem('cuadranteNuevo', '1'); } catch (_) {}
+        this._pintarCampana();
         const LN = window.Capacitor?.Plugins?.LocalNotifications;
         if (!LN?.schedule) return;
         try {
