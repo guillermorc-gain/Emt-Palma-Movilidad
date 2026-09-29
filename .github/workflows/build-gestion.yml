@@ -493,6 +493,15 @@ jobs:
                               .getString(key, null);
                       }
 
+                      // Quita de la barra un aviso ya atendido en la app (la
+                      // cuenta nueva aprobada o rechazada)
+                      @JavascriptInterface
+                      public void quitarAviso(int id) {
+                          NotificationManager nm = (NotificationManager)
+                              ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                          if (nm != null) nm.cancel(id);
+                      }
+
                       @JavascriptInterface
                       public void removePref(String key) {
                           ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

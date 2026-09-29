@@ -935,6 +935,12 @@ const app = {
     },
 
     async login(silent = false, permisoExtra = '') {
+        // Entra con Google: lo que quedaba de una cuenta de correo esperando
+        // (su cuadro de «pendiente») ya no es de esta sesión
+        if (!silent) {
+            this._quitarEspera?.();
+            try { ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k)); } catch (_) {}
+        }
         const isAndroidNative = !!(window.Capacitor?.isNativePlatform?.());
         // Dentro de la aplicación la página se sirve desde localhost, y ahí
         // Google no puede devolver a nadie: si por lo que sea no se ha
@@ -2058,7 +2064,7 @@ const app = {
                         }
                         // Aún sin autorizar: la solicitud se vuelve a mandar (si ya la
                         // tenía, el desarrollador no recibe otro aviso)
-                        await this._pedirAlta(d.idToken, 'solicitud', { nombre: u.displayName || '', app: 'trabajador' }).catch(() => {});
+                        await this._pedirAlta(d.idToken, 'solicitud', { nombre: u.displayName || '', app: 'trabajador', manual: true }).catch(() => {});
                     }
                 } else {
                     this._mostrarEspera(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
@@ -2086,7 +2092,7 @@ const app = {
             await this._fbPost('update', { idToken: d.idToken, displayName: nombre.slice(0, 80), returnSecureToken: false }).catch(() => {});
             // Antes del correo de confirmación, el Departamento tiene que
             // aprobarla (y decir si es de gestión o trabajador)
-            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'trabajador' });
+            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'trabajador', manual: true });
             this._apuntarPendiente(d);
             this._mostrarEspera(r.aprobado
                 ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarla y seguirás desde aquí.`
