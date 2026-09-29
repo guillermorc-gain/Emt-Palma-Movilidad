@@ -1738,7 +1738,20 @@
     "prs": [
       "20261001",
       "20261002"
-    ]
+    ],
+    "horariosDia": {
+      "20260930": {
+        "i": "12:00",
+        "f": "19:00"
+      }
+    },
+    "asignadoDia": {
+      "20260930": 1790686142715
+    },
+    "tramosDia": {},
+    "lugares": {
+      "20260930": "Son Rossinyol"
+    }
   },
   "prueba-1789759539366@prueba.local": {
     "nombre": "Juan",
