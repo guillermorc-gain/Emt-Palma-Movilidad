@@ -3193,7 +3193,15 @@
     "jornadaHoras": 3.5,
     "dias": null,
     "diasAt": 0,
-    "diasMes": 3,
+    "diasMes": {
+      "202609": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
     "turno": "T",
     "horaInicio": "18:00",
     "horaFin": "22:00",
