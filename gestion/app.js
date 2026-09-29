@@ -2551,7 +2551,7 @@ const app = {
     // día, lugar y horas, y con el mismo orden de preferencias que usa el
     // servidor para decirle lo que le toca.
     _claveJornadaDe(u, fecha) {
-        const lugar = (u?.lugares?.[fecha] || u?.puesto || '');
+        const lugar = u?.libresDia?.[fecha] ? '' : (u?.lugares?.[fecha] || u?.puesto || '');
         const h = this._horasPlan(u, fecha);
         const horas = (h?.i && h?.f) ? `${h.i}\u2013${h.f}` : '';
         // Con el sello de cuándo se le asignó: al volver a asignarle la misma
@@ -6588,8 +6588,8 @@ const app = {
         if (!tramo) return;
         document.getElementById('jornadaModal').classList.remove('show');
         await this._guardarCampoTrab(this._jorEditando,
-            { horario: '', puesto: '', tramos: [], desde: tramo.desde, hasta: tramo.hasta },
-            'Sin asignar esos días');
+            { horario: '', puesto: '', tramos: [], desde: tramo.desde, hasta: tramo.hasta, libre: true },
+            'Queda disponible esos días');
         this._renderPuestos();
     },
 
@@ -6630,6 +6630,8 @@ const app = {
     // El horario que le toca ese día. Manda lo que se le haya puesto para esa
     // fecha —un día suelto, una semana— y por debajo queda el del mes.
     _horasPlan(u, fecha) {
+        // Quitado a mano: ese día no tiene horario, ni el del mes
+        if (u?.libresDia?.[fecha]) return null;
         const delDia = u?.horariosDia?.[fecha];
         if (delDia && delDia.i && delDia.f) return { ...delDia, delDia: true };
         return this._horasAsignadas(u, this._mesDe(fecha));
@@ -9145,6 +9147,7 @@ const app = {
     // El lugar de un día puede no ser el habitual: manda la excepción que haya
     // puesto el gestor, luego lo que publicó la app y por último el habitual.
     _lugarDe(u, fecha, j) {
+        if (u?.libresDia?.[fecha]) return j?.pu || '';
         return (u.lugares && u.lugares[fecha]) || j?.pu || u.puesto || '';
     },
 
