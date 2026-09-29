@@ -877,10 +877,13 @@ const app = {
                 this.mostrarAuth();
                 const pedida = await this._pedirAccesoAlDepartamento('trabajador');
                 const quien = this.usuarioActual.email;
+                const sesion = this._apartarSesion();
                 if (pedida) {
                     this._mostrarEspera(`⏳ La cuenta ${quien} está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
-                        + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en «Correo no deseado»).',
-                        async () => { if (await this._checkUserAuthorized(quien)) { this._quitarEspera(); this._loadUserAndStart(); } });
+                        + 'cuando lo haga te llegará un correo con un enlace para seguir desde aquí (mira también en «Correo no deseado»). '
+                        + 'Para entrar con otra cuenta, usa los botones de abajo.',
+                        async () => { if (await this._checkUserAuthorized(quien)) {
+                            this._quitarEspera(); this._recuperarSesion(sesion); this._loadUserAndStart(); } });
                 } else this.mostrarMensaje('❌ La cuenta ' + quien + ' no tiene acceso a esta aplicación.', 'error');
                 return;
             }
@@ -2543,6 +2546,26 @@ const app = {
     // Mientras espera la autorización: un cuadro fijo en la pantalla de
     // entrada que no se va solo, y cada minuto se mira si ya está autorizado
     // para entrar sin que tenga que hacer nada.
+    // Mientras espera la autorización, la sesión no se queda guardada: si no,
+    // al volver a abrir entraba sola con esa cuenta y se quedaba otra vez en
+    // «pendiente», sin poder entrar con otra. Se guarda en memoria para que,
+    // si la autorizan con la página abierta, entre sin volver a escribir nada.
+    _CLAVES_SESION: ['gAccessToken', 'gTokenExpiry', 'gRefreshToken', 'gUserEmail', 'authTipo', 'fbRefresh', 'fbEmail', 'fbNombre'],
+    _apartarSesion() {
+        const s = {};
+        this._CLAVES_SESION.forEach(k => { const v = localStorage.getItem(k); if (v !== null) s[k] = v; localStorage.removeItem(k); });
+        // Y sin renovarla por detrás, que la volvería a dejar guardada
+        clearTimeout(this._tokenRefreshTimer);
+        this.accessToken = null; this.tokenExpiry = 0; this.refreshToken = null;
+        return s;
+    },
+    _recuperarSesion(s) {
+        Object.entries(s || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+        this.accessToken  = s?.gAccessToken || null;
+        this.tokenExpiry  = Number(s?.gTokenExpiry) || 0;
+        this.refreshToken = s?.gRefreshToken || null;
+    },
+
     _mostrarEspera(texto, comprobar) {
         let el = document.getElementById('authEspera');
         if (!el) {
