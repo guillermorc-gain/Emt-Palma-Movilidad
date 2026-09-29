@@ -1122,6 +1122,9 @@ const app = {
             } catch (_) {}
         }
         if (!window.Capacitor?.isNativePlatform?.()) { this.mostrarAuth(); return; }
+        // Sin saber con qué cuenta renovar (app recién instalada), no se abre
+        // Google por su cuenta: sale la pantalla de entrar
+        if (!localStorage.getItem('gUserEmail')) { this.mostrarAuth(); return; }
         this.login(true);
     },
 
@@ -1129,14 +1132,9 @@ const app = {
         if (!code) {
             if (!isSilent) sessionStorage.setItem('oauthWebViewFailed', '1');
             sessionStorage.removeItem('silentReauthAttempted');
-            if (isSilent && window.Capacitor?.isNativePlatform?.()
-                    && !sessionStorage.getItem('autoLoginAttempted')) {
-                sessionStorage.setItem('autoLoginAttempted', '1');
-                const msg = document.getElementById('splashMsg');
-                if (msg) msg.textContent = 'Conectando con Google...';
-                this.login(false);
-                return;
-            }
+            // Si no se pudo entrar sin preguntar, sale la pantalla de entrar: abrir
+            // solo el selector de cuentas de Google dejaba fuera la entrada con correo
+            // (pasaba al instalar la app, con los datos restaurados de una copia).
             sessionStorage.removeItem('autoLoginAttempted');
             this.mostrarAuth();
             return;
@@ -1153,16 +1151,9 @@ const app = {
         if (!token) {
             if (!wasSilent) sessionStorage.setItem('oauthWebViewFailed', '1');
             sessionStorage.removeItem('silentReauthAttempted');
-            // En nativo: si el reauth silencioso falló, lanzar login interactivo
-            // automáticamente sin mostrar la pantalla de inicio de sesión.
-            if (wasSilent && window.Capacitor?.isNativePlatform?.()
-                    && !sessionStorage.getItem('autoLoginAttempted')) {
-                sessionStorage.setItem('autoLoginAttempted', '1');
-                const msg = document.getElementById('splashMsg');
-                if (msg) msg.textContent = 'Conectando con Google...';
-                this.login(false);
-                return;
-            }
+            // Si no se pudo entrar sin preguntar, sale la pantalla de entrar: abrir
+            // solo el selector de cuentas de Google dejaba fuera la entrada con correo
+            // (pasaba al instalar la app, con los datos restaurados de una copia).
             sessionStorage.removeItem('autoLoginAttempted');
             this.mostrarAuth();
             return;
