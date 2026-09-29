@@ -3133,5 +3133,44 @@
       "20260928": "966-2"
     },
     "conductorGestion": "966-2"
+  },
+  "guillermo.rc@outlook.com": {
+    "email": "guillermo.rc@outlook.com",
+    "nombre": "Guillermo",
+    "conductorPropio": "",
+    "conductorAnterior": "",
+    "conductor": "",
+    "avatar": null,
+    "avatarEmoji": null,
+    "avatarBg": null,
+    "version": "0",
+    "horasMes": 0,
+    "horasTotales": 0,
+    "horasAnuales": 777,
+    "jornadaHoras": 7.5,
+    "dias": null,
+    "diasAt": 0,
+    "diasMes": 0,
+    "turno": "",
+    "horaInicio": "",
+    "horaFin": "",
+    "horarioDe": "anterior",
+    "jornadas": [],
+    "vacaciones": [],
+    "vacacionesAt": 0,
+    "puesto": "",
+    "horario": "",
+    "horarios": {},
+    "horariosDia": {},
+    "tramosDia": {},
+    "revisiones": {},
+    "avisoVisto": null,
+    "apps": [
+      "trabajador"
+    ],
+    "grupo": null,
+    "comunicacion": true,
+    "bienvenidaVista": false,
+    "actualizado": "2026-09-29T16:22:24.094Z"
   }
 }
