@@ -27,6 +27,13 @@
       "bandeja": true,
       "control": false,
       "en": "2026-09-29T17:18:34.174Z"
+    },
+    "d-C00qrQSYSZ18UEkgB32l:APA91bEwJBAZtsPq75mdKwoLa3zaTO73HYFPrYfEUbh_FECvxHVtiG6eVhrGV-_J4yBq9FLSvcViA_LV79S6s2aShVdFXDIjnsC0uaZPDyJkg3z4GmEWTlQ": {
+      "email": "g.rioscorrea@gmail.com",
+      "app": "desarrollador",
+      "bandeja": false,
+      "control": true,
+      "en": "2026-09-29T17:33:41.996Z"
     }
   }
 }
