@@ -652,6 +652,10 @@ const app = {
 
         if (this.accessToken && Date.now() < this.tokenExpiry) {
             this._loadUserAndStart();
+        } else if (this._vieneDelEnlaceAutorizado && localStorage.getItem('fbPendRefresh') && !this._esCuentaCorreo()) {
+            // Viene del enlace del correo de «ya estás autorizado» con una
+            // cuenta de correo que esperaba: sigue con ella
+            this._retomarCuentaPendiente();
         } else {
             const isAndroidNative = !!(window.Capacitor?.isNativePlatform?.());
             const hasSession = !!(localStorage.getItem('gUserEmail') && (this.refreshToken || localStorage.getItem('gUserEmail')));
@@ -780,7 +784,9 @@ const app = {
     },
 
     async _ensureToken() {
-        return !!(this.accessToken && Date.now() < this.tokenExpiry);
+        if (this.accessToken && Date.now() < this.tokenExpiry) return true;
+        if (this._esCuentaCorreo()) return this._renovarCorreo();
+        return false;
     },
 
     _saveToken(response) {
@@ -816,11 +822,17 @@ const app = {
         try {
             const ok = await this._ensureToken();
             if (!ok) { this._silentReauth(); return; }
-            const resp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: { Authorization: `Bearer ${this.accessToken}` }
-            });
-            if (!resp.ok) { this.mostrarAuth(); this.mostrarMensaje('Error al obtener perfil: ' + resp.status, 'error'); return; }
-            this.usuarioActual = await resp.json();
+            if (this._esCuentaCorreo()) {
+                const email = localStorage.getItem('fbEmail') || '';
+                if (!email) { this.mostrarAuth(); return; }
+                this.usuarioActual = { email, name: localStorage.getItem('fbNombre') || email.split('@')[0] };
+            } else {
+                const resp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                    headers: { Authorization: `Bearer ${this.accessToken}` }
+                });
+                if (!resp.ok) { this.mostrarAuth(); this.mostrarMensaje('Error al obtener perfil: ' + resp.status, 'error'); return; }
+                this.usuarioActual = await resp.json();
+            }
             const prevEmail = localStorage.getItem('gUserEmail');
             if (prevEmail && prevEmail.toLowerCase() !== this.usuarioActual.email.toLowerCase()) {
                 this._olvidarLoDelAnterior();
@@ -1037,6 +1049,7 @@ const app = {
     },
 
     async _silentReauth() {
+        if (this._esCuentaCorreo()) { await this._renovarCorreo(); return; }
         if (this.refreshToken) {
             try {
                 const resp = await fetch('https://emt-palma-movilidad.vercel.app/api/auth/refresh', {
@@ -1321,11 +1334,13 @@ const app = {
     },
 
     async _driveGet(url) {
+        if (this._esCuentaCorreo()) throw new Error('Tu cuenta no es de Google: no hay Drive');
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
         return fetch(url, { headers: { Authorization: `Bearer ${this.accessToken}` } });
     },
 
     async _drivePatch(url, body) {
+        if (this._esCuentaCorreo()) throw new Error('Tu cuenta no es de Google: no hay Drive');
         if (!await this._ensureToken()) throw new Error('Sin autenticación');
         return fetch(url, {
             method: 'PATCH',
@@ -1357,6 +1372,10 @@ const app = {
     },
 
     async _readDriveFile() {
+        // Sin cuenta de Google, la copia vive en este navegador o móvil
+        if (this._esCuentaCorreo()) {
+            try { return JSON.parse(localStorage.getItem('datosLocales') || 'null'); } catch (_) { return null; }
+        }
         const fileId = await this._getDriveFileId();
         if (!fileId) return null;
         const resp = await this._driveGet(
@@ -1367,10 +1386,11 @@ const app = {
     },
 
     async _writeDriveFile(data) {
-        if (!await this._ensureToken()) throw new Error('Sin autenticación');
+        if (!this._esCuentaCorreo() && !await this._ensureToken()) throw new Error('Sin autenticación');
         // Se suma a lo que ya había: así no se pierde lo que guardó la otra
         // app (gestión o desarrollador) en la misma copia, como su tema
         const payload = { ...data, preferencias: { ...(data?.preferencias || {}), ...this._getPreferencias() } };
+        if (this._esCuentaCorreo()) { localStorage.setItem('datosLocales', JSON.stringify(payload)); return; }
         // En la de desarrollador la copia lleva también lo del puesto de
         // Control de acceso: los registros de entrada y salida y el directorio
         // de visitantes, que son de gente real y no pueden depender de un solo
@@ -1799,7 +1819,7 @@ const app = {
 
     async cerrarSesion() {
         await this._darDeBajaAvisos();
-        if (this.accessToken) {
+        if (this.accessToken && !this._esCuentaCorreo()) {
             fetch('https://oauth2.googleapis.com/revoke?token=' + this.accessToken, { method: 'POST' }).catch(() => {});
         }
         this.accessToken   = null;
@@ -1809,7 +1829,8 @@ const app = {
         // Se va todo, no solo la sesión: el móvil puede pasar a otras manos, y
         // salir tiene que dejarlo como estaba antes de entrar.
         this._olvidarLoDelAnterior();
-        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken'].forEach(k => localStorage.removeItem(k));
+        ['gAccessToken', 'gTokenExpiry', 'gRefreshToken', 'authTipo', 'fbRefresh', 'fbEmail', 'fbNombre']
+            .forEach(k => localStorage.removeItem(k));
         // En el navegador, a la bienvenida de la página; en la app, a entrar
         if (!_enLaApp()) { window.location.replace('/'); return; }
         this.mostrarAuth();
@@ -2004,6 +2025,8 @@ const app = {
         document.getElementById('authScreen').classList.remove('hidden');
         document.getElementById('appScreen').classList.remove('active');
         document.getElementById('optionsScreen').classList.remove('active');
+        // La de desarrollador es solo para la cuenta de Google del desarrollador
+        if (ES_APP_DEV) document.getElementById('authCorreoLink')?.remove();
     },
 
     mostrarApp() {
@@ -4277,7 +4300,7 @@ const app = {
                 this._caXlsx(),
                 `\r\n--${frontera}--`,
             ]);
-            if (!await this._ensureToken()) throw new Error('Sin sesión de Google');
+            if (this._esCuentaCorreo() || !await this._ensureToken()) throw new Error('Tu cuenta no es de Google: no hay Drive');
             const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
                 method: 'POST', headers: { Authorization: `Bearer ${this.accessToken}`,
                                            'Content-Type': 'multipart/related; boundary=' + frontera }, body: cuerpo,
@@ -5026,6 +5049,269 @@ const app = {
             .catch(() => {});
     },
 
+    // ── Entrar con un correo que no es de Google (Firebase) ────────────────
+    // Igual que en la app de trabajadores: el Departamento tiene que
+    // autorizar la cuenta y después se confirma el correo. Sin Google no hay
+    // Drive, así que la copia personal se guarda en este navegador o móvil.
+    FIREBASE_KEY: 'AIzaSyCKhWVjlM0IAKAvjVWmT4WD4Y3NC0M6QFI',
+
+    _esCuentaCorreo() {
+        try { return localStorage.getItem('authTipo') === 'correo'; } catch (_) { return false; }
+    },
+
+    async _fbPost(accion, cuerpo) {
+        let r;
+        try {
+            r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${accion}?key=${this.FIREBASE_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+        } catch (_) { throw new Error('Sin conexión. Inténtalo otra vez.'); }
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { const e = new Error(this._fbError(d?.error?.message)); e.codigo = String(d?.error?.message || ''); throw e; }
+        return d;
+    },
+
+    _fbError(c) {
+        c = String(c || '');
+        const m = {
+            EMAIL_EXISTS: 'Ese correo ya tiene cuenta: entra con tu contraseña.',
+            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo.',
+            INVALID_PASSWORD: 'La contraseña no es correcta.',
+            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos.',
+            USER_DISABLED: 'Esta cuenta está desactivada.',
+            INVALID_EMAIL: 'Ese correo no es válido.',
+            MISSING_PASSWORD: 'Escribe la contraseña.',
+            TOO_MANY_ATTEMPTS_TRY_LATER: 'Demasiados intentos. Espera un poco y vuelve a probar.',
+            CONFIGURATION_NOT_FOUND: 'La entrada con correo aún no está activada. Avisa al Departamento.',
+            OPERATION_NOT_ALLOWED: 'La entrada con correo aún no está activada. Avisa al Departamento.',
+        };
+        if (m[c]) return m[c];
+        if (c.startsWith('WEAK_PASSWORD')) return 'La contraseña tiene que tener al menos 6 caracteres.';
+        return 'No se ha podido: ' + (c || 'error desconocido');
+    },
+
+    mostrarEntradaCorreo(mostrar = true, modo = 'elegir') {
+        const f = document.getElementById('correoForm');
+        const g = document.getElementById('loginForm');
+        if (f) f.hidden = !mostrar;
+        if (g) g.hidden = mostrar;
+        if (!mostrar) this._quitarEspera();
+        this._modoCorreo(modo);
+    },
+
+    // El formulario de correo va en dos pasos: primero «Entrar» o «Crear
+    // cuenta» y luego solo los campos de lo elegido, con su botón para confirmar
+    _modoCorreo(modo) {
+        const f = document.getElementById('correoForm');
+        if (!f) return;
+        f.dataset.modo = modo;
+        const pass = document.getElementById('cPass');
+        if (pass) pass.autocomplete = modo === 'crear' ? 'new-password' : 'current-password';
+        if (modo === 'elegir') { this._quitarEspera(); return; }
+        const primero = document.getElementById(modo === 'crear' ? 'cNombre' : 'cPass');
+        if (!f.hidden) setTimeout(() => primero?.focus(), 50);
+    },
+
+    _datosCorreo() {
+        const email = (document.getElementById('cEmail')?.value || '').trim().toLowerCase();
+        const password = document.getElementById('cPass')?.value || '';
+        if (!email.includes('@')) { this.mostrarMensaje('Escribe tu correo.', 'error'); return null; }
+        if (password.length < 6) { this.mostrarMensaje('La contraseña tiene que tener al menos 6 caracteres.', 'error'); return null; }
+        return { email, password };
+    },
+
+    async entrarConCorreo() {
+        const d0 = this._datosCorreo();
+        if (!d0) return;
+        try {
+            const d = await this._fbPost('signInWithPassword', { ...d0, returnSecureToken: true });
+            const info = await this._fbPost('lookup', { idToken: d.idToken });
+            const u = info.users?.[0] || {};
+            if (!u.emailVerified) {
+                this._fbPendiente = d.idToken;
+                this._apuntarPendiente(d);
+                const re = document.getElementById('cReenviar');
+                if (re) re.hidden = false;
+                // Si ya la han autorizado, el correo de confirmación se le
+                // vuelve a mandar solo (como mucho uno cada 10 minutos): pudo
+                // perderse o acabar en correo no deseado.
+                const ultimo = Number(localStorage.getItem('reenvioAuto:' + d0.email) || 0);
+                if (Date.now() - ultimo > 10 * 60 * 1000) {
+                    try {
+                        await this._pedirAlta(d.idToken, 'reenviar');
+                        localStorage.setItem('reenvioAuto:' + d0.email, String(Date.now()));
+                        this._mostrarEspera(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${d0.email} para `
+                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
+                            () => this._retomarCuentaPendiente(true));
+                        return;
+                    } catch (e) {
+                        if (e.status !== 403) {
+                            this.mostrarMensaje('No se ha podido enviar el correo de confirmación: ' + e.message, 'error');
+                            return;
+                        }
+                        // Aún sin autorizar: la solicitud se vuelve a mandar (si ya la
+                        // tenía, el desarrollador no recibe otro aviso)
+                        await this._pedirAlta(d.idToken, 'solicitud', { nombre: u.displayName || '', app: 'gestion' }).catch(() => {});
+                    }
+                } else {
+                    this._mostrarEspera(`📧 Ya te enviamos el correo de confirmación a ${d0.email}. Ábrelo y pulsa el enlace `
+                        + '(mira también en «Correo no deseado»). Si no llega, pulsa «Reenviar el correo».',
+                        () => this._retomarCuentaPendiente(true));
+                    return;
+                }
+                this._mostrarEspera('⏳ Tu cuenta está pendiente de autorización. Tienes que esperar a que el Departamento la autorice: '
+                    + 'entonces te llegará un correo con un enlace para seguir. Si ya te llegó, ábrelo. ¿No lo encuentras? Mira en '
+                    + '«Correo no deseado» o pulsa «Reenviar el correo».', () => this._retomarCuentaPendiente(true));
+                return;
+            }
+            this._guardarSesionCorreo(d, u.displayName || '');
+            this._loadUserAndStart();
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    async crearCuentaCorreo() {
+        const d0 = this._datosCorreo();
+        if (!d0) return;
+        const nombre = (document.getElementById('cNombre')?.value || '').trim();
+        if (!nombre) { this.mostrarMensaje('Escribe tu nombre y apellidos para crear la cuenta.', 'error'); return; }
+        try {
+            const d = await this._fbPost('signUp', { ...d0, returnSecureToken: true });
+            await this._fbPost('update', { idToken: d.idToken, displayName: nombre.slice(0, 80), returnSecureToken: false }).catch(() => {});
+            // Antes del correo de confirmación, el Departamento tiene que
+            // aprobarla (y decir si es de gestión o trabajador)
+            const r = await this._pedirAlta(d.idToken, 'solicitud', { nombre, app: 'gestion' });
+            this._apuntarPendiente(d);
+            this._mostrarEspera(r.aprobado
+                ? `✅ Cuenta creada. Te hemos enviado un correo a ${d0.email}: abre el enlace para confirmarla y seguirás desde aquí.`
+                : `⏳ Cuenta creada. Ahora tienes que esperar a que el Departamento la autorice. Cuando lo haga te llegará un correo a ${d0.email} `
+                  + 'avisándote, con un enlace para seguir donde lo has dejado (mira también en «Correo no deseado»).',
+                () => this._retomarCuentaPendiente(true));
+        } catch (e) {
+            // Ya estaba creada (por ejemplo, se creó antes y aún espera): en vez
+            // de quedarse ahí, se entra con esa contraseña y se sigue desde donde iba
+            if (String(e.codigo || '').startsWith('EMAIL_EXISTS')) { this._modoCorreo('entrar'); this.entrarConCorreo(); return; }
+            this.mostrarMensaje(e.message, 'error');
+        }
+    },
+
+    async reenviarVerificacion() {
+        if (!this._fbPendiente) return;
+        try {
+            await this._pedirAlta(this._fbPendiente, 'reenviar');
+            this.mostrarMensaje('📧 Correo de confirmación enviado otra vez. Si no lo ves, mira en «Correo no deseado».', 'success');
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    // Al servidor, con la sesión aún sin confirmar: pedir el alta o que se
+    // reenvíe la confirmación. Va directo, sin la firma de la app, que
+    // pondría la sesión de otro si la hubiera.
+    async _pedirAlta(idToken, que, cuerpo = {}) {
+        const envio = this._fetchOriginal || window.fetch.bind(window);
+        const r = await envio(`${this.API_BASE}allowlist?${que}=1`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify(cuerpo) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { const e = new Error(d.error || ('Error ' + r.status)); e.status = r.status; throw e; }
+        return d;
+    },
+
+    async olvideContrasena() {
+        const email = (document.getElementById('cEmail')?.value || '').trim().toLowerCase();
+        if (!email.includes('@')) { this.mostrarMensaje('Escribe arriba tu correo y vuelve a pulsar.', 'error'); return; }
+        try {
+            await this._fbPost('sendOobCode', { requestType: 'PASSWORD_RESET', email });
+            this.mostrarMensaje(`📧 Si ${email} tiene cuenta, te llegará un correo para poner una contraseña nueva.`, 'success');
+        } catch (e) { this.mostrarMensaje(e.message, 'error'); }
+    },
+
+    // La cuenta de correo que espera la autorización: se guarda su sesión, sin
+    // usarla, para que al abrir el enlace del correo siga ya dentro, sin
+    // volver a escribir la contraseña.
+    _apuntarPendiente(d) {
+        try {
+            localStorage.setItem('fbPendRefresh', d.refreshToken);
+            localStorage.setItem('fbPendEmail', String(d.email || '').toLowerCase());
+        } catch (_) {}
+    },
+
+    // desdeEspera: la comprobación de cada minuto mientras espera. Solo mira
+    // si ya puede entrar; nunca vuelve a pedir el alta (cada petición le
+    // llegaba otra vez como aviso al Departamento).
+    async _retomarCuentaPendiente(desdeEspera = false) {
+        const rt = localStorage.getItem('fbPendRefresh');
+        if (!rt) { if (desdeEspera) this._quitarEspera(); else this.mostrarAuth(); return; }
+        try {
+            const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${this.FIREBASE_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt }) });
+            if (r.status === 400 || r.status === 401 || r.status === 403) ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k));
+            if (!r.ok) { if (!desdeEspera) this.mostrarAuth(); else if (r.status < 500) this._quitarEspera(); return; }
+            const j = await r.json();
+            const claims = JSON.parse(atob(j.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            if (!claims.email_verified) {
+                localStorage.setItem('fbPendRefresh', j.refresh_token);
+                this._fbPendiente = j.id_token;
+                if (desdeEspera) return;
+                this.mostrarAuth();
+                this.mostrarEntradaCorreo(true, 'entrar');
+                const cE = document.getElementById('cEmail');
+                if (cE && claims.email) cE.value = claims.email;
+                const re = document.getElementById('cReenviar');
+                if (re) re.hidden = false;
+                // Si ya está autorizada, el correo se reenvía solo (uno cada 10 min)
+                const ultimo = Number(localStorage.getItem('reenvioAuto:' + claims.email) || 0);
+                if (claims.email && Date.now() - ultimo > 10 * 60 * 1000) {
+                    try {
+                        await this._pedirAlta(j.id_token, 'reenviar');
+                        localStorage.setItem('reenvioAuto:' + claims.email, String(Date.now()));
+                        this._mostrarEspera(`✅ Tu cuenta ya está autorizada. Te acabamos de enviar un correo a ${claims.email} para `
+                            + 'confirmarla: ábrelo y pulsa el enlace. Si no lo ves, mira en «Correo no deseado» o «Spam».',
+                            () => this._retomarCuentaPendiente(true));
+                        return;
+                    } catch (_) {}
+                }
+                this._mostrarEspera(`⏳ La cuenta ${claims.email || ''} sigue pendiente de autorización. Tienes que esperar a que el Departamento la autorice: `
+                    + 'cuando lo haga te llegará un correo con el enlace para seguir (mira también en «Correo no deseado»).',
+                    () => this._retomarCuentaPendiente(true));
+                return;
+            }
+            ['fbPendRefresh', 'fbPendEmail'].forEach(k => localStorage.removeItem(k));
+            this._guardarSesionCorreo({ idToken: j.id_token, refreshToken: j.refresh_token, expiresIn: j.expires_in,
+                                        email: claims.email }, claims.name || '');
+            this._loadUserAndStart();
+        } catch (_) { if (!desdeEspera) this.mostrarAuth(); }
+    },
+
+    _guardarSesionCorreo(d, nombre) {
+        localStorage.setItem('authTipo', 'correo');
+        localStorage.setItem('fbRefresh', d.refreshToken);
+        localStorage.setItem('fbEmail', String(d.email || '').toLowerCase());
+        localStorage.setItem('fbNombre', nombre || String(d.email || '').split('@')[0]);
+        // Sin la renovación de Google: la de Firebase va aparte
+        this.refreshToken = null;
+        localStorage.removeItem('gRefreshToken');
+        this._saveToken({ access_token: d.idToken, expires_in: d.expiresIn || 3600 });
+    },
+
+    // La sesión de Firebase dura una hora; se renueva con su propio token
+    async _renovarCorreo() {
+        const rt = localStorage.getItem('fbRefresh');
+        if (!rt) { this.mostrarAuth(); return false; }
+        try {
+            const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${this.FIREBASE_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt }) });
+            if (!r.ok) {
+                if (r.status === 400 || r.status === 401 || r.status === 403) { localStorage.removeItem('fbRefresh'); this.mostrarAuth(); }
+                return false;
+            }
+            const j = await r.json();
+            localStorage.setItem('fbRefresh', j.refresh_token);
+            this._saveToken({ access_token: j.id_token, expires_in: j.expires_in || 3600 });
+            if (!this.usuarioActual) this._loadUserAndStart();
+            return true;
+        } catch (_) { return false; }
+    },
+
     // Viene del enlace del correo de «ya estás autorizado»: se le vuelve a
     // preguntar si sigue en el navegador o se baja la aplicación, y se limpia
     // la dirección, que Firebase le añade sus códigos.
@@ -5035,6 +5321,7 @@ const app = {
             localStorage.removeItem('modoUso');
             sessionStorage.setItem('recienAutorizado', '1');
         } catch (_) {}
+        this._vieneDelEnlaceAutorizado = true;
         history.replaceState(null, '', window.location.pathname);
     },
 
@@ -7907,7 +8194,7 @@ const app = {
         const filas = this._filasExport();
         this._mostrarToast('☁️ Creando hoja en Drive...', 3000);
         try {
-            if (!await this._ensureToken()) throw new Error('Sin sesión de Google');
+            if (this._esCuentaCorreo() || !await this._ensureToken()) throw new Error('Tu cuenta no es de Google: no hay Drive');
             const frontera = '-------emt' + Date.now();
             const meta = JSON.stringify({
                 name: `Registro EMT ${new Date().toISOString().slice(0,10)}`,
