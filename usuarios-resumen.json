@@ -1665,7 +1665,15 @@
     "conductorPropio": "1418-3",
     "conductorAnterior": "1418-3",
     "libresDia": {},
-    "diasMes": 21
+    "diasMes": {
+      "202609": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
   },
   "prueba-1789758756867@prueba.local": {
     "nombre": "Toni Rodríguez",
