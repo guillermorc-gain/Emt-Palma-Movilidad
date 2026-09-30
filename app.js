@@ -8761,11 +8761,28 @@ const app = {
         if (dest) dest.checked = true;
         this._comprobarFestivoEdit();
         this._pintarTogglesEdit();
-        const selLugar = document.getElementById('editModalLugar');
-        if (selLugar) selLugar.innerHTML = this._opcionesLugar(reg.puesto || '');
         // Si la jornada tenía más de un lugar, aquí es donde se pierdían al
         // editar: el cuadro no los pintaba y guardar los borraba.
-        this._tramosEdit = Array.isArray(reg.tramos) ? reg.tramos.map(t => ({ ...t })) : [];
+        // Lo guardado lleva todos los tramos, el de arriba el primero. Ese va
+        // en los campos de arriba y solo los demás abajo: si no, al guardar se
+        // sumaba otra vez el de arriba (con la salida del final del día) y
+        // salía un tramo repetido que no había manera de borrar.
+        let tramos = Array.isArray(reg.tramos) ? reg.tramos.map(t => ({ ...t })) : [];
+        // El repetido que dejaba ese fallo: el primero va de la primera entrada
+        // a la última salida y detrás están los de verdad. Se quita.
+        if (tramos.length > 2 && tramos[0].i === tramos[1].i
+                && tramos[0].o === tramos[tramos.length - 1].o) tramos = tramos.slice(1);
+        let lugarArriba = reg.puesto || '';
+        if (tramos.length > 1) {
+            const [primero, ...resto] = tramos;
+            lugarArriba = primero.p || '';
+            document.getElementById('editModalInicio').value = primero.i || reg.horaInicio || '';
+            document.getElementById('editModalFin').value    = primero.o || '';
+            tramos = resto;
+        } else tramos = [];
+        const selLugar = document.getElementById('editModalLugar');
+        if (selLugar) selLugar.innerHTML = this._opcionesLugar(lugarArriba);
+        this._tramosEdit = tramos;
         this._renderTramosEdit();
         document.getElementById('editModal').classList.add('show');
         if (this.darkMode) document.getElementById('editModalContent').classList.add('dark');
