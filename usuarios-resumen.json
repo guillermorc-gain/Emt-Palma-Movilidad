@@ -3741,7 +3741,8 @@
       "20260928": "966-2"
     },
     "conductorGestion": "966-2",
-    "oculto": false
+    "oculto": true,
+    "ocultoPor": "desarrollador"
   },
   "guillermo.rcxx@gmail.com": {
     "email": "guillermo.rcxx@gmail.com",
