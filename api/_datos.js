@@ -13,7 +13,7 @@
 // hace solo, sin parar las apps.
 // El repositorio se renombró (antes RegistroHorario): GitHub redirige el
 // nombre viejo, pero mejor ir directo.
-export const REPO_PUBLICO = process.env.CODIGO_REPO || 'guillermorc-gain/Emt-Palma-Movildad';
+export const REPO_PUBLICO = process.env.CODIGO_REPO || 'guillermorc-gain/Emt-Palma-Movilidad';
 export const RAMA_PUBLICA = 'datos';
 export const REPO_DATOS   = process.env.DATOS_REPO || REPO_PUBLICO;
 export const RAMA_DATOS   = process.env.DATOS_BRANCH || (process.env.DATOS_REPO ? 'main' : RAMA_PUBLICA);
