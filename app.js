@@ -10784,7 +10784,10 @@ const app = {
                 catch (_) {}
             }
         }
-        const resp = await fetch('https://api.github.com/repos/guillermorc-gain/RegistroHorario/releases?per_page=100');
+        // Por el servidor: con el repositorio privado GitHub no las da sin
+        // sesión. Si el servidor falla, se prueba directo (mientras sea público).
+        let resp = await fetch(this.API_BASE + 'version?releases=1').catch(() => null);
+        if (!resp?.ok) resp = await fetch('https://api.github.com/repos/guillermorc-gain/Emt-Palma-Movilidad/releases?per_page=100');
         if (!resp.ok) {
             // 403 aquí casi siempre es el límite por hora, no un permiso
             return { ok: false, status: resp.status, limite: resp.status === 403 };
