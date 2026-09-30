@@ -9,7 +9,7 @@
     "horasTotales": 577,
     "turno": "M",
     "puesto": "Control",
-    "actualizado": "2026-09-30T10:50:08.418Z",
+    "actualizado": "2026-09-30T10:50:09.558Z",
     "horaInicio": "07:45",
     "horaFin": "12:00",
     "horarioDe": "hoy",
@@ -1746,9 +1746,9 @@
       ]
     },
     "avisoVisto": {
-      "clave": "20260930|Control|07:45–12:00|1790765388313",
-      "texto": "Se te asigna este servicio y horario: 07:45–12:00. Confirma como leído. Gracias.",
-      "en": "2026-09-30T10:50:08.418Z"
+      "clave": "20260930|Control|07:45–12:30|1790752789948",
+      "texto": "Se te asigna este servicio y horario: Control · 07:45–12:30. Confirma como leído. Gracias.",
+      "en": "2026-09-30T10:50:09.558Z"
     },
     "asignadoDia": {
       "20260922": 1790070796886,
