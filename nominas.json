@@ -169,6 +169,21 @@
         "irpf": 15
       },
       "dias": {},
+      "precios": {
+        "porDia": {
+          "base": 25.7527,
+          "vacaciones": 25.5551,
+          "asistencia": 4.19,
+          "domingo": 15
+        },
+        "delMes": {
+          "noAbsorbible": 136.21,
+          "transporte": 68.02,
+          "ajuste": 130.01,
+          "ajuste2": 6.44,
+          "responsabilidad": 51.77
+        }
+      },
       "extra": {
         "p": 0
       },
@@ -177,7 +192,7 @@
       },
       "extras": [],
       "nota": "",
-      "actualizado": "2026-09-29T20:35:19.451Z"
+      "actualizado": "2026-09-30T19:47:44.540Z"
     },
     "guillermo.rcxx@gmail.com": {
       "bienios": 0,
