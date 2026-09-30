@@ -1,5 +1,5 @@
 import { exigirAdmin } from './_auth.js';
-import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, ghFetch } from './_datos.js';
+import { REPO_DATOS as REPO, RAMA_DATOS as BRANCH, REPO_PUBLICO as REPO_CODIGO, ghFetch } from './_datos.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 // Los datos viven fuera de main: cada escritura de las apps era un commit
@@ -28,6 +28,8 @@ async function getFile() {
   }
 }
 
+const cacheReleases = { lista: null, en: 0 };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -36,6 +38,35 @@ export default async function handler(req, res) {
   // petición; sin esto repetiría esa pregunta cada pocos segundos.
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Las versiones de las apps (releases) pasan por aquí: con el repositorio
+  // privado, las apps no pueden leerlas ni bajar el APK de GitHub sin sesión.
+  // Se devuelven como las da GitHub, con la descarga apuntando a ?asset=, que
+  // manda al enlace firmado del APK.
+  if (req.method === 'GET' && req.query?.releases !== undefined) {
+    try {
+      if (!cacheReleases.lista || Date.now() - cacheReleases.en > 60 * 1000) {
+        const r = await fetch(`https://api.github.com/repos/${REPO_CODIGO}/releases?per_page=100`, { headers: ghHeaders() });
+        if (!r.ok) return res.status(r.status).json({ error: 'GitHub ' + r.status });
+        const base = `https://${req.headers.host || 'emt-palma-movilidad.vercel.app'}/api/version?asset=`;
+        cacheReleases.lista = (await r.json()).map(rel => ({ ...rel,
+          assets: (rel.assets || []).map(a => ({ ...a, browser_download_url: base + a.id })) }));
+        cacheReleases.en = Date.now();
+      }
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      return res.status(200).json(cacheReleases.lista);
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+  if (req.method === 'GET' && /^\d+$/.test(String(req.query?.asset || ''))) {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${REPO_CODIGO}/releases/assets/${req.query.asset}`, {
+        headers: { ...ghHeaders(), Accept: 'application/octet-stream' }, redirect: 'manual' });
+      const destino = r.headers.get('location');
+      if (!destino) return res.status(r.status === 200 ? 500 : r.status).json({ error: 'Sin enlace de descarga' });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.redirect(302, destino);
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
 
   if (req.method === 'GET') {
     try {

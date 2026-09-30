@@ -5141,9 +5141,9 @@ const app = {
         c = String(c || '');
         const m = {
             EMAIL_EXISTS: 'Ese correo ya tiene cuenta: entra con tu contraseña.',
-            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo.',
+            EMAIL_NOT_FOUND: 'No hay ninguna cuenta con ese correo. Si te quitaron el acceso, vuelve a crearla con «Crear cuenta».',
             INVALID_PASSWORD: 'La contraseña no es correcta.',
-            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos.',
+            INVALID_LOGIN_CREDENTIALS: 'El correo o la contraseña no son correctos. Si te quitaron el acceso, tu cuenta se borró: vuelve a crearla con «Crear cuenta».',
             USER_DISABLED: 'Esta cuenta está desactivada.',
             INVALID_EMAIL: 'Ese correo no es válido.',
             MISSING_PASSWORD: 'Escribe la contraseña.',
@@ -7093,9 +7093,10 @@ const app = {
                 ? `<button class="ct-chip ${u.grupo ? 'grupo' : 'aviso'}"
                         onclick="app._editarGrupo('${q(u.email)}')">🔄 ${u.grupo ? 'Grupo ' + u.grupo : 'sin grupo'}</button>`
                 : '';
-            const estado = this._estadoTrabajador(u, fecha);
-            const color = estado === 'be' ? 'baja' : estado === 'vacaciones' ? 'vacaciones'
-                : estado === 'libre' ? 'libre' : lugar.trim() ? 'asignado' : 'sinlugar';
+            // El cuadrante es del mes entero: el color no depende de cómo esté
+            // un día concreto (salía en rojo por tener libre el día 1), solo de
+            // si tiene lugar asignado
+            const color = lugar.trim() ? 'asignado' : 'sinlugar';
             return `<div class="ct-row ${color}">
                 <div class="ct-top">
                     <span class="ct-num">${esc(u.conductor) || '—'}</span>
@@ -7862,6 +7863,11 @@ const app = {
                 try {
                     const rc = await fetch(this.USUARIOS_URL + '?conexiones=1', { cache: 'no-store' });
                     if (rc.ok) this._conexiones = await rc.json();
+                } catch (_) {}
+                // Y los gestores, que salen aparte debajo de los trabajadores
+                try {
+                    const rg = await fetch(this.API_BASE + 'allowlist?app=gestion', { cache: 'no-store' });
+                    if (rg.ok) this._gestores = await rg.json();
                 } catch (_) {}
             }
             this._renderConductores();
@@ -9498,6 +9504,9 @@ const app = {
                      // Sin jornada y sin ese día en su semana, ese día no es
                      // suyo: ni cubre el lugar ni tiene sentido listarlo.
                      fueraDeSemana: !v.j && !this._trabajaEseDia(u, fecha),
+                     // Con permiso retribuido o sin ir ese día no ocupa lugar,
+                     // igual que de vacaciones o de baja
+                     sinIr: ['PR', 'No vino'].includes(this._ausencia(u, fecha, v.j)),
                      // Lo que tiene asignado ese día, para cuando aún no ha
                      // fichado: de hoy en adelante eso ya cubre el turno, así
                      // que el lugar no sale como vacío teniendo gente puesta.
@@ -9518,7 +9527,7 @@ const app = {
                 lugar: String(j.pu || '').trim() || this._lugarDe(u, fecha, j).trim() || SIN }));
         // Quien está de vacaciones o de baja no ocupa lugar ese día, así que no
         // sale en el cuadro. Sigue en la lista de trabajadores, con su botón.
-        }).filter(x => !x.enVac && !x.enBaja && !x.fueraDeSemana);
+        }).filter(x => !x.enVac && !x.enBaja && !x.fueraDeSemana && !x.sinIr);
 
         // Quien ha pasado por varios lugares sale en cada uno con sus horas, y
         // las horas del día que no haya repartido caen en "Sin servicio".
@@ -9922,6 +9931,39 @@ const app = {
         });
     },
 
+    // En la de Desarrollador, debajo de los trabajadores, los gestores: con su
+    // conexión como los demás, pero sin botones ni lugar de trabajo (no
+    // trabajan en los puestos). Salen de la lista de acceso a gestión.
+    _htmlGestores() {
+        if (!ES_APP_DEV || !Array.isArray(this._gestores) || !this._gestores.length) return '';
+        const esc = t => String(t || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+        const filas = this._gestores.map(e => String(e).toLowerCase())
+            .map(email => {
+                const u = (this._conductores || {})[email] || {};
+                const conexion = this._conexiones?.[email] || '';
+                return { email, nombre: u.nombre || (email === this.DEV_EMAIL ? this.DEV_NOMBRE : ''), u, conexion };
+            })
+            // Los que se han conectado hace menos, arriba
+            .sort((a, b) => (b.conexion || '').localeCompare(a.conexion || '') || a.email.localeCompare(b.email));
+        return `<div class="gest-sec">🛠️ Gestores <span>${filas.length}</span></div>` + filas.map(({ email, nombre, u }) => {
+            const ini = (nombre || email).trim()[0]?.toUpperCase() || '?';
+            const foto = u.avatar || this._avatares?.[email];
+            const av = foto ? `<img class="cond-avatar" src="${esc(foto)}">`
+                : u.avatarEmoji ? `<div class="cond-avatar emo" style="background:${esc(u.avatarBg || '#667eea')}">${esc(u.avatarEmoji)}</div>`
+                : `<div class="cond-avatar">${esc(ini)}</div>`;
+            return `<div class="cond-card plegada gestor">
+                <div class="cond-top">
+                    ${av}
+                    <div class="cond-id">
+                        <div class="cond-nombre compacta"><span class="cond-nom-txt">${esc(nombre || email)}</span>
+                            ${this._chipConexion(email)}<span class="cond-com on">Conectado</span></div>
+                        <div class="cond-num">${esc(nombre ? email : 'Gestión')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
     _renderConductores() {
         const cont = document.getElementById('condList');
         const fecha = this._fechaOffset(this._puestosOffset);
@@ -9951,6 +9993,7 @@ const app = {
                 : '<div class="tab-empty"><span class="tab-empty-ico">👥</span>'
                   + '<span class="tab-empty-t">Sin trabajadores</span>'
                   + '<span class="tab-empty-s">Aparecerán en cuanto abran su app.</span></div>';
+            cont.innerHTML += this._htmlGestores();
             this._renderPuestos();
             this._renderRegistro();
             this._renderCuadranteTrab();
@@ -9973,11 +10016,14 @@ const app = {
             const comunica = u.ficticio ? '' : u.comunicacion === false
                 ? '<span class="cond-com off" title="Ha quitado la comunicación con el Departamento">Sin conexión</span>'
                 : '<span class="cond-com on" title="Mantiene la comunicación con el Departamento">Conectado</span>';
-            const turno = sitios.length > 1 || ausente ? ''
-                : (this._turnoDe(lugarHoy, j?.i) || (esHoy ? u.turno : ''));
             // El horario del día, para verlo junto al lugar: con el sitio solo
             // no se sabe a qué hora entra, que es lo primero que se mira.
             const hh = this._horasDelDia(u, fecha, j);
+            // El turno sale de la hora que fichó o, si aún no hay jornada ese
+            // día, de la que tiene asignada: sin esto, a quien no había
+            // registrado nada (los de prueba, sobre todo) no le salía M/T/N.
+            const turno = sitios.length > 1 || ausente ? ''
+                : (this._turnoDe(lugarHoy, j?.i || hh?.i) || (esHoy ? u.turno : ''));
             const horasHoy = (hh?.i && hh?.f) ? `${hh.i}–${hh.f}` : '';
             const t = this._totalesDe(u, fecha);
             const foto = u.avatar || this._avatares[u.email];
@@ -10070,7 +10116,7 @@ const app = {
                         : 'nunca'}</div>
                 </div>
             </div>`;
-        }).join('');
+        }).join('') + this._htmlGestores();
         this._ajustarNombres();
         document.getElementById('ordenNombre')?.classList.toggle('activo', orden === 'nombre');
         document.getElementById('ordenNumero')?.classList.toggle('activo', orden === 'numero');
@@ -11694,7 +11740,10 @@ const app = {
                 catch (_) {}
             }
         }
-        const resp = await fetch('https://api.github.com/repos/guillermorc-gain/RegistroHorario/releases?per_page=100');
+        // Por el servidor: con el repositorio privado GitHub no las da sin
+        // sesión. Si el servidor falla, se prueba directo (mientras sea público).
+        let resp = await fetch(this.API_BASE + 'version?releases=1').catch(() => null);
+        if (!resp?.ok) resp = await fetch('https://api.github.com/repos/guillermorc-gain/Emt-Palma-Movilidad/releases?per_page=100');
         if (!resp.ok) {
             // 403 aquí casi siempre es el límite por hora, no un permiso
             return { ok: false, status: resp.status, limite: resp.status === 403 };

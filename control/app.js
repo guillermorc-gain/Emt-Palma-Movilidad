@@ -2550,8 +2550,10 @@ const app = {
         if (!forzar && Date.now() - t < 5 * 60 * 1000) {
             try { return { ok: true, lista: JSON.parse(sessionStorage.getItem(CACHE) || '[]') }; } catch (_) {}
         }
-        const r = await this._fetchOriginal(
-            'https://api.github.com/repos/guillermorc-gain/RegistroHorario/releases?per_page=100');
+        // Por el servidor: con el repositorio privado GitHub no las da sin sesión
+        let r = await this._fetchOriginal(API_BASE + 'version?releases=1').catch(() => null);
+        if (!r?.ok) r = await this._fetchOriginal(
+            'https://api.github.com/repos/guillermorc-gain/Emt-Palma-Movilidad/releases?per_page=100');
         // Un 403 aquí casi siempre es el límite por hora, no un permiso
         if (!r.ok) return { ok: false, status: r.status, limite: r.status === 403 };
         const lista = await r.json();

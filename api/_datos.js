@@ -11,7 +11,9 @@
 // como siempre. Al ponerlo, cada fichero que todavía no esté en el privado se
 // lee del público la primera vez y se guarda ya en el privado: el traslado se
 // hace solo, sin parar las apps.
-export const REPO_PUBLICO = 'guillermorc-gain/RegistroHorario';
+// El repositorio se renombró (antes RegistroHorario): GitHub redirige el
+// nombre viejo, pero mejor ir directo.
+export const REPO_PUBLICO = process.env.CODIGO_REPO || 'guillermorc-gain/Emt-Palma-Movilidad';
 export const RAMA_PUBLICA = 'datos';
 export const REPO_DATOS   = process.env.DATOS_REPO || REPO_PUBLICO;
 export const RAMA_DATOS   = process.env.DATOS_BRANCH || (process.env.DATOS_REPO ? 'main' : RAMA_PUBLICA);

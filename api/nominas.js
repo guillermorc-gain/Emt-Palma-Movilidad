@@ -91,6 +91,27 @@ const numero = (v, max) => {
   return isFinite(n) ? Math.min(max, Math.max(0, Math.round(n * 100) / 100)) : 0;
 };
 
+const PRECIOS = {
+  porDia: ['base', 'vacaciones', 'asistencia', 'domingo'],
+  delMes: ['noAbsorbible', 'transporte', 'ajuste', 'ajuste2', 'responsabilidad'],
+};
+function precios(p) {
+  if (!p || typeof p !== 'object') return {};
+  const out = {};
+  for (const [grupo, claves] of Object.entries(PRECIOS)) {
+    for (const k of claves) {
+      const v = p[grupo]?.[k];
+      if (v === undefined || v === null || v === '') continue;
+      // Con 4 decimales: los precios por día salen de dividir (772,58 / 30) y
+      // redondeados a céntimos el mes entero ya no daría lo mismo
+      const n = Number(String(v).replace(',', '.'));
+      if (!isFinite(n) || n < 0) continue;
+      (out[grupo] = out[grupo] || {})[k] = Math.min(99999, Math.round(n * 10000) / 10000);
+    }
+  }
+  return Object.keys(out).length ? { precios: out } : {};
+}
+
 function limpiarNomina(n) {
   const t = n?.tipos || {};
   return {
@@ -113,8 +134,17 @@ function limpiarNomina(n) {
     // Los días de asistencia salen de los días de trabajo registrados; solo
     // se guardan si se ponen a mano. Antes se guardaba un 0 cuando no venían,
     // y ese 0 tapaba la cuenta: el plus dejaba de salir en la nómina.
-    dias: (n?.dias?.asistencia === undefined || n?.dias?.asistencia === null || n?.dias?.asistencia === ''
-           || !Number(n?.dias?.asistencia)) ? {} : { asistencia: numero(n.dias.asistencia, 31) },
+    dias: {
+      ...((n?.dias?.asistencia === undefined || n?.dias?.asistencia === null || n?.dias?.asistencia === ''
+           || !Number(n?.dias?.asistencia)) ? {} : { asistencia: numero(n.dias.asistencia, 31) }),
+      // Los domingos trabajados salen de lo registrado; solo si se ponen a mano
+      ...((n?.dias?.domingos === undefined || n?.dias?.domingos === null || n?.dias?.domingos === '')
+           ? {} : { domingos: numero(n.dias.domingos, 6) }),
+    },
+    // Los precios de su convenio (los de Cambiar datos › Tu convenio): se
+    // guardan los que haya puesto, y el mes siguiente salen ya puestos. Los
+    // que no vengan se quedan con los de partida de la app.
+    ...precios(n?.precios),
     // Las horas extras salen de lo que registró; solo se guardan si se le
     // ponen otras a mano. El precio de la hora sí, que no está en el convenio.
     extra: {

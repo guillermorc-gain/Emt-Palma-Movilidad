@@ -338,6 +338,12 @@ function deBajaEse(u, f) {
   return (u.bajas || []).some(b => b.d <= f && (!b.h || b.h >= f));
 }
 
+// Con permiso retribuido o marcado como que no fue, ese día no está en su puesto
+function sinIrEse(u, f) {
+  if ((u.prs || []).includes(f)) return true;
+  return (u.jornadas || []).some(j => j && j.f === f && (j.p || j.na));
+}
+
 function deVacacionesEse(u, f) {
   const iso = `${f.slice(0, 4)}-${f.slice(4, 6)}-${f.slice(6, 8)}`;
   return (u.vacaciones || []).some(v => v.desde <= iso && v.hasta >= iso);
@@ -452,7 +458,7 @@ function quienHayEn(data, lugar, fecha) {
   const gente = Object.values(data || {})
     .filter(u => u && !u.ficticio && !u.oculto)
     .filter(u => !libreEse(u, f) && clavePuesto((u.lugares || {})[f] || u.puesto) === clave && clave)
-    .filter(u => !deBajaEse(u, f) && !deVacacionesEse(u, f) && leTocaEse(u, f))
+    .filter(u => !deBajaEse(u, f) && !deVacacionesEse(u, f) && !sinIrEse(u, f) && leTocaEse(u, f))
     .map(u => ({
       email:     u.email,
       nombre:    u.nombre || '',
