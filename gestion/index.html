@@ -497,8 +497,6 @@
         .app-content.dark .cond-ausente{color:#c39bd3;}
         .cond-num{font-size:11px;color:#7f8c8d;font-weight:700;}
         .num-editable{cursor:pointer;text-decoration:underline dotted;}
-        .gest-sec{margin:18px 4px 8px;font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.8;display:flex;gap:8px;align-items:center;}
-        .gest-sec span{font-size:12px;padding:1px 8px;border-radius:10px;background:rgba(127,140,141,.2);}
         .cond-card.gestor{border-left-color:#8e44ad;}
         .app-content.dark .cond-num{color:#a0a0a0;}
         .cond-puesto{font-size:10.5px;color:var(--g1);font-weight:700;}
@@ -1496,6 +1494,18 @@ document.getElementById('splashScreen').addEventListener('click', function () {
                 <div class="sec-body">
                     <div class="cond-filtros" id="condFiltros"></div>
                     <div id="condList" class="cond-list"></div>
+                </div>
+            </div>
+
+            <!-- Solo en la de Desarrollador: los gestores, con su conexión -->
+            <div class="sec" id="secGestores" hidden>
+                <div class="sec-head" onclick="app.toggleSeccion('secGestores')">
+                    <span class="cond-title">🛠️ Gestores</span>
+                    <span class="sec-cnt" id="gestCnt"></span>
+                    <button class="mensual-toggle sec-chev">▼</button>
+                </div>
+                <div class="sec-body">
+                    <div id="gestList" class="cond-list"></div>
                 </div>
             </div>
 

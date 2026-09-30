@@ -9945,7 +9945,7 @@ const app = {
             })
             // Los que se han conectado hace menos, arriba
             .sort((a, b) => (b.conexion || '').localeCompare(a.conexion || '') || a.email.localeCompare(b.email));
-        return `<div class="gest-sec">🛠️ Gestores <span>${filas.length}</span></div>` + filas.map(({ email, nombre, u }) => {
+        return filas.map(({ email, nombre, u }) => {
             const ini = (nombre || email).trim()[0]?.toUpperCase() || '?';
             const foto = u.avatar || this._avatares?.[email];
             const av = foto ? `<img class="cond-avatar" src="${esc(foto)}">`
@@ -9962,6 +9962,17 @@ const app = {
                 </div>
             </div>`;
         }).join('');
+    },
+
+    // Su propia sección, debajo de Trabajadores, que se pliega igual
+    _pintarGestores() {
+        const sec = document.getElementById('secGestores');
+        if (!sec) return;
+        const html = this._htmlGestores();
+        sec.hidden = !html;
+        document.getElementById('gestList').innerHTML = html;
+        const cnt = document.getElementById('gestCnt');
+        if (cnt) cnt.textContent = Array.isArray(this._gestores) ? String(this._gestores.length) : '';
     },
 
     _renderConductores() {
@@ -9993,7 +10004,7 @@ const app = {
                 : '<div class="tab-empty"><span class="tab-empty-ico">👥</span>'
                   + '<span class="tab-empty-t">Sin trabajadores</span>'
                   + '<span class="tab-empty-s">Aparecerán en cuanto abran su app.</span></div>';
-            cont.innerHTML += this._htmlGestores();
+            this._pintarGestores();
             this._renderPuestos();
             this._renderRegistro();
             this._renderCuadranteTrab();
@@ -10116,7 +10127,8 @@ const app = {
                         : 'nunca'}</div>
                 </div>
             </div>`;
-        }).join('') + this._htmlGestores();
+        }).join('');
+        this._pintarGestores();
         this._ajustarNombres();
         document.getElementById('ordenNombre')?.classList.toggle('activo', orden === 'nombre');
         document.getElementById('ordenNumero')?.classList.toggle('activo', orden === 'numero');
@@ -10150,7 +10162,7 @@ const app = {
     },
 
     _restaurarSecciones() {
-        ['secPuestos', 'secTrabajadores'].forEach(id => {
+        ['secPuestos', 'secTrabajadores', 'secGestores'].forEach(id => {
             if (localStorage.getItem('sec_' + id) === '1')
                 document.getElementById(id)?.classList.add('cerrada');
         });
