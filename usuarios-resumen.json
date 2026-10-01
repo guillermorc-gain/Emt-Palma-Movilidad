@@ -1468,10 +1468,13 @@
     ],
     "vacacionesAt": 1790632366288,
     "dias": [
-      0,
-      6
+      1,
+      2,
+      3,
+      4,
+      5
     ],
-    "diasAt": 1790701025589,
+    "diasAt": 1790862708463,
     "horario": "",
     "grupo": null,
     "horarios": {
@@ -1810,16 +1813,7 @@
     "bienvenidaVista": true,
     "conductorPropio": "1418-3",
     "conductorAnterior": "1418-3",
-    "libresDia": {},
-    "diasMes": {
-      "202610": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ]
-    }
+    "libresDia": {}
   },
   "prueba-1789758756867@prueba.local": {
     "nombre": "Toni Rodríguez",
