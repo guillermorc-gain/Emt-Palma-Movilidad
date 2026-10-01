@@ -167,9 +167,14 @@
         "h": 3.5,
         "p": 2.98
       },
-      "extras": [],
-      "nota": "",
-      "actualizado": "2026-10-01T14:17:04.187Z"
+      "extras": [
+        {
+          "c": "Prorrata pagas extraordinarias",
+          "i": 135.2
+        }
+      ],
+      "nota": "Apuntar lo de las pagas extraordinarias y los devengos",
+      "actualizado": "2026-10-01T14:18:52.184Z"
     }
   },
   "202609": {
