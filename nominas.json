@@ -130,7 +130,49 @@
       "actualizado": "2026-09-20T10:28:40.963Z"
     }
   },
-  "202608": {},
+  "202608": {
+    "guillermo.rc82@gmail.com": {
+      "desde": "2023-06-06",
+      "pctBienios": 0,
+      "sindicato": 12,
+      "prorrata": 135.2,
+      "tipos": {
+        "cc": 4.7,
+        "desempleo": 1.55,
+        "fp": 0.1,
+        "mei": 0.15,
+        "irpf": 15
+      },
+      "dias": {
+        "asistencia": 20
+      },
+      "precios": {
+        "porDia": {
+          "base": 25.7527,
+          "vacaciones": 25.5551,
+          "asistencia": 4.19,
+          "domingo": 0
+        },
+        "delMes": {
+          "noAbsorbible": 136.21,
+          "transporte": 68.02,
+          "ajuste": 130.01,
+          "ajuste2": 6.44,
+          "responsabilidad": 51.77
+        }
+      },
+      "extra": {
+        "p": 0
+      },
+      "noct": {
+        "h": 0,
+        "p": 2.98
+      },
+      "extras": [],
+      "nota": "",
+      "actualizado": "2026-10-01T23:06:07.924Z"
+    }
+  },
   "202609": {
     "guillermo.rc82@gmail.com": {
       "desde": "2023-06-06",
