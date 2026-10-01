@@ -212,9 +212,14 @@
       "noct": {
         "p": 2.98
       },
-      "extras": [],
+      "extras": [
+        {
+          "c": "Importe prorrata pagas extraordinarias",
+          "i": 135.2
+        }
+      ],
       "nota": "",
-      "actualizado": "2026-09-30T19:47:44.540Z"
+      "actualizado": "2026-10-01T15:16:27.818Z"
     },
     "guillermo.rcxx@gmail.com": {
       "bienios": 0,
