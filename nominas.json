@@ -151,7 +151,7 @@
           "base": 25.7527,
           "vacaciones": 25.5551,
           "asistencia": 4.19,
-          "domingo": 0
+          "domingo": 15
         },
         "delMes": {
           "noAbsorbible": 136.21,
@@ -170,7 +170,7 @@
       },
       "extras": [],
       "nota": "",
-      "actualizado": "2026-10-01T23:06:07.924Z"
+      "actualizado": "2026-10-01T23:08:52.198Z"
     }
   },
   "202609": {
