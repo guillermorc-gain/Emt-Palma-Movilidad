@@ -270,14 +270,9 @@
       "noct": {
         "p": 2.98
       },
-      "extras": [
-        {
-          "c": "Importe prorrata pagas extraordinarias",
-          "i": 135.2
-        }
-      ],
+      "extras": [],
       "nota": "",
-      "actualizado": "2026-10-01T14:24:33.200Z"
+      "actualizado": "2026-10-01T15:30:06.267Z"
     }
   }
 }
