@@ -149,7 +149,7 @@
           "base": 25.7527,
           "vacaciones": 25.5551,
           "asistencia": 4.19,
-          "domingo": 0
+          "domingo": 15
         },
         "delMes": {
           "noAbsorbible": 136.21,
@@ -161,15 +161,15 @@
       },
       "extra": {
         "h": 3.5,
-        "p": 11
+        "p": 0
       },
       "noct": {
-        "h": 3.5,
+        "h": 0,
         "p": 2.98
       },
       "extras": [],
-      "nota": "Apuntar lo de las pagas extraordinarias y los devengos",
-      "actualizado": "2026-10-01T15:22:05.414Z"
+      "nota": "",
+      "actualizado": "2026-10-01T15:23:10.601Z"
     }
   },
   "202609": {
