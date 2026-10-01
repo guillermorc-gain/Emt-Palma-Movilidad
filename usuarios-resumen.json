@@ -3824,7 +3824,9 @@
     "version": "build-264",
     "horasMes": 8,
     "horasTotales": 8,
-    "diasMes": 1,
+    "diasMes": {
+      "202610": []
+    },
     "horaInicio": "06:00",
     "horaFin": "14:00",
     "horarioDe": "hoy",
