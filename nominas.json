@@ -143,7 +143,9 @@
         "mei": 0.15,
         "irpf": 15
       },
-      "dias": {},
+      "dias": {
+        "asistencia": 20
+      },
       "precios": {
         "porDia": {
           "base": 25.7527,
@@ -169,7 +171,7 @@
       },
       "extras": [],
       "nota": "",
-      "actualizado": "2026-10-01T15:23:10.601Z"
+      "actualizado": "2026-10-01T15:23:45.700Z"
     }
   },
   "202609": {
