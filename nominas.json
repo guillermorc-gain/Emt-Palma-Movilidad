@@ -237,5 +237,50 @@
       "nota": "",
       "actualizado": "2026-09-20T10:25:27.964Z"
     }
+  },
+  "202610": {
+    "guillermo.rc82@gmail.com": {
+      "desde": "2023-06-06",
+      "pctBienios": 0,
+      "sindicato": 12,
+      "prorrata": 135.2,
+      "tipos": {
+        "cc": 4.7,
+        "desempleo": 3.3,
+        "fp": 0.6,
+        "mei": 0.75,
+        "irpf": 15
+      },
+      "dias": {},
+      "precios": {
+        "porDia": {
+          "base": 25.7527,
+          "vacaciones": 25.5551,
+          "asistencia": 4.19,
+          "domingo": 15
+        },
+        "delMes": {
+          "noAbsorbible": 136.21,
+          "transporte": 68.02,
+          "ajuste": 130.01,
+          "ajuste2": 6.44,
+          "responsabilidad": 51.77
+        }
+      },
+      "extra": {
+        "p": 0
+      },
+      "noct": {
+        "p": 2.98
+      },
+      "extras": [
+        {
+          "c": "Importe prorrata pagas extraordinarias",
+          "i": 135.2
+        }
+      ],
+      "nota": "",
+      "actualizado": "2026-10-01T14:24:33.200Z"
+    }
   }
 }
