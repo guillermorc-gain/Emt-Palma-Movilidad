@@ -3824,9 +3824,6 @@
     "version": "build-264",
     "horasMes": 8,
     "horasTotales": 8,
-    "diasMes": {
-      "202610": []
-    },
     "horaInicio": "06:00",
     "horaFin": "14:00",
     "horarioDe": "hoy",
@@ -3834,13 +3831,7 @@
     "jornadaHoras": 7,
     "horasAnuales": 1700,
     "ritmo": "lv",
-    "dias": [
-      1,
-      2,
-      3,
-      4,
-      5
-    ],
+    "dias": null,
     "jornadas": [
       {
         "f": "20260929",
@@ -3866,6 +3857,7 @@
         "h": "20260927"
       }
     ],
-    "baja": false
+    "baja": false,
+    "diasAt": 1790862829407
   }
 }
