@@ -3838,7 +3838,10 @@
     ],
     "email": "prueba-1789850043571@prueba.local",
     "ficticio": true,
-    "actualizado": "2026-10-02T16:01:40.998Z"
+    "actualizado": "2026-10-02T16:01:40.998Z",
+    "prs": [
+      "20261002"
+    ]
   },
   "xescavilla1822@gmail.com": {
     "email": "xescavilla1822@gmail.com",
